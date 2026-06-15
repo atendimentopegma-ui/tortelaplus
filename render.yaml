@@ -1,0 +1,47 @@
+envVarGroups:
+  - name: tortelaplus-shared
+    envVars:
+      - key: PGSSL
+        value: require
+      - key: PEGMA_SECRET_KEY
+        generateValue: true
+      - key: PEGMA_PROVIDER_TOKEN
+        generateValue: true
+
+services:
+  - type: web
+    name: tortelaplus-app
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: tortelaplus-shared
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        sync: false
+      - key: PEGMA_SURFACE
+        value: client
+  - type: web
+    name: tortelaplus-rede
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: tortelaplus-shared
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        sync: false
+      - key: PEGMA_CENTRAL_USER
+        sync: false
+      - key: PEGMA_CENTRAL_PASSWORD
+        sync: false
+      - key: PEGMA_SURFACE
+        value: network

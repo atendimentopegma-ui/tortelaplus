@@ -1,0 +1,31 @@
+{
+  "name": "tortelaplus",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tortela Plus: operacao das unidades e Central da Rede Tortela.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "agent": "node fiscal-agent.js",
+    "db:migrate": "node scripts/migrate-json-to-postgres.js",
+    "db:verify": "node scripts/verify-postgres-migration.js",
+    "db:verify-isolation": "node scripts/verify-tenant-isolation.js",
+    "db:backup": "node scripts/backup-postgres.js",
+    "deploy:check": "node scripts/deploy-check.js",
+    "implantation:status": "node scripts/implantation-status.js",
+    "fiscal:rules:import": "node scripts/import-fiscal-rules.js",
+    "verify": "node --check server.js && node --check fiscal-agent.js && node --check src/app.js && node --check src/central-rede.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
+  },
+  "keywords": [
+    "erp",
+    "pdv",
+    "nfe",
+    "nfce",
+    "nfse",
+    "offline"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "pg": "^8.16.3"
+  }
+}
