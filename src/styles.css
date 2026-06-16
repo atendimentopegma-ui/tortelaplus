@@ -826,11 +826,11 @@ th {
 
 /* Identidade exclusiva da edicao Tortela. */
 .tortela-theme {
-  --bg: #fffdf0;
-  --panel-2: #fff9cf;
-  --line: #efd970;
-  --line-strong: #d4ad00;
-  background: linear-gradient(135deg, #fff1a3 0%, #fffbe3 42%, #ffffff 100%) fixed;
+  --bg: #fff4b8;
+  --panel-2: #fff1a3;
+  --line: #e7bf19;
+  --line-strong: #b78600;
+  background: linear-gradient(135deg, #ffe06a 0%, #fff1a3 42%, #fffdf0 100%) fixed;
 }
 
 .tortela-theme .app-shell,
@@ -841,9 +841,40 @@ th {
 
 .tortela-theme .topbar,
 .tortela-topbar {
-  background: linear-gradient(100deg, #fff4a8, #ffffff);
+  min-height: 72px;
+  height: auto;
+  padding: 8px 20px;
+  overflow: visible;
+  background: linear-gradient(100deg, #ffe06a, #fff2a8 55%, #fffdf0);
   border-bottom-color: #e5b900;
   color: #17243d;
+}
+
+.tortela-theme .topbar .top-left,
+.tortela-theme .topbar .brand,
+.tortela-topbar .brand {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+}
+
+.tortela-theme .topbar .top-left > div:last-child,
+.tortela-theme .topbar .brand > div:last-child,
+.tortela-topbar .brand > div:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tortela-theme .topbar .company,
+.tortela-theme .topbar strong,
+.tortela-theme .topbar small,
+.tortela-topbar strong,
+.tortela-topbar small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tortela-theme .login-shell,
@@ -865,16 +896,104 @@ th {
 .tortela-logo {
   background: transparent;
   border: 0;
-  min-width: 92px;
-  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  height: 58px;
+  max-width: 146px;
+  min-width: 146px;
+  overflow: hidden;
+  width: 146px;
 }
 
 .tortela-logo img {
   display: block;
   height: 100%;
-  max-height: 150px;
   object-fit: contain;
+  object-position: left center;
   width: 100%;
+}
+
+.tortela-login-brand .tortela-logo,
+.tortela-theme .login-brand .tortela-logo {
+  height: 128px;
+  max-width: 270px;
+  min-width: 270px;
+  width: 270px;
+}
+
+.pdv-brand .tortela-logo {
+  height: 150px;
+  max-width: min(310px, 88%);
+  min-width: 0;
+  width: min(310px, 88%);
+}
+
+.tortela-theme .pdv {
+  background: #fff0a5;
+}
+
+.tortela-theme .pdv-side {
+  background: #fff6bf;
+  border-right-color: #c99600;
+}
+
+.tortela-theme .pdv-title {
+  background: linear-gradient(90deg, #f5c400, #c99600);
+  color: #17243d;
+}
+
+.tortela-theme .pdv-meta {
+  background: #3a2d00;
+  color: #ffffff;
+}
+
+.tortela-theme .pdv-client {
+  background: #fff1a3;
+}
+
+.tortela-theme .shortcut-grid {
+  background: #fff0a8;
+  border-top-color: #c99600;
+}
+
+.tortela-theme .pdv-main-title {
+  background: linear-gradient(90deg, #d8a600, #936900);
+  color: #ffffff;
+  font-size: clamp(18px, 2vw, 27px);
+  padding-left: 12px;
+  padding-right: 142px;
+}
+
+.tortela-theme .pdv-main-title strong {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tortela-theme .pdv-main-title .btn {
+  max-width: 128px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tortela-theme .grand-total,
+.tortela-theme .pdv-options {
+  border-color: #b78600;
+}
+
+.tortela-theme .pdv-options {
+  box-shadow: 0 16px 40px rgba(120, 84, 0, 0.24);
+}
+
+.tortela-theme .pdv-options-balance {
+  background: #fff5c2;
+}
+
+.tortela-theme .mode-switch {
+  background: linear-gradient(180deg, #fff0a3, #fff7cf);
 }
 
 .network-shell {
