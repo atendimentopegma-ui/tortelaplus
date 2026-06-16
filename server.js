@@ -64,7 +64,7 @@ const types = {
 };
 
 const initialProvider = {
-  ownerName: "Central da Rede Tortela",
+  ownerName: "Central Tortela",
   deployment: "Rede de franquias",
   isolationMode: "Banco separado por cliente",
   providerAdmins: [
@@ -186,6 +186,9 @@ const initialTenantState = {
   cash: [{ id: 1, date: "2026-06-05", account: "CAIXA", history: "Saldo inicial", in: 45296, out: 0 }],
   cashRegister: { open: true, openedAt: "2026-06-05T10:49:00.000Z", openedBy: "Operador", initialAmount: 45296, terminal: "SERIE 1" },
   heldSales: [],
+  automaticOrders: [],
+  networkPromotions: [],
+  franchisePayments: [],
   fiscalQueue: [{ id: 1, model: "NFC-e", status: "Pendente", customer: "Consumidor Final", total: 0, key: "", protocol: "" }],
   sales: [],
   purchases: [],
@@ -458,7 +461,10 @@ function withTenantStateDefaults(state, tenantCode) {
       tenantCode: normalizeTenantCode(tenantCode || state?.settings?.tenantCode || initialTenantState.settings.tenantCode)
     },
     cashRegister: { ...structuredClone(initialTenantState.cashRegister), ...(state?.cashRegister || {}) },
-    heldSales: state?.heldSales || []
+    heldSales: state?.heldSales || [],
+    automaticOrders: state?.automaticOrders || [],
+    networkPromotions: state?.networkPromotions || [],
+    franchisePayments: state?.franchisePayments || []
   };
   delete merged.provider;
   return merged;
@@ -528,7 +534,7 @@ function appendProviderAudit(action, detail, username = "central", ipAddress = "
 function periodClosed(state, incoming) {
   const closedThrough = state.settings?.closedThrough;
   if (!closedThrough) return false;
-  const collections = ["sales", "purchases", "payables", "receivables", "cash", "fiscalQueue"];
+  const collections = ["sales", "purchases", "payables", "receivables", "cash", "fiscalQueue", "automaticOrders", "networkPromotions", "franchisePayments"];
   return collections.some((name) => JSON.stringify(state[name] || []) !== JSON.stringify(incoming[name] || [])
     && (incoming[name] || []).some((row) => String(row.date || row.due || row.issuedAt || "").slice(0, 10) <= closedThrough));
 }
@@ -1618,10 +1624,44 @@ async function handleApi(req, res, urlPath) {
     const provider = readProvider();
     const forwardedProtocol = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
     const origin = `${forwardedProtocol}://${req.headers.host}`;
-    const totals = { salesTotal: 0, salesCount: 0, fiscalAuthorized: 0, customers: 0, products: 0, lowStock: 0 };
+    const now = new Date();
+    const currentDay = today();
+    const totals = {
+      salesTotal: 0,
+      salesCount: 0,
+      fiscalAuthorized: 0,
+      customers: 0,
+      products: 0,
+      lowStock: 0,
+      payableOpen: 0,
+      receivableOpen: 0,
+      purchasesTotal: 0,
+      automaticOrders: 0,
+      activePromotions: 0,
+      productionProducts: 0,
+      franchiseOpen: 0,
+      franchisePaid: 0
+    };
+    const periods = { hour: 0, day: 0, week: 0, fortnight: 0, month: 0 };
     const salesByProduct = new Map();
     const units = [];
     const promotions = [];
+    const salesDetails = [];
+    const lowStockItems = [];
+    const automaticOrders = [];
+    const finance = [];
+    const permissions = [];
+    const productionCapacity = [];
+    const saleDate = (sale) => {
+      const raw = sale.createdAt || sale.finishedAt || sale.date || currentDay;
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? new Date(`${currentDay}T00:00:00`) : parsed;
+    };
+    const withinDays = (date, days) => (now.getTime() - date.getTime()) / 86400000 <= days;
+    const activePromotion = (promotion) => Number(promotion?.price || 0) > 0
+      && (!promotion?.from || currentDay >= promotion.from)
+      && (!promotion?.to || currentDay <= promotion.to)
+      && promotion?.status !== "Cancelada";
     for (const tenant of provider.clients || []) {
       const tenantState = readTenantState(tenant.tenantCode);
       const sales = (tenantState.sales || []).filter((sale) => !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status));
@@ -1632,15 +1672,36 @@ async function handleApi(req, res, urlPath) {
       const salesTotal = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
       const fiscalAuthorized = fiscalRows.filter((row) => row.status === "Autorizada").length;
       const fiscalPending = fiscalRows.filter((row) => !["Autorizada", "Cancelada"].includes(row.status)).length;
+      const payables = (tenantState.payables || []).filter((row) => !row.paid && !row.cancelled);
+      const receivables = (tenantState.receivables || []).filter((row) => !row.paid && !row.cancelled);
+      const payableOpen = payables.reduce((sum, row) => sum + Number(row.balance ?? row.value ?? 0), 0);
+      const receivableOpen = receivables.reduce((sum, row) => sum + Number(row.balance ?? row.value ?? 0), 0);
+      const purchasesTotal = (tenantState.purchases || []).reduce((sum, row) => sum + Number(row.total || 0), 0);
+      const orders = tenantState.automaticOrders || [];
+      const tenantPromotions = (tenantState.networkPromotions || []).filter(activePromotion);
+      const franchisePayments = tenantState.franchisePayments || [];
+      const franchiseOpen = franchisePayments.filter((row) => !row.paid && !row.cancelled).reduce((sum, row) => sum + Number(row.value || 0), 0);
+      const franchisePaid = franchisePayments.filter((row) => row.paid).reduce((sum, row) => sum + Number(row.value || 0), 0);
       totals.salesTotal += salesTotal;
       totals.salesCount += sales.length;
       totals.fiscalAuthorized += fiscalAuthorized;
       totals.customers += customers.length;
       totals.products += products.length;
       totals.lowStock += lowStock.length;
+      totals.payableOpen += payableOpen;
+      totals.receivableOpen += receivableOpen;
+      totals.purchasesTotal += purchasesTotal;
+      totals.automaticOrders += orders.length;
+      totals.activePromotions += tenantPromotions.length;
+      totals.franchiseOpen += franchiseOpen;
+      totals.franchisePaid += franchisePaid;
+      totals.productionProducts += products.filter((product) => Array.isArray(product.composition) && product.composition.length).length;
       units.push({
         tenantCode: tenant.tenantCode,
         tradeName: tenant.tradeName,
+        status: tenant.status,
+        maxTerminals: tenant.maxTerminals,
+        activeTerminals: (tenant.activeSessions || []).length,
         salesTotal,
         salesCount: sales.length,
         fiscalAuthorized,
@@ -1648,29 +1709,139 @@ async function handleApi(req, res, urlPath) {
         customers: customers.length,
         products: products.length,
         lowStock: lowStock.length,
+        payableOpen,
+        receivableOpen,
+        purchasesTotal,
+        automaticOrders: orders.length,
+        activePromotions: tenantPromotions.length,
+        franchiseOpen,
+        franchisePaid,
         registrationUrl: `${origin}/cadastro-cliente.html?unidade=${encodeURIComponent(tenant.tenantCode)}`
       });
-      sales.forEach((sale) => (sale.items || []).forEach((item) => {
-        const key = `${tenant.tenantCode}|${item.productId || item.description || item.product}`;
-        const current = salesByProduct.get(key) || { product: item.description || item.product || `Produto ${item.productId}`, unit: tenant.tradeName, value: 0 };
-        current.value += Number(item.qty || 0);
-        salesByProduct.set(key, current);
+      sales.forEach((sale) => {
+        const moment = saleDate(sale);
+        if (withinDays(moment, 1 / 24)) periods.hour += Number(sale.total || 0);
+        if ((sale.date || "").slice(0, 10) === currentDay) periods.day += Number(sale.total || 0);
+        if (withinDays(moment, 7)) periods.week += Number(sale.total || 0);
+        if (withinDays(moment, 15)) periods.fortnight += Number(sale.total || 0);
+        if (withinDays(moment, 31)) periods.month += Number(sale.total || 0);
+        salesDetails.push({
+          unit: tenant.tradeName,
+          tenantCode: tenant.tenantCode,
+          date: sale.date || sale.createdAt || "",
+          customer: sale.customer || "Consumidor Final",
+          total: Number(sale.total || 0),
+          status: sale.status || "Finalizada",
+          items: (sale.items || []).length
+        });
+        (sale.items || []).forEach((item) => {
+          const key = `${tenant.tenantCode}|${item.productId || item.description || item.product}`;
+          const current = salesByProduct.get(key) || { product: item.description || item.product || `Produto ${item.productId}`, unit: tenant.tradeName, value: 0, totalValue: 0 };
+          current.value += Number(item.qty || 0);
+          current.totalValue += Number(item.total || 0);
+          salesByProduct.set(key, current);
+        });
+      });
+      lowStock.forEach((product) => lowStockItems.push({
+        unit: tenant.tradeName,
+        tenantCode: tenant.tenantCode,
+        product: product.description,
+        stock: Number(product.stock || 0),
+        minStock: Number(product.minStock || 0),
+        suggested: Math.max(Number(product.minStock || 0) - Number(product.stock || 0), 1),
+        productUnit: product.unit
       }));
-      products.filter((product) => Number(product.promotion?.price || 0) > 0
-        && (!product.promotion?.from || today() >= product.promotion.from)
-        && (!product.promotion?.to || today() <= product.promotion.to))
-        .forEach((product) => promotions.push({ product: product.description, unit: tenant.tradeName, value: Number(product.promotion.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) }));
+      orders.forEach((order) => automaticOrders.push({ ...order, unit: tenant.tradeName, tenantCode: tenant.tenantCode }));
+      tenantPromotions.forEach((promotion) => promotions.push({ product: promotion.product || "Campanha geral", unit: tenant.tradeName, value: Number(promotion.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: promotion.from, to: promotion.to, scope: promotion.scope || "Unidade" }));
+      products.filter((product) => activePromotion(product.promotion)).forEach((product) => promotions.push({ product: product.description, unit: tenant.tradeName, value: Number(product.promotion.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: product.promotion.from, to: product.promotion.to, scope: "Produto" }));
+      finance.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, payableOpen, receivableOpen, purchasesTotal, franchiseOpen, franchisePaid });
+      permissions.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, status: tenant.status, modules: tenant.modules || [], maxTerminals: tenant.maxTerminals, activeTerminals: (tenant.activeSessions || []).length });
+      products.filter((product) => Array.isArray(product.composition) && product.composition.length).forEach((product) => {
+        const components = product.composition.map((component) => {
+          const rawMaterial = products.find((row) => Number(row.id) === Number(component.productId));
+          const required = Number(component.qty || 0);
+          const available = Number(rawMaterial?.stock || 0);
+          return {
+            product: rawMaterial?.description || component.description || `Produto ${component.productId}`,
+            required,
+            available,
+            capacity: required > 0 ? Math.floor(available / required) : 0,
+            unit: rawMaterial?.unit || component.unit || ""
+          };
+        });
+        productionCapacity.push({
+          unit: tenant.tradeName,
+          tenantCode: tenant.tenantCode,
+          product: product.description,
+          capacity: components.length ? Math.min(...components.map((component) => component.capacity)) : 0,
+          components
+        });
+      });
     }
     const ranking = [...salesByProduct.values()].sort((a, b) => b.value - a.value);
     sendJson(res, 200, {
       ok: true,
       generatedAt: new Date().toISOString(),
       totals,
+      periods,
       units,
       bestSellers: ranking.slice(0, 10),
       worstSellers: [...ranking].sort((a, b) => a.value - b.value).slice(0, 10),
-      promotions: promotions.slice(0, 20)
+      salesDetails: salesDetails.sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 80),
+      lowStockItems: lowStockItems.slice(0, 80),
+      automaticOrders: automaticOrders.sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date))).slice(0, 80),
+      promotions: promotions.slice(0, 80),
+      finance,
+      permissions,
+      productionCapacity: productionCapacity.slice(0, 80)
     });
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/network/promotions") {
+    const access = providerAccess(req);
+    if (!access) {
+      sendJson(res, 401, { ok: false, error: "Sessao administrativa da rede obrigatoria." });
+      return;
+    }
+    const body = await readBody(req);
+    const provider = readProvider();
+    const selected = Array.isArray(body.tenantCodes) ? body.tenantCodes.map(normalizeTenantCode) : [];
+    const targets = (provider.clients || []).filter((tenant) => body.scope === "all" || selected.includes(normalizeTenantCode(tenant.tenantCode)));
+    if (!targets.length) {
+      sendJson(res, 400, { ok: false, error: "Selecione ao menos uma unidade." });
+      return;
+    }
+    const campaignId = `PROMO-${Date.now()}`;
+    const productText = String(body.product || "").trim();
+    const price = Number(body.price || 0);
+    const campaign = {
+      id: campaignId,
+      product: productText || "Campanha geral",
+      price,
+      from: body.from || today(),
+      to: body.to || "",
+      note: String(body.note || "").trim(),
+      createdAt: new Date().toISOString(),
+      createdBy: access.username,
+      scope: body.scope === "all" ? "Toda a rede" : "Unidades selecionadas",
+      status: "Ativa"
+    };
+    for (const target of targets) {
+      const tenantState = readTenantState(target.tenantCode);
+      tenantState.networkPromotions = Array.isArray(tenantState.networkPromotions) ? tenantState.networkPromotions : [];
+      tenantState.networkPromotions.unshift({ ...campaign, tenantCode: target.tenantCode, unit: target.tradeName });
+      if (productText && price > 0) {
+        const needle = productText.toLowerCase();
+        (tenantState.products || []).filter((product) => String(product.description || "").toLowerCase().includes(needle)).forEach((product) => {
+          product.promotion = { price, from: campaign.from, to: campaign.to, networkCampaignId: campaignId };
+        });
+      }
+      writeTenantState(target.tenantCode, tenantState);
+      appendTenantAudit(target.tenantCode, "Promocao recebida da Central Tortela", productText || "Campanha geral", access.username);
+    }
+    appendProviderAudit("Promocao disparada pela Central Tortela", `${targets.length} unidades`, access.username, requestIp(req));
+    sendJson(res, 200, { ok: true, campaignId, appliedUnits: targets.length });
     return;
   }
 
@@ -1733,14 +1904,14 @@ async function handleApi(req, res, urlPath) {
     loginAttempts.delete(key);
     const sessionId = `C-${crypto.randomBytes(32).toString("base64url")}`;
     providerSessions.set(sessionId, { username: admin.username, name: admin.name, role: "Administrador", ipAddress, createdAt: Date.now(), lastSeenAt: Date.now() });
-    appendProviderAudit("Login na Central da Rede", "Sessao administrativa iniciada", admin.username, ipAddress);
+    appendProviderAudit("Login na Central Tortela", "Sessao administrativa iniciada", admin.username, ipAddress);
     sendJson(res, 200, { ok: true, sessionId, user: { name: admin.name, username: admin.username, role: "Administrador" } });
     return;
   }
 
   if (req.method === "POST" && urlPath === "/api/provider/auth/logout") {
     const access = providerAccess(req);
-    if (access) appendProviderAudit("Logout da Central da Rede", "Sessao administrativa encerrada", access.username, requestIp(req));
+    if (access) appendProviderAudit("Logout da Central Tortela", "Sessao administrativa encerrada", access.username, requestIp(req));
     providerSessions.delete(bearerToken(req));
     sendJson(res, 200, { ok: true });
     return;
@@ -1834,7 +2005,7 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     if (tenant.status !== "Ativo" && tenant.status !== "Homologacao") {
-      sendJson(res, 403, { ok: false, error: "Unidade bloqueada na Central da Rede" });
+      sendJson(res, 403, { ok: false, error: "Unidade bloqueada na Central Tortela" });
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
@@ -2890,7 +3061,7 @@ async function handleApi(req, res, urlPath) {
     };
     tenantState.users.push(user);
     writeTenantState(tenantCode, tenantState);
-    appendTenantAudit(tenantCode, "Usuario criado pela Central da Rede", username, "rede");
+    appendTenantAudit(tenantCode, "Usuario criado pela Central Tortela", username, "rede");
     appendProviderAudit("Usuario de cliente criado", `${tenantCode}: ${username}`, providerAccess(req).username, requestIp(req));
     sendJson(res, 201, { ok: true, user: publicUser(user) });
     return;
@@ -2922,7 +3093,7 @@ async function handleApi(req, res, urlPath) {
     if (body.active !== undefined) user.active = Boolean(body.active);
     if (body.password !== undefined) user.passwordHash = hashPassword(body.password);
     writeTenantState(tenantCode, tenantState);
-    appendTenantAudit(tenantCode, "Usuario atualizado pela Central da Rede", user.username, access.username);
+    appendTenantAudit(tenantCode, "Usuario atualizado pela Central Tortela", user.username, access.username);
     appendProviderAudit("Usuario de cliente atualizado", `${tenantCode}: ${user.username}`, access.username, requestIp(req));
     sendJson(res, 200, { ok: true, user: publicUser(user) });
     return;
@@ -2999,7 +3170,7 @@ function serveFile(req, res, urlPath) {
     return;
   }
   if (urlPath === "/central-saas.html") {
-    send(res, 404, "Esta edicao utiliza a Central da Rede Tortela.");
+    send(res, 404, "Esta edicao utiliza a Central Tortela.");
     return;
   }
   const defaultPage = appSurface === "network" ? "/central-rede.html" : appSurface === "central" ? "/central-saas.html" : "/index.html";
@@ -3085,7 +3256,7 @@ async function startServer() {
   });
   server.listen(port, () => {
     console.log(`Tortela Plus unidade: http://localhost:${port}`);
-    console.log(`Central da Rede: http://localhost:${port}/central-rede.html`);
+    console.log(`Central Tortela: http://localhost:${port}/central-rede.html`);
     console.log(`Persistencia: ${databaseMode}`);
   });
 }

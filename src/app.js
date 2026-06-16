@@ -117,6 +117,9 @@ const seed = {
   },
   cashClosures: [],
   heldSales: [],
+  automaticOrders: [],
+  networkPromotions: [],
+  franchisePayments: [],
   fiscalQueue: [
     {
       id: 1,
@@ -237,7 +240,7 @@ const seed = {
     }
   ],
   provider: {
-    ownerName: "Central da Rede Tortela",
+    ownerName: "Central Tortela",
     deployment: "Rede de franquias",
     isolationMode: "Banco separado por cliente",
     clients: [
@@ -411,6 +414,9 @@ function withDefaults(data) {
   merged.cashRegister = { ...structuredClone(seed.cashRegister), ...(data.cashRegister || {}) };
   merged.cashClosures = data.cashClosures || [];
   merged.heldSales = data.heldSales || [];
+  merged.automaticOrders = data.automaticOrders || [];
+  merged.networkPromotions = data.networkPromotions || [];
+  merged.franchisePayments = data.franchisePayments || [];
   merged.purchases = (data.purchases || []).map((row) => ({ status: "Confirmada", ...row }));
   merged.sales = (data.sales || []).map((row) => ({ status: "Fechado", ...row }));
   merged.payables = (data.payables || []).map(withFinanceDefaults);
@@ -478,7 +484,7 @@ function save() {
 
 function mergeConcurrentState(remote, local) {
   const merged = { ...remote, settings: { ...(remote.settings || {}), ...(local.settings || {}) } };
-  const collections = ["people", "products", "stockMovements", "productionOrders", "purchases", "sales", "payables", "receivables", "cash", "cashClosures", "heldSales", "fiscalQueue", "fiscalRules", "users", "auditLogs", "financeReconciliations", "chartOfAccounts"];
+  const collections = ["people", "products", "stockMovements", "productionOrders", "purchases", "sales", "payables", "receivables", "cash", "cashClosures", "heldSales", "automaticOrders", "networkPromotions", "franchisePayments", "fiscalQueue", "fiscalRules", "users", "auditLogs", "financeReconciliations", "chartOfAccounts"];
   collections.forEach((name) => {
     const byKey = new Map();
     [...(remote[name] || []), ...(local[name] || [])].forEach((row, index) => {
@@ -813,7 +819,7 @@ function renderLogin() {
         await startSession(state.settings.tenantCode, state.settings.user, byId("login-pass").value);
         await loadTenantState(state.settings.tenantCode);
       } catch {
-        alert("Nao foi possivel entrar. Confira unidade, usuario, senha, status na Central da Rede e limite de terminais.");
+        alert("Nao foi possivel entrar. Confira unidade, usuario, senha, status na Central Tortela e limite de terminais.");
         return;
       }
     }
@@ -837,7 +843,7 @@ function renderLicenseGate() {
           <div>
             ${brandMarkup()}
             <h1>Licenca vencida</h1>
-            <p>Informe a senha exibida abaixo ao administrador. A Central da Rede gera a contra-senha para liberar o sistema pelo prazo configurado.</p>
+            <p>Informe a senha exibida abaixo ao administrador. A Central Tortela gera a contra-senha para liberar o sistema pelo prazo configurado.</p>
           </div>
           <div class="status-row">
             <span class="badge danger">Bloqueado</span>
@@ -883,12 +889,12 @@ function renderLicenseGate() {
         renderShell();
         return;
       } catch {
-        alert("Contra-senha invalida ou API indisponivel. Confira o codigo gerado na Central da Rede.");
+        alert("Contra-senha invalida ou API indisponivel. Confira o codigo gerado na Central Tortela.");
         return;
       }
     }
     if (typed !== expected) {
-      alert("Contra-senha invalida. Confira o codigo gerado na Central da Rede.");
+      alert("Contra-senha invalida. Confira o codigo gerado na Central Tortela.");
       return;
     }
     tenant.licenseExpiresAt = addDays(today(), tenant.renewalDays);
@@ -966,6 +972,8 @@ function renderShell() {
   if (headerBackup) headerBackup.addEventListener("click", downloadCompleteTenantBackup);
   const headerXmlBackup = byId("header-xml-backup");
   if (headerXmlBackup) headerXmlBackup.addEventListener("click", downloadTenantXmlBackup);
+  const automaticOrderButton = byId("send-automatic-order");
+  if (automaticOrderButton) automaticOrderButton.addEventListener("click", sendAutomaticOrderToCentral);
   bindCurrentModule();
 }
 
@@ -1010,7 +1018,10 @@ function renderDashboard() {
         </div>
       </section>
       <section class="panel">
-        <div class="panel-head"><h3>Compra sugerida ao abrir retaguarda</h3><span class="badge warn">Estoque minimo</span></div>
+        <div class="panel-head">
+          <h3>Compra sugerida ao abrir retaguarda</h3>
+          <button class="btn primary" id="send-automatic-order" ${lowStock.length ? "" : "disabled"}>Pedido automatico para Central</button>
+        </div>
         <div class="panel-body">
           ${lowStock.length ? `
             <div class="table-wrap">
@@ -1033,6 +1044,43 @@ function renderDashboard() {
       </section>
     </div>
   `;
+}
+
+function sendAutomaticOrderToCentral() {
+  const items = state.products
+    .filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0))
+    .map((product) => ({
+      productId: product.id,
+      description: product.description,
+      currentStock: Number(product.stock || 0),
+      minStock: Number(product.minStock || 0),
+      suggestedQty: Math.max(Number(product.minStock || 0) - Number(product.stock || 0), 1),
+      unit: product.unit,
+      cost: Number(product.cost || 0)
+    }));
+
+  if (!items.length) {
+    alert("Nenhum produto abaixo do estoque minimo.");
+    return;
+  }
+
+  state.automaticOrders = state.automaticOrders || [];
+  state.automaticOrders.unshift({
+    id: nextId(state.automaticOrders),
+    date: today(),
+    createdAt: new Date().toISOString(),
+    status: "Enviado",
+    origin: "Estoque minimo",
+    requestedBy: state.settings.user || "Operador",
+    totalItems: items.length,
+    estimatedCost: items.reduce((sum, item) => sum + item.suggestedQty * item.cost, 0),
+    items
+  });
+
+  audit("Pedido automatico para Central Tortela", `${items.length} itens abaixo do minimo`);
+  save();
+  renderShell();
+  alert("Pedido automatico enviado para a Central Tortela.");
 }
 
 function renderPeople() {
