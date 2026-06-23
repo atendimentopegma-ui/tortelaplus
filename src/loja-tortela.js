@@ -45,7 +45,6 @@ function render() {
       </div>
       <div class="store-header-actions">
         <span>${cart.length} item(ns) · ${money(total)}</span>
-        <a class="btn" href="./central-rede.html">Central</a>
       </div>
     </header>
     <main>

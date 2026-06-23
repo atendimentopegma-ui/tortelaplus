@@ -385,9 +385,9 @@ header.topbar .top-right .central-top-action:hover {
   justify-content: space-between;
   gap: 16px;
   padding: 10px 22px;
-  background: #ff007a;
-  border-bottom: 0;
-  color: #ffffff;
+  background: #ffca1d;
+  border-bottom: 3px solid #20206f;
+  color: #20206f;
 }
 
 .store-brand,
@@ -408,14 +408,14 @@ header.topbar .top-right .central-top-action:hover {
 
 .store-brand strong {
   display: block;
-  color: #ffffff;
+  color: #20206f;
   font-size: 18px;
   font-weight: 900;
 }
 
 .store-brand small,
 .store-header-actions span {
-  color: #fff8d3;
+  color: #20206f;
   font-weight: 800;
 }
 
@@ -469,7 +469,7 @@ header.topbar .top-right .central-top-action:hover {
   min-height: 64px;
   padding: 10px 28px;
   border-radius: 999px;
-  background: #ff007a;
+  background: #20206f;
   color: #ffffff;
   font-size: clamp(28px, 4vw, 48px);
   font-weight: 950;
@@ -514,12 +514,14 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .store-hero-card span {
-  color: #ff007a;
+  color: #20206f;
   font-weight: 900;
 }
 
 .store-cta-strip {
-  background: #ff007a;
+  background: #ffca1d;
+  border-top: 3px solid #20206f;
+  border-bottom: 3px solid #20206f;
   padding: 16px 18px;
   display: grid;
   place-items: center;
@@ -530,9 +532,9 @@ header.topbar .top-right .central-top-action:hover {
   width: min(620px, 100%);
   min-height: 62px;
   border-radius: 999px;
-  background: #efff00;
-  color: #111827;
-  border-color: #efff00;
+  background: #20206f;
+  color: #ffffff;
+  border-color: #20206f;
   font-size: 19px;
   font-weight: 950;
 }
@@ -638,7 +640,7 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .store-price strong {
-  color: #ff007a;
+  color: #20206f;
   font-size: 24px;
   font-weight: 950;
 }
