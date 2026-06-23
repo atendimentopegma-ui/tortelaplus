@@ -8,6 +8,7 @@ const modules = [
   ["products", "Produtos", "Ranking e estoque"],
   ["orders", "Pedidos", "Automaticos"],
   ["promotions", "Promocoes", "Rede ou unidades"],
+  ["royalties", "Royalties", "Propaganda e taxas"],
   ["finance", "Financeiro", "Contas e repasses"],
   ["permissions", "Permissoes", "Acesso das lojas"],
   ["production", "Producao", "Capacidade"],
@@ -77,6 +78,7 @@ function normalizeSummary(payload = {}) {
     bestSellers: [],
     worstSellers: [],
     promotions: [],
+    royalties: [],
     salesDetails: [],
     lowStockItems: [],
     automaticOrders: [],
@@ -143,6 +145,7 @@ function render() {
       <div class="brand">${brandMarkup()}<div><strong>Central Tortela</strong><small>Gestao consolidada das franquias</small></div></div>
       <div class="top-right">
         <button class="btn network-white" id="refresh">Atualizar</button>
+        <a class="btn network-white" href="./loja.html">Loja online</a>
         <a class="btn network-white" href="./index.html">Abrir sistema</a>
         <button class="btn network-white" id="logout">Sair</button>
       </div>
@@ -170,6 +173,7 @@ function renderCurrentModule() {
     products: renderProducts,
     orders: renderOrders,
     promotions: renderPromotions,
+    royalties: renderRoyalties,
     finance: renderFinance,
     permissions: renderPermissions,
     production: renderProduction,
@@ -213,14 +217,15 @@ function renderOverview() {
     </div>
     <section class="network-card">
       <h2>Unidades e links de cadastro</h2>
-      ${table(["Unidade", "Vendas", "Notas", "Clientes", "Produtos", "Estoque baixo", "Cadastro publico"], summary.units.map((unit) => [
+      ${table(["Unidade", "Vendas", "Notas", "Clientes", "Produtos", "Estoque baixo", "Cadastro publico", "Loja online"], summary.units.map((unit) => [
         `<strong>${unitName(unit)}</strong><br><small>${escapeHtml(unit.tenantCode || "")}</small>`,
         `${money(unit.salesTotal)}<br><small>${amount(unit.salesCount)} vendas</small>`,
         `${amount(unit.fiscalAuthorized)} autorizadas<br><small>${amount(unit.fiscalPending)} pendentes</small>`,
         amount(unit.customers),
         amount(unit.products),
         amount(unit.lowStock),
-        `<button class="btn copy-registration" data-link="${escapeAttr(unitRegistrationUrl(unit))}">Copiar link</button>`
+        `<button class="btn copy-registration" data-link="${escapeAttr(unitRegistrationUrl(unit))}">Copiar link</button>`,
+        `<a class="btn" href="./loja.html?unidade=${encodeURIComponent(unit.tenantCode || "")}">Abrir loja</a>`
       ]))}
     </section>
   </div>`;
@@ -342,6 +347,34 @@ function renderFinance() {
   </div>`;
 }
 
+function renderRoyalties() {
+  const rows = summary.royalties || [];
+  const total = rows.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const open = rows.reduce((sum, row) => sum + Number(row.open || 0), 0);
+  return `<div class="network-module compact">
+    ${moduleTitle("Royalties da Rede Tortela", "Propaganda, faturamento, tecnologia, fundo de marketing, campanhas e minimo mensal.", `<button class="btn primary" id="generate-royalties">Gerar cobrancas do mes</button>`)}
+    <div class="network-grid three">
+      ${kpi("Royalties previstos", money(total))}
+      ${kpi("Em aberto", money(open))}
+      ${kpi("Unidades", amount(rows.length))}
+    </div>
+    <section class="network-card">
+      ${table(["Unidade", "Base vendas", "Propaganda", "Royalties", "Tecnologia", "Marketing", "Campanha", "Minimo", "Total", "Status"], rows.map((row) => [
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        money(row.salesBase || 0),
+        money(row.advertising || 0),
+        money(row.salesRoyalty || 0),
+        money(row.technology || 0),
+        money(row.marketingFund || 0),
+        money(row.campaignFee || 0),
+        money(row.minimumComplement || 0),
+        `<strong>${money(row.total || 0)}</strong>`,
+        escapeHtml(row.status || "A gerar")
+      ]))}
+    </section>
+  </div>`;
+}
+
 function renderPermissions() {
   return `<div class="network-module compact">
     ${moduleTitle("Permissoes dos franqueados", "Bloqueio, terminais, sessoes e modulos liberados por unidade.")}
@@ -411,6 +444,22 @@ function bindRender() {
   }));
   const promotionForm = byId("promotion-form");
   if (promotionForm) promotionForm.addEventListener("submit", submitPromotion);
+  const generateRoyalties = byId("generate-royalties");
+  if (generateRoyalties) generateRoyalties.addEventListener("click", generateRoyaltiesForMonth);
+}
+
+async function generateRoyaltiesForMonth() {
+  const month = new Date().toISOString().slice(0, 7);
+  try {
+    const result = await api("/api/network/royalties/generate", {
+      method: "POST",
+      body: JSON.stringify({ month })
+    });
+    alert(`Royalties gerados: ${amount(result.created || 0)} cobranca(s), total ${money(result.total || 0)}.`);
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 boot();

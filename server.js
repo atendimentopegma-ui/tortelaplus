@@ -68,6 +68,14 @@ const initialProvider = {
   ownerName: "Central Tortela",
   deployment: "Rede de franquias",
   isolationMode: "Banco separado por cliente",
+  royaltySettings: {
+    advertisingRate: 2,
+    salesRoyaltyRate: 4,
+    technologyFee: 149.9,
+    marketingFundRate: 1,
+    campaignFee: 0,
+    minimumMonthlyFee: 299.9
+  },
   providerAdmins: [
     {
       id: 1,
@@ -91,7 +99,10 @@ const initialProvider = {
       licensePassword: "PEGMA-2026",
       licenseExpiresAt: "2026-07-05",
       status: "Ativo",
-      adminUser: "admin@cliente.com"
+      adminUser: "admin@cliente.com",
+      city: "Sao Paulo",
+      uf: "SP",
+      cep: "01001000"
     }
   ]
 };
@@ -885,6 +896,129 @@ function publicTenant(tenant) {
   return safe;
 }
 
+function moneyRound(value) {
+  return Math.round(Number(value || 0) * 100) / 100;
+}
+
+function activeSalesForRoyalties(tenantState) {
+  return (tenantState.sales || []).filter((sale) => !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status));
+}
+
+function monthlySalesTotal(tenantState, month = today().slice(0, 7)) {
+  return activeSalesForRoyalties(tenantState)
+    .filter((sale) => String(sale.date || sale.createdAt || "").slice(0, 7) === month)
+    .reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+}
+
+function royaltySettings(provider = readProvider()) {
+  return {
+    advertisingRate: 2,
+    salesRoyaltyRate: 4,
+    technologyFee: 149.9,
+    marketingFundRate: 1,
+    campaignFee: 0,
+    minimumMonthlyFee: 299.9,
+    ...(provider.royaltySettings || {})
+  };
+}
+
+function royaltyBreakdown(tenant, tenantState, provider = readProvider(), month = today().slice(0, 7)) {
+  const settings = royaltySettings(provider);
+  const salesBase = monthlySalesTotal(tenantState, month);
+  const advertising = moneyRound(salesBase * Number(settings.advertisingRate || 0) / 100);
+  const salesRoyalty = moneyRound(salesBase * Number(settings.salesRoyaltyRate || 0) / 100);
+  const technology = moneyRound(settings.technologyFee || 0);
+  const marketingFund = moneyRound(salesBase * Number(settings.marketingFundRate || 0) / 100);
+  const campaignFee = moneyRound(settings.campaignFee || 0);
+  const subtotal = moneyRound(advertising + salesRoyalty + technology + marketingFund + campaignFee);
+  const minimumComplement = Math.max(0, moneyRound(Number(settings.minimumMonthlyFee || 0) - subtotal));
+  const total = moneyRound(subtotal + minimumComplement);
+  return {
+    tenantCode: tenant.tenantCode,
+    unit: tenant.tradeName,
+    month,
+    salesBase: moneyRound(salesBase),
+    advertising,
+    salesRoyalty,
+    technology,
+    marketingFund,
+    campaignFee,
+    minimumComplement,
+    total,
+    settings
+  };
+}
+
+function catalogProduct(product, tenant, tenantState) {
+  const price = Number(product.promotion?.price || product.price || 0);
+  return {
+    id: product.id,
+    tenantCode: tenant.tenantCode,
+    unit: tenant.tradeName,
+    description: product.description,
+    unit: product.unit || "UN",
+    unitMeasure: product.unit || "UN",
+    price,
+    cost: Number(product.cost || 0),
+    stock: Number(product.stock || 0),
+    photo: product.photo || "",
+    hasCoverage: Boolean(product.hasCoverage || product.coverageOptions?.length || /bolo|torta|pizza|doce|cobertura/i.test(product.description || "")),
+    coverageOptions: product.coverageOptions || ["Sem cobertura", "Chocolate", "Morango", "Doce de leite"],
+    city: tenant.city || tenantState.settings?.city || "",
+    uf: tenant.uf || tenantState.settings?.uf || "",
+    cep: tenant.cep || tenantState.settings?.cep || ""
+  };
+}
+
+function cepDistance(inputCep, tenantCep) {
+  const input = String(inputCep || "").replace(/\D/g, "");
+  const tenant = String(tenantCep || "").replace(/\D/g, "");
+  if (!input || !tenant) return 999999;
+  const a = Number(input.slice(0, 5) || 0);
+  const b = Number(tenant.slice(0, 5) || 0);
+  return Math.abs(a - b);
+}
+
+function onlineStoreCatalog(query = {}) {
+  const provider = readProvider();
+  const cep = String(query.cep || "").replace(/\D/g, "");
+  const q = String(query.q || "").trim().toLowerCase();
+  const forcedTenantCode = normalizeTenantCode(query.tenantCode || "");
+  const units = [];
+  const products = [];
+  for (const tenant of provider.clients || []) {
+    if (tenant.status && tenant.status !== "Ativo") continue;
+    if (forcedTenantCode && normalizeTenantCode(tenant.tenantCode) !== forcedTenantCode) continue;
+    const tenantState = readTenantState(tenant.tenantCode);
+    const unitProducts = (tenantState.products || [])
+      .filter((product) => product.active !== false && Number(product.price || product.promotion?.price || 0) > 0)
+      .map((product) => catalogProduct(product, tenant, tenantState));
+    const distance = cepDistance(cep, tenant.cep || tenantState.settings?.cep || "");
+    units.push({
+      tenantCode: tenant.tenantCode,
+      tradeName: tenant.tradeName,
+      city: tenant.city || tenantState.settings?.city || "",
+      uf: tenant.uf || tenantState.settings?.uf || "",
+      cep: tenant.cep || tenantState.settings?.cep || "",
+      distance,
+      products: unitProducts.length
+    });
+    products.push(...unitProducts);
+  }
+  const filtered = products.filter((product) => !q || product.description.toLowerCase().includes(q));
+  const nearest = units.slice().sort((a, b) => a.distance - b.distance || b.products - a.products)[0] || null;
+  return {
+    ok: true,
+    nearest,
+    units: units.sort((a, b) => a.distance - b.distance || String(a.tradeName).localeCompare(String(b.tradeName))),
+    products: filtered.sort((a, b) => {
+      if (!nearest) return String(a.description).localeCompare(String(b.description));
+      return (a.tenantCode === nearest.tenantCode ? 0 : 1) - (b.tenantCode === nearest.tenantCode ? 0 : 1)
+        || String(a.description).localeCompare(String(b.description));
+    })
+  };
+}
+
 function bearerToken(req) {
   const authorization = req.headers.authorization || "";
   if (!authorization.toLowerCase().startsWith("bearer ")) return "";
@@ -1649,6 +1783,101 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if (req.method === "GET" && urlPath === "/api/public/store/catalog") {
+    const url = new URL(req.url, "http://localhost");
+    sendJson(res, 200, onlineStoreCatalog({
+      cep: url.searchParams.get("cep") || "",
+      q: url.searchParams.get("q") || "",
+      tenantCode: url.searchParams.get("unidade") || ""
+    }));
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/public/store/orders") {
+    const body = await readBody(req);
+    const catalog = onlineStoreCatalog({ cep: body.cep || "" });
+    const tenantCode = normalizeTenantCode(body.tenantCode || catalog.nearest?.tenantCode || "");
+    const tenant = findTenant(readProvider(), tenantCode);
+    if (!tenant || tenant.status !== "Ativo") {
+      sendJson(res, 404, { ok: false, error: "Loja indisponivel para pedido online." });
+      return;
+    }
+    const tenantState = readTenantState(tenant.tenantCode);
+    const items = Array.isArray(body.items) ? body.items : [];
+    const normalizedItems = [];
+    for (const item of items) {
+      const product = (tenantState.products || []).find((row) => Number(row.id) === Number(item.productId) && row.active !== false);
+      const qty = Number(item.qty || 0);
+      if (!product || qty <= 0) continue;
+      const price = Number(product.promotion?.price || product.price || 0);
+      normalizedItems.push({
+        productId: product.id,
+        id: product.id,
+        description: product.description,
+        qty,
+        unit: product.unit || "UN",
+        price,
+        coverage: String(item.coverage || "").trim(),
+        note: String(item.note || "").trim(),
+        total: moneyRound(qty * price)
+      });
+    }
+    if (!normalizedItems.length) {
+      sendJson(res, 400, { ok: false, error: "Inclua ao menos um produto vendido por esta loja." });
+      return;
+    }
+    const customer = {
+      name: String(body.customer?.name || "").trim(),
+      phone: String(body.customer?.phone || "").trim(),
+      address: String(body.customer?.address || "").trim(),
+      number: String(body.customer?.number || "").trim(),
+      district: String(body.customer?.district || "").trim(),
+      city: String(body.customer?.city || "").trim(),
+      uf: String(body.customer?.uf || "").trim().toUpperCase(),
+      cep: String(body.cep || body.customer?.cep || "").replace(/\D/g, "")
+    };
+    if (!customer.name || !customer.phone || !customer.address || !customer.number || !customer.district || !customer.city || customer.uf.length !== 2 || customer.cep.length !== 8) {
+      sendJson(res, 400, { ok: false, error: "Informe cliente, telefone e endereco completo para entrega/retirada." });
+      return;
+    }
+    const payment = ["PIX", "Debito", "Credito"].includes(body.paymentMethod) ? body.paymentMethod : "PIX";
+    const total = moneyRound(normalizedItems.reduce((sum, item) => sum + Number(item.total || 0), 0));
+    const sale = {
+      id: Math.max(0, ...(tenantState.sales || []).map((row) => Number(row.id) || 0)) + 1,
+      date: today(),
+      createdAt: new Date().toISOString(),
+      customer: customer.name,
+      seller: "Loja online",
+      total,
+      type: "Pedido online",
+      status: "Aberto",
+      payment,
+      due: today(),
+      onlineOrder: true,
+      delivery: body.deliveryMode === "Retirada" ? "Retirada" : "Entrega",
+      customerData: customer,
+      items: normalizedItems
+    };
+    tenantState.sales = Array.isArray(tenantState.sales) ? tenantState.sales : [];
+    tenantState.receivables = Array.isArray(tenantState.receivables) ? tenantState.receivables : [];
+    tenantState.sales.push(sale);
+    tenantState.receivables.push({
+      id: Math.max(0, ...tenantState.receivables.map((row) => Number(row.id) || 0)) + 1,
+      customer: customer.name,
+      due: today(),
+      value: total,
+      paidValue: 0,
+      paid: false,
+      accountCode: "3.1.01",
+      history: `Pedido online ${sale.id} - ${payment}`,
+      sourceSaleId: sale.id
+    });
+    writeTenantState(tenant.tenantCode, tenantState);
+    appendTenantAudit(tenant.tenantCode, "Pedido online recebido", `${customer.name} ${moneyRound(total)}`, "loja-online");
+    sendJson(res, 201, { ok: true, orderId: sale.id, tenantCode: tenant.tenantCode, unit: tenant.tradeName, total, payment });
+    return;
+  }
+
   if (req.method === "GET" && urlPath === "/api/network/summary") {
     const access = providerAccess(req);
     if (!access) {
@@ -1684,6 +1913,7 @@ async function handleApi(req, res, urlPath) {
     const lowStockItems = [];
     const automaticOrders = [];
     const finance = [];
+    const royalties = [];
     const permissions = [];
     const productionCapacity = [];
     const saleDate = (sale) => {
@@ -1716,6 +1946,7 @@ async function handleApi(req, res, urlPath) {
       const franchisePayments = tenantState.franchisePayments || [];
       const franchiseOpen = franchisePayments.filter((row) => !row.paid && !row.cancelled).reduce((sum, row) => sum + Number(row.value || 0), 0);
       const franchisePaid = franchisePayments.filter((row) => row.paid).reduce((sum, row) => sum + Number(row.value || 0), 0);
+      const royalty = royaltyBreakdown(tenant, tenantState, provider);
       totals.salesTotal += salesTotal;
       totals.salesCount += sales.length;
       totals.fiscalAuthorized += fiscalAuthorized;
@@ -1729,6 +1960,7 @@ async function handleApi(req, res, urlPath) {
       totals.activePromotions += tenantPromotions.length;
       totals.franchiseOpen += franchiseOpen;
       totals.franchisePaid += franchisePaid;
+      totals.royaltiesDue = Number(totals.royaltiesDue || 0) + royalty.total;
       totals.productionProducts += products.filter((product) => Array.isArray(product.composition) && product.composition.length).length;
       units.push({
         tenantCode: tenant.tenantCode,
@@ -1789,6 +2021,12 @@ async function handleApi(req, res, urlPath) {
       tenantPromotions.forEach((promotion) => promotions.push({ product: promotion.product || "Campanha geral", unit: tenant.tradeName, value: Number(promotion.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: promotion.from, to: promotion.to, scope: promotion.scope || "Unidade" }));
       products.filter((product) => activePromotion(product.promotion)).forEach((product) => promotions.push({ product: product.description, unit: tenant.tradeName, value: Number(product.promotion.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: product.promotion.from, to: product.promotion.to, scope: "Produto" }));
       finance.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, payableOpen, receivableOpen, purchasesTotal, franchiseOpen, franchisePaid });
+      royalties.push({
+        ...royalty,
+        open: franchiseOpen,
+        paid: franchisePaid,
+        status: franchiseOpen > 0 ? "Em aberto" : "A gerar"
+      });
       permissions.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, status: tenant.status, modules: tenant.modules || [], maxTerminals: tenant.maxTerminals, activeTerminals: (tenant.activeSessions || []).length });
       products.filter((product) => Array.isArray(product.composition) && product.composition.length).forEach((product) => {
         const components = product.composition.map((component) => {
@@ -1826,6 +2064,7 @@ async function handleApi(req, res, urlPath) {
       automaticOrders: automaticOrders.sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date))).slice(0, 80),
       promotions: promotions.slice(0, 80),
       finance,
+      royalties,
       permissions,
       productionCapacity: productionCapacity.slice(0, 80)
     });
@@ -1876,6 +2115,57 @@ async function handleApi(req, res, urlPath) {
     }
     appendProviderAudit("Promocao disparada pela Central Tortela", `${targets.length} unidades`, access.username, requestIp(req));
     sendJson(res, 200, { ok: true, campaignId, appliedUnits: targets.length });
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/network/royalties/generate") {
+    const access = providerAccess(req);
+    if (!access) {
+      sendJson(res, 401, { ok: false, error: "Sessao administrativa da rede obrigatoria." });
+      return;
+    }
+    const body = await readBody(req);
+    const provider = readProvider();
+    const month = String(body.month || today().slice(0, 7)).slice(0, 7);
+    let created = 0;
+    let total = 0;
+    for (const tenant of provider.clients || []) {
+      if (tenant.status !== "Ativo") continue;
+      const tenantState = readTenantState(tenant.tenantCode);
+      const royalty = royaltyBreakdown(tenant, tenantState, provider, month);
+      tenantState.franchisePayments = Array.isArray(tenantState.franchisePayments) ? tenantState.franchisePayments : [];
+      const components = [
+        ["Propaganda", royalty.advertising],
+        ["Royalties sobre faturamento", royalty.salesRoyalty],
+        ["Tecnologia e sistema", royalty.technology],
+        ["Fundo de marketing", royalty.marketingFund],
+        ["Campanha da rede", royalty.campaignFee],
+        ["Complemento minimo mensal", royalty.minimumComplement]
+      ].filter(([, value]) => Number(value || 0) > 0);
+      for (const [type, value] of components) {
+        const duplicate = tenantState.franchisePayments.some((row) => row.month === month && row.type === type && !row.cancelled);
+        if (duplicate) continue;
+        tenantState.franchisePayments.push({
+          id: Math.max(0, ...tenantState.franchisePayments.map((row) => Number(row.id) || 0)) + 1,
+          month,
+          type,
+          description: `${type} ${month}`,
+          value: moneyRound(value),
+          due: `${month}-10`,
+          paid: false,
+          cancelled: false,
+          salesBase: royalty.salesBase,
+          createdAt: new Date().toISOString(),
+          createdBy: access.username
+        });
+        created += 1;
+        total += Number(value || 0);
+      }
+      writeTenantState(tenant.tenantCode, tenantState);
+      appendTenantAudit(tenant.tenantCode, "Royalties gerados pela Central Tortela", `${month} ${moneyRound(royalty.total)}`, access.username);
+    }
+    appendProviderAudit("Royalties gerados", `${month}: ${created} cobrancas`, access.username, requestIp(req));
+    sendJson(res, 200, { ok: true, month, created, total: moneyRound(total) });
     return;
   }
 
