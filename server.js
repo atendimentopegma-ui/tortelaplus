@@ -1371,12 +1371,14 @@ async function sendNfeEvent(tenantCode, tenantState, row, event) {
   return { response, parsed, eventUrl: eventFile.url, responseUrl: responseFile.url };
 }
 
-function saveAcbrPdf(tenantCode, row, response) {
-  const raw = String(response?.response || "").trim();
-  const base64 = raw.replace(/^data:application\/pdf;base64,/i, "").replace(/\s/g, "");
-  if (!base64 || !/^[A-Za-z0-9+/=]+$/.test(base64)) throw new Error("ACBr nao retornou o PDF do documento.");
+function pdfBufferFromBase64(value) {
+  const base64 = String(value || "").trim().replace(/^data:application\/pdf;base64,/i, "").replace(/\s/g, "");
+  if (!base64 || !/^[A-Za-z0-9+/=]+$/.test(base64)) return null;
   const buffer = Buffer.from(base64, "base64");
-  if (!buffer.subarray(0, 4).equals(Buffer.from("%PDF"))) throw new Error("Retorno do ACBr nao contem um PDF valido.");
+  return buffer.subarray(0, 4).equals(Buffer.from("%PDF")) ? buffer : null;
+}
+
+function savePdfBuffer(tenantCode, row, buffer) {
   return saveTenantFile({
     tenantCode,
     category: "pdf",
@@ -1386,14 +1388,21 @@ function saveAcbrPdf(tenantCode, row, response) {
   });
 }
 
-function latestTenantPdf(tenantCode, startedAt) {
+function saveAcbrPdf(tenantCode, row, response, startedAt = 0) {
+  const raw = String(response?.response || "").trim();
+  const buffer = pdfBufferFromBase64(raw);
+  if (buffer) return savePdfBuffer(tenantCode, row, buffer);
+  return latestTenantPdf(tenantCode, startedAt, row.model === "NFS-e" ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE");
+}
+
+function latestTenantPdf(tenantCode, startedAt, label = "documento auxiliar") {
   const directory = tenantStorageDir(tenantCode, "pdf");
   const file = fs.readdirSync(directory)
     .filter((name) => name.toLowerCase().endsWith(".pdf"))
     .map((name) => ({ name, modified: fs.statSync(path.join(directory, name)).mtimeMs }))
     .filter((item) => item.modified >= startedAt - 1000)
     .sort((a, b) => b.modified - a.modified)[0];
-  if (!file) throw new Error("ACBrNFSe nao gerou o DANFSe no diretorio configurado.");
+  if (!file) throw new Error(`ACBr nao gerou o ${label} no diretorio configurado.`);
   return { url: `/storage/${normalizeTenantCode(tenantCode)}/pdf/${file.name}` };
 }
 
@@ -2502,8 +2511,9 @@ async function handleApi(req, res, urlPath) {
             { method: isNfse ? "imprimirpdf" : "salvarpdf", args: [] }
           ]
         });
-        if (!remote.pdfBase64) throw new Error("Agente fiscal nao retornou o documento auxiliar em PDF.");
-        const pdf = saveTenantFile({ tenantCode, category: "pdf", filename: `${row.model.replace(/\W/g, "")}-${row.id}.pdf`, mimeType: "application/pdf", content: remote.pdfBase64 });
+        const buffer = pdfBufferFromBase64(remote.pdfBase64);
+        if (!buffer) throw new Error("Agente fiscal nao retornou o documento auxiliar em PDF valido.");
+        const pdf = savePdfBuffer(tenantCode, row, buffer);
         row.pdfUrl = pdf.url;
         row.printedAt = new Date().toISOString();
         writeTenantState(tenantCode, tenantState);
@@ -2516,13 +2526,13 @@ async function handleApi(req, res, urlPath) {
       const result = isNfse
         ? await acbrLibCommand("imprimirpdf", [], 60000, "nfse")
         : await acbrLibCommand("salvarpdf", [], 60000);
-      const pdf = isNfse ? latestTenantPdf(tenantCode, pdfStartedAt) : saveAcbrPdf(tenantCode, row, result);
+      const pdf = saveAcbrPdf(tenantCode, row, result, pdfStartedAt);
       row.pdfUrl = pdf.url;
       row.printedAt = new Date().toISOString();
       row.printAcbrResponse = result.response || "";
       writeTenantState(tenantCode, tenantState);
       appendTenantAudit(tenantCode, "Documento fiscal impresso pelo ACBr", `${row.model} ${row.id}`, access.session.user);
-      sendJson(res, 200, { ok: true, document: row, pdfUrl: pdf.url, message: `${isNfse ? "DANFSe" : "DANFE/DANFCE"} gerado pelo ACBr.` });
+      sendJson(res, 200, { ok: true, document: row, pdfUrl: pdf.url, message: `${isNfse ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE"} gerado pelo ACBr.` });
     } catch (error) {
       sendJson(res, 503, { ok: false, error: error.message });
     }

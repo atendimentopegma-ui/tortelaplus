@@ -23,6 +23,16 @@ function safeName(value) {
   return String(value || "cliente").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "cliente";
 }
 
+function replaceIniValue(content, section, key, value) {
+  const sectionPattern = new RegExp(`(\\[${section}\\][\\s\\S]*?)(?=\\r?\\n\\[|$)`, "i");
+  if (!sectionPattern.test(content)) return `${content.trimEnd()}\n\n[${section}]\n${key}=${value ?? ""}\n`;
+  return content.replace(sectionPattern, (block) => {
+    const keyPattern = new RegExp(`(^|\\r?\\n)${key}=.*`, "i");
+    if (keyPattern.test(block)) return block.replace(keyPattern, `$1${key}=${value ?? ""}`);
+    return `${block}\n${key}=${value ?? ""}`;
+  });
+}
+
 function authorized(req) {
   return Boolean(token) && req.headers.authorization === `Bearer ${token}`;
 }
@@ -89,8 +99,19 @@ async function initialize(engineName, tenantCode) {
   const engine = engines[engineName];
   const tenantDir = path.join(workDir, safeName(tenantCode));
   fs.mkdirSync(tenantDir, { recursive: true });
+  const pdfDir = path.join(tenantDir, "pdf");
+  const xmlDir = path.join(tenantDir, "xml");
+  fs.mkdirSync(pdfDir, { recursive: true });
+  fs.mkdirSync(xmlDir, { recursive: true });
   const config = path.join(tenantDir, engineName === "nfse" ? "ACBrLibNFSe.ini" : "ACBrLib.ini");
-  if (!fs.existsSync(config)) fs.copyFileSync(baseIni, config);
+  let ini = fs.existsSync(config) ? fs.readFileSync(config, "utf8") : fs.readFileSync(baseIni, "utf8");
+  ini = replaceIniValue(ini, "NFe", "PathSalvar", xmlDir);
+  ini = replaceIniValue(ini, "NFe", "PathNFe", xmlDir);
+  ini = replaceIniValue(ini, "NFe", "PathEvento", xmlDir);
+  ini = replaceIniValue(ini, "NFSe", "PathSalvar", xmlDir);
+  ini = replaceIniValue(ini, "DANFE", "PathPDF", pdfDir);
+  ini = replaceIniValue(ini, "DANFSE", "PathPDF", pdfDir);
+  fs.writeFileSync(config, ini);
   if (engine.config !== config) {
     if (engine.process && !engine.process.killed) engine.process.kill();
     engine.config = "";
@@ -140,6 +161,7 @@ async function execute(payload) {
   const engineName = payload.engine === "nfse" ? "nfse" : "nfe";
   const tenantDir = await initialize(engineName, payload.tenantCode);
   const results = [];
+  const pdfStartedAt = Date.now();
   for (const step of payload.steps || []) {
     const args = [...(step.args || [])];
     if (step.file) args[Number(step.file.argIndex || 0)] = saveContent(tenantDir, step.file.filename, step.file.content);
@@ -151,11 +173,13 @@ async function execute(payload) {
     const pdf = fs.readdirSync(tenantDir, { recursive: true })
       .map((name) => path.join(tenantDir, name))
       .filter((name) => name.toLowerCase().endsWith(".pdf") && fs.statSync(name).isFile())
+      .filter((name) => fs.statSync(name).mtimeMs >= pdfStartedAt - 1000)
       .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
     if (pdf) pdfBase64 = fs.readFileSync(pdf).toString("base64");
     else {
       const raw = String(final.response || "").replace(/^data:application\/pdf;base64,/i, "").replace(/\s/g, "");
-      if (/^[A-Za-z0-9+/=]+$/.test(raw)) pdfBase64 = raw;
+      const buffer = /^[A-Za-z0-9+/=]+$/.test(raw) ? Buffer.from(raw, "base64") : null;
+      if (buffer?.subarray(0, 4).equals(Buffer.from("%PDF"))) pdfBase64 = raw;
     }
   }
   return { results, parsed: parseAcbrResponse(final.response), response: final, pdfBase64 };
