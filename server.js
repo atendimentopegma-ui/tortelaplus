@@ -34,8 +34,8 @@ const acbrLibIni = path.join(fiscalRuntimeDir, "ACBrLib", "ACBrLib.ini");
 const acbrLibBridgeExe = path.join(fiscalRuntimeDir, "Bridge", "ProdutoFiscal.AcbrLibBridge.exe");
 let acbrLibSequence = 0;
 const acbrEngines = {
-  nfe: { dll: acbrLibDll, process: null, buffer: "", initialized: false, currentConfig: "", pending: new Map() },
-  nfse: { dll: acbrNfseDll, process: null, buffer: "", initialized: false, currentConfig: "", pending: new Map() }
+  nfe: { dll: acbrLibDll, process: null, buffer: "", initialized: false, currentConfig: "", currentConfigHash: "", pending: new Map() },
+  nfse: { dll: acbrNfseDll, process: null, buffer: "", initialized: false, currentConfig: "", currentConfigHash: "", pending: new Map() }
 };
 const providerSessions = new Map();
 const loginAttempts = new Map();
@@ -755,6 +755,7 @@ function configureAcbrForTenant(tenantCode, tenantState) {
   ini = replaceIniValue(ini, "NFe", "PathNFe", tenantXml);
   ini = replaceIniValue(ini, "NFe", "PathInu", tenantXml);
   ini = replaceIniValue(ini, "NFe", "PathEvento", tenantXml);
+  ini = replaceIniValue(ini, "NFe", "PathSchemas", path.join(fiscalRuntimeDir, "Schemas"));
   ini = replaceIniValue(ini, "DANFE", "PathPDF", tenantPdf);
   const configPath = path.join(tenantRuntime, "ACBrLib.ini");
   fs.writeFileSync(configPath, ini);
@@ -780,6 +781,20 @@ function configureAcbrNfseForTenant(tenantCode, tenantState) {
   const configPath = path.join(tenantRuntime, "ACBrNFSeLib.ini");
   fs.writeFileSync(configPath, ini);
   return configPath;
+}
+
+function fiscalAgentConfig(tenantCode, tenantState, secrets = loadFiscalSecrets(tenantCode)) {
+  const settings = tenantState.settings || {};
+  return {
+    fiscalEnvironment: settings.fiscalEnvironment || "Homologacao",
+    uf: settings.sefazUf || settings.uf || "",
+    certificateName: settings.certificateName || "",
+    certificatePassword: secrets.certificatePassword || "",
+    cscId: settings.cscId || "",
+    csc: secrets.csc || "",
+    nfseCityCode: settings.nfseCityCode || settings.cityCode || "",
+    nfseProvider: settings.nfseProvider || ""
+  };
 }
 
 function send(res, status, body, type = "text/plain; charset=utf-8") {
@@ -1195,10 +1210,13 @@ function acbrLibCommand(method, args = [], timeoutMs = 10000, engineName = "nfe"
 
 async function initializeAcbrLib(configPath = acbrLibIni, engineName = "nfe") {
   const engine = acbrEngines[engineName];
-  if (engine.initialized && engine.process && !engine.process.killed && engine.currentConfig === configPath) {
+  const configHash = fs.existsSync(configPath)
+    ? crypto.createHash("sha256").update(fs.readFileSync(configPath)).digest("hex")
+    : "";
+  if (engine.initialized && engine.process && !engine.process.killed && engine.currentConfig === configPath && engine.currentConfigHash === configHash) {
     return { code: 0, response: `ACBrLib ${engineName} isolada ja inicializada.` };
   }
-  if (engine.process && !engine.process.killed && engine.currentConfig !== configPath) {
+  if (engine.process && !engine.process.killed && (engine.currentConfig !== configPath || engine.currentConfigHash !== configHash)) {
     engine.process.kill();
     engine.process = null;
     engine.initialized = false;
@@ -1210,6 +1228,7 @@ async function initializeAcbrLib(configPath = acbrLibIni, engineName = "nfe") {
   }
   engine.initialized = true;
   engine.currentConfig = configPath;
+  engine.currentConfigHash = configHash;
   return response;
 }
 
@@ -1281,7 +1300,7 @@ async function fiscalAgentExecute(tenantCode, tenantState, payload) {
   const response = await fetch(`${String(settings.acbrApiUrl).replace(/\/+$/, "")}/fiscal/execute`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${secrets.acbrApiToken}` },
-    body: JSON.stringify({ tenantCode, ...payload }),
+    body: JSON.stringify({ tenantCode, fiscalConfig: fiscalAgentConfig(tenantCode, tenantState, secrets), ...payload }),
     signal: AbortSignal.timeout(70000)
   });
   const result = await response.json().catch(() => ({}));
@@ -1440,7 +1459,7 @@ async function transmitFiscalDocument(tenantCode, row, sessionUser) {
     const response = await fetch(`${String(tenantState.settings.acbrApiUrl).replace(/\/+$/, "")}/fiscal/transmit`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${secrets.acbrApiToken}` },
-      body: JSON.stringify({ tenantCode, environment: tenantState.settings.fiscalEnvironment, document: fiscalRow }),
+      body: JSON.stringify({ tenantCode, environment: tenantState.settings.fiscalEnvironment, fiscalConfig: fiscalAgentConfig(tenantCode, tenantState, secrets), document: fiscalRow }),
       signal: AbortSignal.timeout(65000)
     });
     const result = await response.json().catch(() => ({}));
@@ -1542,6 +1561,7 @@ function fiscalProviderStatus(tenantState) {
   if (!settings.fiscalEngine) missing.push("motor fiscal ACBr");
   if ((settings.fiscalEngine || "ACBrMonitor") === "ACBrMonitor" && !settings.acbrHost) missing.push("host ACBrMonitor");
   if ((settings.fiscalEngine || "ACBrMonitor") === "ACBrMonitor" && !settings.acbrPort) missing.push("porta ACBrMonitor");
+  if (settings.acbrApiUrl && !settings.acbrApiTokenConfigured) missing.push("token protegido do agente fiscal");
   if (!settings.certificateName) missing.push("certificado A1");
   if (!settings.certificateExpiresAt) missing.push("validade do certificado");
   if (!settings.fiscalResponsible) missing.push("responsavel fiscal");

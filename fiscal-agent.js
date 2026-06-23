@@ -1,6 +1,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { spawn } = require("child_process");
 const { parseAcbrResponse } = require("./src/server/fiscal-documents");
 
@@ -13,8 +14,8 @@ const workDir = path.resolve(process.env.PEGMA_AGENT_DATA || path.join(root, "da
 const bridge = path.join(runtime, "Bridge", "ProdutoFiscal.AcbrLibBridge.exe");
 const baseIni = path.join(runtime, "ACBrLib", "ACBrLib.ini");
 const engines = {
-  nfe: { dll: path.join(runtime, "ACBrLib", "ACBrNFe64.dll"), process: null, buffer: "", pending: new Map(), sequence: 0, config: "" },
-  nfse: { dll: path.join(runtime, "ACBrLib", "ACBrNFSe64.dll"), process: null, buffer: "", pending: new Map(), sequence: 0, config: "" }
+  nfe: { dll: path.join(runtime, "ACBrLib", "ACBrNFe64.dll"), process: null, buffer: "", pending: new Map(), sequence: 0, config: "", configHash: "" },
+  nfse: { dll: path.join(runtime, "ACBrLib", "ACBrNFSe64.dll"), process: null, buffer: "", pending: new Map(), sequence: 0, config: "", configHash: "" }
 };
 
 fs.mkdirSync(workDir, { recursive: true });
@@ -75,6 +76,7 @@ function start(engineName) {
   engine.process.on("exit", () => {
     engine.process = null;
     engine.config = "";
+    engine.configHash = "";
     for (const pending of engine.pending.values()) pending.reject(new Error("Bridge ACBr encerrado."));
     engine.pending.clear();
   });
@@ -95,7 +97,7 @@ function command(engineName, method, args = [], timeout = 65000) {
   });
 }
 
-async function initialize(engineName, tenantCode) {
+async function initialize(engineName, tenantCode, fiscalConfig = {}) {
   const engine = engines[engineName];
   const tenantDir = path.join(workDir, safeName(tenantCode));
   fs.mkdirSync(tenantDir, { recursive: true });
@@ -105,19 +107,34 @@ async function initialize(engineName, tenantCode) {
   fs.mkdirSync(xmlDir, { recursive: true });
   const config = path.join(tenantDir, engineName === "nfse" ? "ACBrLibNFSe.ini" : "ACBrLib.ini");
   let ini = fs.existsSync(config) ? fs.readFileSync(config, "utf8") : fs.readFileSync(baseIni, "utf8");
+  ini = replaceIniValue(ini, "DFe", "UF", fiscalConfig.uf || "");
+  ini = replaceIniValue(ini, "DFe", "ArquivoPFX", fiscalConfig.certificateName || "");
+  ini = replaceIniValue(ini, "DFe", "Senha", fiscalConfig.certificatePassword || "");
+  ini = replaceIniValue(ini, "NFe", "Ambiente", fiscalConfig.fiscalEnvironment === "Producao" ? "1" : "2");
+  ini = replaceIniValue(ini, "NFe", "IdCSC", fiscalConfig.cscId || "");
+  ini = replaceIniValue(ini, "NFe", "CSC", fiscalConfig.csc || "");
   ini = replaceIniValue(ini, "NFe", "PathSalvar", xmlDir);
   ini = replaceIniValue(ini, "NFe", "PathNFe", xmlDir);
   ini = replaceIniValue(ini, "NFe", "PathEvento", xmlDir);
+  ini = replaceIniValue(ini, "NFe", "PathSchemas", path.join(runtime, "Schemas"));
+  ini = replaceIniValue(ini, "NFSe", "Ambiente", fiscalConfig.fiscalEnvironment === "Producao" ? "1" : "2");
+  ini = replaceIniValue(ini, "NFSe", "CodigoMunicipio", fiscalConfig.nfseCityCode || "");
+  ini = replaceIniValue(ini, "NFSe", "Provedor", fiscalConfig.nfseProvider || "");
   ini = replaceIniValue(ini, "NFSe", "PathSalvar", xmlDir);
+  ini = replaceIniValue(ini, "NFSe", "PathSchemas", path.join(runtime, "Schemas"));
   ini = replaceIniValue(ini, "DANFE", "PathPDF", pdfDir);
   ini = replaceIniValue(ini, "DANFSE", "PathPDF", pdfDir);
   fs.writeFileSync(config, ini);
-  if (engine.config !== config) {
+  const configHash = crypto.createHash("sha256").update(ini).digest("hex");
+  if (engine.config !== config || engine.configHash !== configHash) {
     if (engine.process && !engine.process.killed) engine.process.kill();
+    engine.process = null;
     engine.config = "";
+    engine.configHash = "";
     const result = await command(engineName, "inicializar", [config, ""], 15000);
     if (Number(result.code) !== 0) throw new Error(result.response || `Falha ao inicializar ACBr ${engineName}.`);
     engine.config = config;
+    engine.configHash = configHash;
   }
   return tenantDir;
 }
@@ -131,7 +148,7 @@ function saveContent(tenantDir, filename, content) {
 async function transmit(payload) {
   const document = payload.document || {};
   const engineName = document.model === "NFS-e" ? "nfse" : "nfe";
-  const tenantDir = await initialize(engineName, payload.tenantCode);
+  const tenantDir = await initialize(engineName, payload.tenantCode, payload.fiscalConfig || {});
   const xmlPath = saveContent(tenantDir, `${document.model || "fiscal"}-${document.id || Date.now()}.xml`, document.xml || "");
   await command(engineName, "carregarxml", [xmlPath]);
   const response = engineName === "nfse"
@@ -159,7 +176,7 @@ async function transmit(payload) {
 
 async function execute(payload) {
   const engineName = payload.engine === "nfse" ? "nfse" : "nfe";
-  const tenantDir = await initialize(engineName, payload.tenantCode);
+  const tenantDir = await initialize(engineName, payload.tenantCode, payload.fiscalConfig || {});
   const results = [];
   const pdfStartedAt = Date.now();
   for (const step of payload.steps || []) {

@@ -3849,6 +3849,7 @@ function fiscalReadiness() {
   if (!state.settings.fiscalEngine) missing.push("motor fiscal ACBr");
   if (state.settings.fiscalEngine === "ACBrMonitor" && !state.settings.acbrHost) missing.push("host ACBrMonitor");
   if (state.settings.fiscalEngine === "ACBrMonitor" && !state.settings.acbrPort) missing.push("porta ACBrMonitor");
+  if (state.settings.acbrApiUrl && !state.settings.acbrApiTokenConfigured) missing.push("token protegido do agente fiscal");
   if (!state.settings.certificateName) missing.push("certificado A1");
   if (!state.settings.certificateExpiresAt) missing.push("validade do certificado");
   if (!state.settings.fiscalResponsible) missing.push("responsavel fiscal");
