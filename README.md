@@ -1,6 +1,6 @@
-# Pegma Plus
+# Tortela Plus
 
-Primeira base do projeto ERP moderno Pegma Plus, feita como aplicacao web com retaguarda, PDV, Central SaaS separada e API local inicial.
+ERP da rede Tortela, feito como aplicacao web com retaguarda, PDV, operacao das unidades, Central da Rede separada e API local/preparada para hospedagem.
 
 ## Como abrir agora
 
@@ -14,19 +14,19 @@ Depois acesse:
 
 ```text
 Sistema do cliente: http://localhost:4173
-Central SaaS:        http://localhost:4173/central-saas.html
+Central da Rede:     http://localhost:4173/central-rede.html
 ```
 
-Tambem e possivel abrir direto os arquivos `index.html` e `central-saas.html`, mas nesse modo os dados ficam no armazenamento local do navegador. Com `node server.js`, a API grava a Central em `data/provider-state.json` e cada cliente em `data/tenants/<codigo-do-cliente>.json`.
+Tambem e possivel abrir direto os arquivos `index.html` e `central-rede.html`, mas nesse modo os dados ficam no armazenamento local do navegador. Com `node server.js`, a API grava a Central em `data/provider-state.json` e cada cliente em `data/tenants/<codigo-do-cliente>.json`.
 
 Se o PowerShell bloquear `npm`, use `node server.js` diretamente.
 
 ## O que ja existe
 
 - Login com selecao de usuario e empresa.
-- Sistema do cliente separado da Central SaaS.
-- Central SaaS em link proprio.
-- API local inicial para clientes, licencas, contra-senha e estado do SaaS.
+- Sistema da unidade separado da Central da Rede.
+- Central da Rede em link proprio.
+- API local inicial para unidades, licencas, contra-senha e estado da rede.
 - Retaguarda separada do PDV.
 - Painel com faturamento, contas e alerta automatico de estoque minimo.
 - Painel com alertas de titulos atrasados, lotes vencendo e documentos fiscais pendentes.
@@ -43,7 +43,7 @@ Se o PowerShell bloquear `npm`, use `node server.js` diretamente.
 - Fiscal separado com fila de NF-e, NFC-e e NFS-e, tentativas, ultimo erro e reprocessamento.
 - Relatorios previstos para produtos, vendas, financeiro e operacao.
 - Indicador de prontidao para iniciar a implantacao com cliente piloto.
-- Auditoria operacional, backup/restauracao e snapshot por cliente na Central SaaS.
+- Auditoria operacional, backup/restauracao e snapshot por unidade na Central da Rede.
 - Controle de modulos contratados, bloqueio/liberacao de cliente e liberacao de terminais ativos.
 - Service worker para cache offline quando executado via servidor local.
 - ACBrLibNFe e ACBrLibNFSe executados em processos proprios dentro de `runtime/fiscal`, sem compartilhar arquivos ou processo com outros projetos.
@@ -54,7 +54,7 @@ Esta versao usa HTML, CSS e JavaScript no navegador e backend Node.js. O backend
 
 ## Motor fiscal isolado
 
-Ao iniciar `node server.js`, o Pegma Plus inicia sob demanda sua propria copia do bridge ACBrLib:
+Ao iniciar `node server.js`, o Tortela Plus inicia sob demanda sua propria copia do bridge ACBrLib:
 
 ```text
 runtime/fiscal/ACBrLib/ACBrNFe64.dll
@@ -69,7 +69,7 @@ O motor gratuito escolhido para homologacao e o Projeto ACBr com ACBrLib. NF-e/N
 
 O sistema nao cria autorizacao, chave ou protocolo ficticio. A resposta somente e marcada como autorizada quando o motor fiscal retorna autorizacao/protocolo. A liberacao em producao ainda exige certificado, credenciamento, dados reais e homologacao aceita pela SEFAZ ou prefeitura.
 
-Quando o backend SaaS estiver hospedado fora do Windows, configure em cada cliente a URL HTTPS e o token do agente fiscal Windows. O servidor valida `GET /health` e encaminha transmissao, cancelamento, consulta, inutilizacao, eventos, distribuicao DF-e, contingencia e documentos auxiliares ao agente. Respostas sem autorizacao ou protocolo nao sao aceitas como emissao concluida.
+Quando o backend estiver hospedado fora do Windows, configure em cada unidade a URL HTTPS e o token do agente fiscal Windows. O servidor valida `GET /health` e encaminha transmissao, cancelamento, consulta, inutilizacao, eventos, distribuicao DF-e, contingencia e documentos auxiliares ao agente. Respostas sem autorizacao ou protocolo nao sao aceitas como emissao concluida.
 
 Inicie o agente separado na maquina Windows:
 
@@ -84,24 +84,32 @@ O agente deve ficar protegido por HTTPS/VPN. Ele utiliza somente a copia ACBr de
 
 - O financeiro possui plano de contas, parcelas, baixa parcial com juros/desconto e conciliacao por conta.
 - Relatorios podem ser exportados em CSV ou abertos para impressao/geracao de PDF pelo navegador.
-- A Central SaaS permite redefinir senha de usuario, liberar terminais e acompanhar sessoes, backups e pendencias fiscais por cliente.
+- A Central da Rede permite redefinir senha de usuario, liberar terminais e acompanhar sessoes, backups e pendencias fiscais por unidade.
 - Regras fiscais possuem vigencia e versao; sobreposicoes exigem confirmacao explicita.
 
-## Persistencia e Central SaaS
+## Persistencia e Central da Rede
 
 - Sem `DATABASE_URL`, o servidor usa os arquivos locais somente como contingencia de desenvolvimento.
-- Com `DATABASE_URL`, a Central fica no schema `public` e cada cliente recebe um schema PostgreSQL exclusivo `tenant_<codigo>`.
+- Com `DATABASE_URL`, a Central fica no schema `public` e cada unidade recebe um schema PostgreSQL exclusivo `tenant_<codigo>`.
 - Para os primeiros testes online, o PostgreSQL gratuito recomendado e o Neon Free: https://neon.com/pricing
 - A migracao inicial dos JSON existentes pode ser executada com `npm run db:migrate`.
 - A migracao inclui os arquivos XML, PDF, imagens e anexos armazenados por cliente.
-- Depois da migracao, execute `npm run db:verify` para conferir clientes, schemas e quantidades das colecoes principais.
+- Depois da migracao, execute `npm run db:verify` para conferir unidades, schemas e quantidades das colecoes principais.
 - Execute `npm run db:backup` com `PEGMA_BACKUP_DIR` apontando para um armazenamento externo.
-- O servidor cria backups programados individuais e gerais da Central SaaS, inclui XMLs/PDFs fiscais, permite restauracao completa, aplica retencao configuravel e remove sessoes expiradas automaticamente.
-- A Central SaaS monitora pendencias fiscais, titulos atrasados, estoque minimo, prontidao e periodo fechado.
-- Auditorias da Central e dos clientes possuem hashes encadeados para indicar alteracoes indevidas.
+- O servidor cria backups programados individuais e gerais da Central da Rede, inclui XMLs/PDFs fiscais, permite restauracao completa, aplica retencao configuravel e remove sessoes expiradas automaticamente.
+- A Central da Rede monitora pendencias fiscais, titulos atrasados, estoque minimo, prontidao e periodo fechado.
+- Auditorias da Central e das unidades possuem hashes encadeados para indicar alteracoes indevidas.
 - Periodos operacionais podem ser fechados em Configuracoes, bloqueando alteracoes retroativas em vendas, compras, financeiro, caixa e fiscal.
-- A Central SaaS exige login administrativo, registra auditoria e nao envia senha-base de licenca ao navegador.
+- A Central da Rede exige login administrativo, registra auditoria e nao envia senha-base de licenca ao navegador.
 - Configure `PEGMA_CENTRAL_USER` e `PEGMA_CENTRAL_PASSWORD` antes da publicacao.
+
+## Publicacao gratuita atual
+
+- Unidade Tortela Plus: https://tortelaplus-app.onrender.com/
+- Central Rede Tortela: https://tortelaplus-rede.onrender.com/
+- Health Unidade: https://tortelaplus-app.onrender.com/api/health
+- Health Central: https://tortelaplus-rede.onrender.com/api/health
+- Repositorio GitHub: https://github.com/atendimentopegma-ui/tortelaplus
 
 ## Observacao fiscal importante
 
