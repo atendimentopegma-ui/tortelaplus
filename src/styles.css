@@ -368,6 +368,10 @@ header.topbar .top-right .central-top-action:hover {
   padding: 16px;
 }
 
+.product-hidden-form {
+  display: none;
+}
+
 .grid {
   display: grid;
   gap: 14px;

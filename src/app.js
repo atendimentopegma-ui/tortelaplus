@@ -1148,14 +1148,16 @@ function findPersonByName(name) {
 function renderProducts() {
   const tabs = ["dados", "impostos", "composicao", "grade", "promocao", "balanca", "tabelas"];
   if (!tabs.includes(currentTab)) currentTab = "dados";
+  const formHtml = productForm();
+  const bodyHtml = currentTab === "dados"
+    ? `${formHtml}${productsTable()}`
+    : `${productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>${productsTable()}`;
   return `
     <section class="panel">
       <div class="panel-head"><h2>Produtos</h2><div class="actions"><input class="compact-input" id="product-search" value="${escapeAttr(productSearch)}" placeholder="Buscar produto" /><button class="btn" id="filter-products">Buscar</button><button class="btn primary" id="save-product">${editingProductId ? "Atualizar produto" : "Salvar produto"}</button></div></div>
       <div class="module-tabs">${tabs.map((tab) => `<button type="button" class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" aria-pressed="${currentTab === tab ? "true" : "false"}">${tabLabel(tab)}</button>`).join("")}</div>
       <div class="panel-body grid">
-        ${productForm()}
-        ${productTab()}
-        ${productsTable()}
+        ${bodyHtml}
       </div>
     </section>
   `;
