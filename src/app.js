@@ -1151,7 +1151,7 @@ function renderProducts() {
   return `
     <section class="panel">
       <div class="panel-head"><h2>Produtos</h2><div class="actions"><input class="compact-input" id="product-search" value="${escapeAttr(productSearch)}" placeholder="Buscar produto" /><button class="btn" id="filter-products">Buscar</button><button class="btn primary" id="save-product">${editingProductId ? "Atualizar produto" : "Salvar produto"}</button></div></div>
-      <div class="module-tabs">${tabs.map((tab) => `<button class="${currentTab === tab ? "active" : ""}" data-tab="${tab}">${tabLabel(tab)}</button>`).join("")}</div>
+      <div class="module-tabs">${tabs.map((tab) => `<button type="button" class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" aria-pressed="${currentTab === tab ? "true" : "false"}">${tabLabel(tab)}</button>`).join("")}</div>
       <div class="panel-body grid">
         ${productForm()}
         ${productTab()}
@@ -1279,10 +1279,10 @@ function productTab() {
       <div class="form-card">
         <h3>Produto pesado e informacao nutricional</h3>
         <div class="grid four">
-          <div class="field"><label>Codigo balanca</label><input /></div>
-          <div class="field"><label>Dias validade</label><input type="number" value="0" /></div>
-          <div class="field"><label>Calorias</label><input /></div>
-          <div class="field"><label>Proteinas</label><input /></div>
+          <div class="field"><label>Codigo balanca</label><input id="product-scale-code" value="${escapeAttr(pendingProductDraft.scaleCode || "")}" /></div>
+          <div class="field"><label>Dias validade</label><input id="product-scale-validity" type="number" min="0" value="${Number(pendingProductDraft.scaleValidityDays || 0)}" /></div>
+          <div class="field"><label>Calorias</label><input id="product-nutrition-calories" value="${escapeAttr(pendingProductDraft.nutritionCalories || "")}" /></div>
+          <div class="field"><label>Proteinas</label><input id="product-nutrition-protein" value="${escapeAttr(pendingProductDraft.nutritionProtein || "")}" /></div>
         </div>
       </div>
     `;
@@ -2153,6 +2153,14 @@ function currentCashBalance() {
 }
 
 function bindCurrentModule() {
+  document.querySelectorAll("[data-product-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      captureProductDraft();
+      currentTab = button.dataset.productTab;
+      renderShell();
+    });
+  });
+
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       captureProductDraft();
@@ -2901,6 +2909,10 @@ function saveProductRecord() {
     controlsLot: Boolean(pendingProductDraft.controlsLot),
     controlsSerial: Boolean(pendingProductDraft.controlsSerial),
     shelfLifeDays: Number(pendingProductDraft.shelfLifeDays || 0),
+    scaleCode: pendingProductDraft.scaleCode || "",
+    scaleValidityDays: Number(pendingProductDraft.scaleValidityDays || 0),
+    nutritionCalories: pendingProductDraft.nutritionCalories || "",
+    nutritionProtein: pendingProductDraft.nutritionProtein || "",
     promotion: structuredClone(pendingProductDraft.promotion || {}),
     priceTables: structuredClone(pendingProductDraft.priceTables || {}),
     commissionRate: Number(pendingProductDraft.commissionRate || 0),
@@ -2964,6 +2976,10 @@ function captureProductDraft() {
     controlsLot: Boolean(previous.controlsLot),
     controlsSerial: Boolean(previous.controlsSerial),
     shelfLifeDays: previous.shelfLifeDays || 0,
+    scaleCode: previous.scaleCode || "",
+    scaleValidityDays: previous.scaleValidityDays || 0,
+    nutritionCalories: previous.nutritionCalories || "",
+    nutritionProtein: previous.nutritionProtein || "",
     promotion: structuredClone(previous.promotion || {}),
     priceTables: structuredClone(previous.priceTables || {}),
     commissionRate: previous.commissionRate || 0
@@ -2973,6 +2989,10 @@ function captureProductDraft() {
   pendingProductDraft.controlsLot = byId("product-controls-lot") ? byId("product-controls-lot").value === "true" : Boolean(pendingProductDraft.controlsLot);
   pendingProductDraft.controlsSerial = byId("product-controls-serial") ? byId("product-controls-serial").value === "true" : Boolean(pendingProductDraft.controlsSerial);
   pendingProductDraft.shelfLifeDays = byId("product-shelf-life")?.value ?? pendingProductDraft.shelfLifeDays ?? 0;
+  pendingProductDraft.scaleCode = byId("product-scale-code")?.value ?? pendingProductDraft.scaleCode ?? "";
+  pendingProductDraft.scaleValidityDays = byId("product-scale-validity")?.value ?? pendingProductDraft.scaleValidityDays ?? 0;
+  pendingProductDraft.nutritionCalories = byId("product-nutrition-calories")?.value ?? pendingProductDraft.nutritionCalories ?? "";
+  pendingProductDraft.nutritionProtein = byId("product-nutrition-protein")?.value ?? pendingProductDraft.nutritionProtein ?? "";
   pendingProductDraft.promotion = {
     from: byId("product-promo-from")?.value ?? pendingProductDraft.promotion?.from ?? "",
     to: byId("product-promo-to")?.value ?? pendingProductDraft.promotion?.to ?? "",
