@@ -325,6 +325,8 @@ let pendingProductDraft = {};
 let pendingPersonDraft = {};
 let editingPersonId = 0;
 let editingProductId = 0;
+let editingFiscalRuleId = 0;
+let editingAccountId = 0;
 let personSearch = "";
 let productSearch = "";
 let sessionId = sessionStorage.getItem("tortelaplus-session-id") || "";
@@ -1545,16 +1547,18 @@ function financeTab() {
   const rows = currentTab === "pagar" ? state.payables : currentTab === "receber" ? state.receivables : state.cash;
   const accounts = (state.chartOfAccounts || []).filter((account) => account.active !== false);
   const accountOptions = accounts.map((account) => `<option value="${account.code}">${account.code} - ${account.name}</option>`).join("");
+  const editingAccount = (state.chartOfAccounts || []).find((account) => Number(account.id) === Number(editingAccountId)) || {};
   if (currentTab === "plano") {
     return `
       <div class="grid">
         <div class="form-card grid four">
-          <div class="field"><label>Codigo</label><input id="account-code" placeholder="Ex.: 4.1.02" /></div>
-          <div class="field"><label>Nome da conta</label><input id="account-name" /></div>
-          <div class="field"><label>Tipo</label><select id="account-type"><option>Ativo</option><option>Passivo</option><option>Receita</option><option>Despesa</option><option>Patrimonio</option></select></div>
-          <button class="btn primary" id="save-account" type="button">Cadastrar conta</button>
+          <div class="field"><label>Codigo</label><input id="account-code" value="${escapeAttr(editingAccount.code || "")}" placeholder="Ex.: 4.1.02" /></div>
+          <div class="field"><label>Nome da conta</label><input id="account-name" value="${escapeAttr(editingAccount.name || "")}" /></div>
+          <div class="field"><label>Tipo</label><select id="account-type">${["Ativo", "Passivo", "Receita", "Despesa", "Patrimonio"].map((type) => `<option ${editingAccount.type === type ? "selected" : ""}>${type}</option>`).join("")}</select></div>
+          <button class="btn primary" id="save-account" type="button">${editingAccountId ? "Atualizar conta" : "Cadastrar conta"}</button>
+          ${editingAccountId ? `<button class="btn" id="cancel-account-edit" type="button">Cancelar edicao</button>` : ""}
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Codigo</th><th>Conta</th><th>Tipo</th><th>Status</th></tr></thead><tbody>${(state.chartOfAccounts || []).map((account) => `<tr><td>${account.code}</td><td>${account.name}</td><td>${account.type}</td><td>${account.active === false ? "Inativa" : "Ativa"}</td></tr>`).join("")}</tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Codigo</th><th>Conta</th><th>Tipo</th><th>Status</th><th>Acoes</th></tr></thead><tbody>${(state.chartOfAccounts || []).map((account) => `<tr><td>${account.code}</td><td>${account.name}</td><td>${account.type}</td><td>${account.active === false ? "Inativa" : "Ativa"}</td><td><button class="btn" data-edit-account="${account.id}">Editar</button> <button class="btn ${account.active === false ? "" : "danger"}" data-toggle-account="${account.id}">${account.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody></table></div>
       </div>`;
   }
   if (currentTab === "caixa") {
@@ -1869,6 +1873,10 @@ function renderSettings() {
   ensureFiscalRuleCoverage();
   const users = state.users || [];
   const readiness = operationReadiness();
+  const editingRule = (state.fiscalRules || []).find((rule) => Number(rule.id) === Number(editingFiscalRuleId)) || {};
+  const ruleValue = (key, fallback = "") => escapeAttr(editingRule[key] ?? fallback);
+  const ruleNumber = (key, fallback = 0) => Number(editingRule[key] ?? fallback);
+  const ruleSelected = (key, value, fallback = "") => (editingRule[key] || fallback) === value ? "selected" : "";
   return `
     <section class="panel">
       <div class="panel-head"><h2>Configuracoes</h2><button class="btn primary" id="save-settings">Salvar configuracoes</button></div>
@@ -1918,50 +1926,51 @@ function renderSettings() {
           </div>
         </form>
         <div class="form-card">
-          <h3>Regra fiscal</h3>
+          <h3>${editingFiscalRuleId ? "Editar regra fiscal" : "Regra fiscal"}</h3>
           <div class="grid four">
-            <div class="field"><label>Nome da regra</label><input id="rule-name" placeholder="Venda interna" /></div>
-            <div class="field"><label>Modelo</label><select id="rule-model"><option>NF-e</option><option>NFC-e</option><option>NFS-e</option></select></div>
-            <div class="field"><label>Regime</label><select id="rule-regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></div>
-            <div class="field"><label>UF</label><input id="rule-uf" value="${state.settings.uf}" maxlength="2" /></div>
-            <div class="field"><label>Municipio</label><input id="rule-municipio" value="${state.settings.city || ""}" /></div>
-            <div class="field"><label>Operacao</label><input id="rule-operation" value="Venda de mercadoria" /></div>
-            <div class="field"><label>CFOP</label><input id="rule-cfop" value="5102" /></div>
-            <div class="field"><label>CST/CSOSN</label><input id="rule-cst" value="102" /></div>
-            <div class="field"><label>CSOSN</label><input id="rule-csosn" value="102" /></div>
-            <div class="field"><label>NCM</label><input id="rule-ncm" value="19059090" /></div>
-            <div class="field"><label>CEST</label><input id="rule-cest" /></div>
-            <div class="field"><label>Origem</label><input id="rule-origin" value="0" /></div>
-            <div class="field"><label>CST PIS/COFINS</label><input id="rule-pis-cofins-cst" value="49" /></div>
-            <div class="field"><label>PIS %</label><input id="rule-pis-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>COFINS %</label><input id="rule-cofins-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>ICMS %</label><input id="rule-icms-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>ISS %</label><input id="rule-iss-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>FCP %</label><input id="rule-fcp-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>MVA %</label><input id="rule-mva-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Classificacao IBS</label><input id="rule-ibs" value="000001" /></div>
-            <div class="field"><label>Classificacao CBS</label><input id="rule-cbs" value="000001" /></div>
-            <div class="field"><label>CST IBS/CBS</label><input id="rule-ibs-cbs-cst" value="000" /></div>
-            <div class="field"><label>IBS %</label><input id="rule-ibs-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>CBS %</label><input id="rule-cbs-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>IBS UF %</label><input id="rule-ibs-uf-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>IBS Municipio %</label><input id="rule-ibs-city-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>CBS Federal %</label><input id="rule-cbs-federal-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Credito presumido %</label><input id="rule-presumed-credit-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Ano transicao</label><input id="rule-transition-year" type="number" value="2026" /></div>
-            <div class="field"><label>Reducao base reforma %</label><input id="rule-reform-reduction-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Imp. seletivo %</label><input id="rule-selective-rate" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Servico LC 116</label><input id="rule-service-code" /></div>
-            <div class="field"><label>Servico municipal</label><input id="rule-city-service-code" /></div>
-            <div class="field"><label>Beneficio fiscal</label><input id="rule-tax-benefit" /></div>
-            <div class="field"><label>Motivo desoneracao</label><input id="rule-reduction-reason" /></div>
-            <div class="field"><label>Vigencia inicial</label><input id="rule-valid-from" type="date" value="${today()}" /></div>
-            <div class="field"><label>Vigencia final</label><input id="rule-valid-to" type="date" /></div>
+            <div class="field"><label>Nome da regra</label><input id="rule-name" value="${ruleValue("name")}" placeholder="Venda interna" /></div>
+            <div class="field"><label>Modelo</label><select id="rule-model"><option ${ruleSelected("model", "NF-e", "NF-e")}>NF-e</option><option ${ruleSelected("model", "NFC-e", "NF-e")}>NFC-e</option><option ${ruleSelected("model", "NFS-e", "NF-e")}>NFS-e</option></select></div>
+            <div class="field"><label>Regime</label><select id="rule-regime"><option ${ruleSelected("regime", "Simples Nacional", "Simples Nacional")}>Simples Nacional</option><option ${ruleSelected("regime", "Lucro Presumido", "Simples Nacional")}>Lucro Presumido</option><option ${ruleSelected("regime", "Lucro Real", "Simples Nacional")}>Lucro Real</option></select></div>
+            <div class="field"><label>UF</label><input id="rule-uf" value="${ruleValue("uf", state.settings.uf)}" maxlength="2" /></div>
+            <div class="field"><label>Municipio</label><input id="rule-municipio" value="${ruleValue("municipio", state.settings.city || "")}" /></div>
+            <div class="field"><label>Operacao</label><input id="rule-operation" value="${ruleValue("operation", "Venda de mercadoria")}" /></div>
+            <div class="field"><label>CFOP</label><input id="rule-cfop" value="${ruleValue("cfop", "5102")}" /></div>
+            <div class="field"><label>CST/CSOSN</label><input id="rule-cst" value="${ruleValue("cst", "102")}" /></div>
+            <div class="field"><label>CSOSN</label><input id="rule-csosn" value="${ruleValue("csosn", "102")}" /></div>
+            <div class="field"><label>NCM</label><input id="rule-ncm" value="${ruleValue("ncm", "19059090")}" /></div>
+            <div class="field"><label>CEST</label><input id="rule-cest" value="${ruleValue("cest")}" /></div>
+            <div class="field"><label>Origem</label><input id="rule-origin" value="${ruleValue("origin", "0")}" /></div>
+            <div class="field"><label>CST PIS/COFINS</label><input id="rule-pis-cofins-cst" value="${ruleValue("pisCofinsCst", "49")}" /></div>
+            <div class="field"><label>PIS %</label><input id="rule-pis-rate" type="number" step="0.01" value="${ruleNumber("pisRate")}" /></div>
+            <div class="field"><label>COFINS %</label><input id="rule-cofins-rate" type="number" step="0.01" value="${ruleNumber("cofinsRate")}" /></div>
+            <div class="field"><label>ICMS %</label><input id="rule-icms-rate" type="number" step="0.01" value="${ruleNumber("icmsRate")}" /></div>
+            <div class="field"><label>ISS %</label><input id="rule-iss-rate" type="number" step="0.01" value="${ruleNumber("issRate")}" /></div>
+            <div class="field"><label>FCP %</label><input id="rule-fcp-rate" type="number" step="0.01" value="${ruleNumber("fcpRate")}" /></div>
+            <div class="field"><label>MVA %</label><input id="rule-mva-rate" type="number" step="0.01" value="${ruleNumber("mvaRate")}" /></div>
+            <div class="field"><label>Classificacao IBS</label><input id="rule-ibs" value="${ruleValue("ibsClass", "000001")}" /></div>
+            <div class="field"><label>Classificacao CBS</label><input id="rule-cbs" value="${ruleValue("cbsClass", "000001")}" /></div>
+            <div class="field"><label>CST IBS/CBS</label><input id="rule-ibs-cbs-cst" value="${ruleValue("ibsCbsCst", "000")}" /></div>
+            <div class="field"><label>IBS %</label><input id="rule-ibs-rate" type="number" step="0.01" value="${ruleNumber("ibsRate")}" /></div>
+            <div class="field"><label>CBS %</label><input id="rule-cbs-rate" type="number" step="0.01" value="${ruleNumber("cbsRate")}" /></div>
+            <div class="field"><label>IBS UF %</label><input id="rule-ibs-uf-rate" type="number" step="0.01" value="${ruleNumber("ibsUfRate")}" /></div>
+            <div class="field"><label>IBS Municipio %</label><input id="rule-ibs-city-rate" type="number" step="0.01" value="${ruleNumber("ibsCityRate")}" /></div>
+            <div class="field"><label>CBS Federal %</label><input id="rule-cbs-federal-rate" type="number" step="0.01" value="${ruleNumber("cbsFederalRate")}" /></div>
+            <div class="field"><label>Credito presumido %</label><input id="rule-presumed-credit-rate" type="number" step="0.01" value="${ruleNumber("presumedCreditRate")}" /></div>
+            <div class="field"><label>Ano transicao</label><input id="rule-transition-year" type="number" value="${ruleValue("transitionYear", "2026")}" /></div>
+            <div class="field"><label>Reducao base reforma %</label><input id="rule-reform-reduction-rate" type="number" step="0.01" value="${ruleNumber("reformReductionRate")}" /></div>
+            <div class="field"><label>Imp. seletivo %</label><input id="rule-selective-rate" type="number" step="0.01" value="${ruleNumber("selectiveTaxRate")}" /></div>
+            <div class="field"><label>Servico LC 116</label><input id="rule-service-code" value="${ruleValue("serviceCode")}" /></div>
+            <div class="field"><label>Servico municipal</label><input id="rule-city-service-code" value="${ruleValue("cityServiceCode")}" /></div>
+            <div class="field"><label>Beneficio fiscal</label><input id="rule-tax-benefit" value="${ruleValue("taxBenefitCode")}" /></div>
+            <div class="field"><label>Motivo desoneracao</label><input id="rule-reduction-reason" value="${ruleValue("reductionReason")}" /></div>
+            <div class="field"><label>Vigencia inicial</label><input id="rule-valid-from" type="date" value="${ruleValue("validFrom", today())}" /></div>
+            <div class="field"><label>Vigencia final</label><input id="rule-valid-to" type="date" value="${ruleValue("validTo")}" /></div>
           </div>
-          <button class="btn primary" id="save-fiscal-rule" type="button">Cadastrar regra</button>
+          <button class="btn primary" id="save-fiscal-rule" type="button">${editingFiscalRuleId ? "Atualizar regra" : "Cadastrar regra"}</button>
+          ${editingFiscalRuleId ? `<button class="btn" id="cancel-fiscal-rule-edit" type="button">Cancelar edicao</button>` : ""}
           <div class="table-wrap">
-            <table><thead><tr><th>Regra</th><th>Regime</th><th>UF</th><th>Modelo</th><th>CFOP</th><th>CST/CSOSN</th><th>NCM</th><th>ICMS</th><th>IBS</th><th>CBS</th><th>Vigencia</th></tr></thead>
-            <tbody>${(state.fiscalRules || []).map((rule) => `<tr><td>${rule.name}</td><td>${rule.regime}</td><td>${rule.uf}</td><td>${rule.model}</td><td>${rule.cfop}</td><td>${rule.cst || rule.csosn}</td><td>${rule.ncm || "-"}</td><td>${pct(rule.icmsRate)}</td><td>${pct(rule.ibsRate)}</td><td>${pct(rule.cbsRate)}</td><td>${rule.validFrom || "-"} a ${rule.validTo || "sem fim"}</td></tr>`).join("")}</tbody></table>
+            <table><thead><tr><th>Regra</th><th>Regime</th><th>UF</th><th>Modelo</th><th>CFOP</th><th>CST/CSOSN</th><th>NCM</th><th>ICMS</th><th>IBS</th><th>CBS</th><th>Vigencia</th><th>Status</th><th>Acoes</th></tr></thead>
+            <tbody>${(state.fiscalRules || []).map((rule) => `<tr><td>${rule.name}</td><td>${rule.regime}</td><td>${rule.uf}</td><td>${rule.model}</td><td>${rule.cfop}</td><td>${rule.cst || rule.csosn}</td><td>${rule.ncm || "-"}</td><td>${pct(rule.icmsRate)}</td><td>${pct(rule.ibsRate)}</td><td>${pct(rule.cbsRate)}</td><td>${rule.validFrom || "-"} a ${rule.validTo || "sem fim"}</td><td><span class="badge ${rule.active === false ? "danger" : "ok"}">${rule.active === false ? "Inativa" : "Ativa"}</span></td><td><button class="btn" data-edit-fiscal-rule="${rule.id}">Editar</button> <button class="btn ${rule.active === false ? "" : "danger"}" data-toggle-fiscal-rule="${rule.id}">${rule.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody></table>
           </div>
         </div>
         <div class="form-card">
@@ -2027,8 +2036,8 @@ function renderSettings() {
         </div>
         <div class="table-wrap" style="grid-column: 1 / -1">
           <table>
-            <thead><tr><th>Usuario</th><th>Nome</th><th>Perfil</th><th>Permissoes</th><th>Status</th></tr></thead>
-            <tbody>${users.map((user) => `<tr><td>${user.username}</td><td>${user.name}</td><td>${user.role}</td><td>${(user.permissions || rolePermissions[user.role] || []).map(permissionLabel).join(", ")}</td><td><span class="badge ${user.active === false ? "danger" : "ok"}">${user.active === false ? "Bloqueado" : "Ativo"}</span></td></tr>`).join("")}</tbody>
+            <thead><tr><th>Usuario</th><th>Nome</th><th>Perfil</th><th>Permissoes</th><th>Status</th><th>Acoes</th></tr></thead>
+            <tbody>${users.map((user) => `<tr><td>${user.username}</td><td>${user.name}</td><td>${user.role}</td><td>${(user.permissions || rolePermissions[user.role] || []).map(permissionLabel).join(", ")}</td><td><span class="badge ${user.active === false ? "danger" : "ok"}">${user.active === false ? "Bloqueado" : "Ativo"}</span></td><td><button class="btn ${user.active === false ? "" : "danger"}" data-toggle-user="${user.id}">${user.active === false ? "Ativar" : "Bloquear"}</button></td></tr>`).join("")}</tbody>
           </table>
         </div>
       </div>
@@ -2288,6 +2297,17 @@ function bindCurrentModule() {
   if (importOfx) importOfx.addEventListener("change", importOfxFile);
   const saveAccount = byId("save-account");
   if (saveAccount) saveAccount.addEventListener("click", saveChartAccount);
+  const cancelAccountEdit = byId("cancel-account-edit");
+  if (cancelAccountEdit) cancelAccountEdit.addEventListener("click", () => {
+    editingAccountId = 0;
+    renderShell();
+  });
+  document.querySelectorAll("[data-edit-account]").forEach((button) => {
+    button.addEventListener("click", () => editChartAccount(Number(button.dataset.editAccount)));
+  });
+  document.querySelectorAll("[data-toggle-account]").forEach((button) => {
+    button.addEventListener("click", () => toggleChartAccount(Number(button.dataset.toggleAccount)));
+  });
 
   document.querySelectorAll("[data-pay]").forEach((button) => {
     button.addEventListener("click", () => payFinanceRecord(Number(button.dataset.pay)));
@@ -2308,6 +2328,9 @@ function bindCurrentModule() {
 
   const saveUser = byId("save-user");
   if (saveUser) saveUser.addEventListener("click", saveUserRecord);
+  document.querySelectorAll("[data-toggle-user]").forEach((button) => {
+    button.addEventListener("click", () => toggleUserRecord(Number(button.dataset.toggleUser)));
+  });
 
   const newFiscal = byId("new-fiscal");
   if (newFiscal) newFiscal.addEventListener("click", createFiscalRecord);
@@ -2404,6 +2427,17 @@ function bindCurrentModule() {
 
   const saveFiscalRule = byId("save-fiscal-rule");
   if (saveFiscalRule) saveFiscalRule.addEventListener("click", saveFiscalRuleRecord);
+  const cancelFiscalRuleEdit = byId("cancel-fiscal-rule-edit");
+  if (cancelFiscalRuleEdit) cancelFiscalRuleEdit.addEventListener("click", () => {
+    editingFiscalRuleId = 0;
+    renderShell();
+  });
+  document.querySelectorAll("[data-edit-fiscal-rule]").forEach((button) => {
+    button.addEventListener("click", () => editFiscalRuleRecord(Number(button.dataset.editFiscalRule)));
+  });
+  document.querySelectorAll("[data-toggle-fiscal-rule]").forEach((button) => {
+    button.addEventListener("click", () => toggleFiscalRuleRecord(Number(button.dataset.toggleFiscalRule)));
+  });
 
   const saleSearch = byId("sale-search");
   if (saleSearch) {
@@ -3737,9 +3771,30 @@ function saveChartAccount() {
   const code = byId("account-code").value.trim();
   const name = byId("account-name").value.trim();
   if (!code || !name) return alert("Informe codigo e nome da conta.");
-  if (state.chartOfAccounts.some((account) => account.code === code)) return alert("Ja existe uma conta com este codigo.");
-  state.chartOfAccounts.push({ id: nextId(state.chartOfAccounts), code, name, type: byId("account-type").value, active: true });
-  audit("Conta contabil cadastrada", `${code} - ${name}`);
+  if (state.chartOfAccounts.some((account) => account.code === code && Number(account.id) !== Number(editingAccountId))) return alert("Ja existe uma conta com este codigo.");
+  const existingAccount = state.chartOfAccounts.find((account) => Number(account.id) === Number(editingAccountId));
+  const record = { id: existingAccount?.id || nextId(state.chartOfAccounts), code, name, type: byId("account-type").value, active: existingAccount?.active !== false };
+  if (existingAccount) Object.assign(existingAccount, record);
+  else state.chartOfAccounts.push(record);
+  audit(existingAccount ? "Conta contabil alterada" : "Conta contabil cadastrada", `${code} - ${name}`);
+  editingAccountId = 0;
+  save();
+  renderShell();
+}
+
+function editChartAccount(id) {
+  const account = (state.chartOfAccounts || []).find((row) => Number(row.id) === Number(id));
+  if (!account) return;
+  editingAccountId = id;
+  renderShell();
+}
+
+function toggleChartAccount(id) {
+  const account = (state.chartOfAccounts || []).find((row) => Number(row.id) === Number(id));
+  if (!account) return;
+  account.active = account.active === false;
+  if (Number(editingAccountId) === Number(id) && account.active === false) editingAccountId = 0;
+  audit(account.active ? "Conta contabil ativada" : "Conta contabil inativada", `${account.code} - ${account.name}`);
   save();
   renderShell();
 }
@@ -3930,13 +3985,15 @@ function saveFiscalRuleRecord() {
   const validFrom = byId("rule-valid-from").value || today();
   const validTo = byId("rule-valid-to").value || "";
   const overlaps = state.fiscalRules.some((rule) => rule.active !== false
+    && Number(rule.id) !== Number(editingFiscalRuleId)
     && rule.regime === regime && rule.model === model && rule.uf === uf
     && String(rule.municipio || "") === String(municipio || "")
     && (!rule.validTo || rule.validTo >= validFrom)
     && (!validTo || !rule.validFrom || rule.validFrom <= validTo));
   if (overlaps && !confirm("Ja existe uma regra ativa sobreposta para este regime, modelo, UF e municipio. Deseja cadastrar uma nova versao mesmo assim?")) return;
-  state.fiscalRules.push({
-    id: nextId(state.fiscalRules),
+  const existingRule = state.fiscalRules.find((rule) => Number(rule.id) === Number(editingFiscalRuleId));
+  const record = {
+    id: existingRule?.id || nextId(state.fiscalRules),
     name: byId("rule-name").value || "Regra fiscal",
     regime,
     crt: taxRegimeCode(regime),
@@ -3975,10 +4032,30 @@ function saveFiscalRuleRecord() {
     reductionReason: byId("rule-reduction-reason").value || "",
     validFrom,
     validTo,
-    version: state.fiscalRules.filter((rule) => rule.regime === regime && rule.model === model && rule.uf === uf).length + 1,
-    active: true
-  });
-  audit("Regra fiscal cadastrada", byId("rule-name").value || "Regra fiscal");
+    version: existingRule?.version || state.fiscalRules.filter((rule) => rule.regime === regime && rule.model === model && rule.uf === uf).length + 1,
+    active: existingRule?.active !== false
+  };
+  if (existingRule) Object.assign(existingRule, record);
+  else state.fiscalRules.push(record);
+  audit(existingRule ? "Regra fiscal alterada" : "Regra fiscal cadastrada", byId("rule-name").value || "Regra fiscal");
+  editingFiscalRuleId = 0;
+  save();
+  renderShell();
+}
+
+function editFiscalRuleRecord(id) {
+  const rule = (state.fiscalRules || []).find((row) => Number(row.id) === Number(id));
+  if (!rule) return;
+  editingFiscalRuleId = id;
+  renderShell();
+}
+
+function toggleFiscalRuleRecord(id) {
+  const rule = (state.fiscalRules || []).find((row) => Number(row.id) === Number(id));
+  if (!rule) return;
+  rule.active = rule.active === false;
+  if (Number(editingFiscalRuleId) === Number(id) && rule.active === false) editingFiscalRuleId = 0;
+  audit(rule.active ? "Regra fiscal ativada" : "Regra fiscal inativada", rule.name);
   save();
   renderShell();
 }
@@ -4012,6 +4089,31 @@ async function saveUserRecord() {
     renderShell();
   } catch {
     alert("Nao foi possivel cadastrar usuario. Verifique se ele ja existe.");
+  }
+}
+
+async function toggleUserRecord(id) {
+  if (!requirePermission("manage_users")) return;
+  if (!apiOnline) return alert("Bloqueio de usuario exige API online para manter a seguranca.");
+  const user = (state.users || []).find((row) => Number(row.id) === Number(id));
+  if (!user) return;
+  if (String(user.username || "").toLowerCase() === String(state.settings.user || "").toLowerCase()) {
+    alert("O usuario logado nao pode bloquear a propria conta.");
+    return;
+  }
+  const nextActive = user.active === false;
+  if (!nextActive && !confirm(`Bloquear o usuario ${user.username}?`)) return;
+  try {
+    const result = await api(`/api/tenant/${state.settings.tenantCode}/users/${id}`, {
+      method: "POST",
+      body: JSON.stringify({ active: nextActive })
+    });
+    Object.assign(user, result.user);
+    audit(nextActive ? "Usuario ativado" : "Usuario bloqueado", user.username);
+    save();
+    renderShell();
+  } catch (error) {
+    alert(`Nao foi possivel atualizar usuario: ${error.message}`);
   }
 }
 

@@ -2888,6 +2888,38 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const tenantUserUpdateMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/users\/(\d+)$/);
+  if (tenantUserUpdateMatch && req.method === "POST") {
+    const tenantCode = normalizeTenantCode(tenantUserUpdateMatch[1]);
+    const userId = Number(tenantUserUpdateMatch[2]);
+    const provider = readProvider();
+    const access = sessionAccess(req, provider, tenantCode, "manage_users");
+    if (access.error) {
+      deny(res, access);
+      return;
+    }
+    const body = await readBody(req);
+    const tenantState = readTenantState(tenantCode);
+    const user = tenantState.users.find((item) => Number(item.id) === userId);
+    if (!user) {
+      sendJson(res, 404, { ok: false, error: "Usuario nao encontrado" });
+      return;
+    }
+    if (user.username === access.session.user && body.active === false) {
+      sendJson(res, 400, { ok: false, error: "O usuario logado nao pode bloquear a propria conta" });
+      return;
+    }
+    if (body.name !== undefined) user.name = String(body.name).trim() || user.name;
+    if (body.role !== undefined && rolePermissions[body.role]) user.role = body.role;
+    if (body.permissions !== undefined) user.permissions = validPermissions(body.permissions, user.role);
+    if (body.active !== undefined) user.active = Boolean(body.active);
+    writeTenantState(tenantCode, tenantState);
+    writeProvider(provider);
+    appendTenantAudit(tenantCode, "Usuario atualizado", user.username, access.session.user);
+    sendJson(res, 200, { ok: true, user: publicUser(user) });
+    return;
+  }
+
   const tenantPasswordMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/auth\/password$/);
   if (tenantPasswordMatch && req.method === "POST") {
     const tenantCode = normalizeTenantCode(tenantPasswordMatch[1]);
