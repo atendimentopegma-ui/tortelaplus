@@ -776,7 +776,7 @@ function renderLogin() {
           <div>
             ${brandMarkup()}
             <h1>Gestao simples para operacao completa</h1>
-            <p>Retaguarda, PDV, fiscal, estoque, financeiro e producao em uma base preparada para trabalhar online e offline.</p>
+            <p>Operacao da unidade Tortela.</p>
           </div>
           <div class="status-row">
             <span class="badge ok">Offline pronto</span>
@@ -786,7 +786,7 @@ function renderLogin() {
         <form class="login-panel" id="login-form">
           <div>
             <h2>Entrar no sistema</h2>
-            <p class="muted">Use qualquer usuario para acessar esta primeira base.</p>
+            <p class="muted">Acesse sua unidade Tortela.</p>
           </div>
           <div class="field">
             <label for="login-user">Usuario</label>
@@ -805,7 +805,7 @@ function renderLogin() {
             <input id="login-pass" type="password" value="123456" autocomplete="current-password" />
           </div>
           <button class="btn primary" type="submit">Entrar</button>
-          <p class="helper">Esta tela e original do novo sistema e nao replica o visual das referencias.</p>
+          <p class="helper">Ambiente seguro da unidade Tortela.</p>
         </form>
       </section>
     </main>

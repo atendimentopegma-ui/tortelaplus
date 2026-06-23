@@ -1405,3 +1405,348 @@ th {
     grid-column: auto;
   }
 }
+
+/* Camada final de acabamento operacional Tortela */
+.tortela-theme {
+  --bg: #f6f2e7;
+  --panel: #fffefa;
+  --panel-2: #fff4bd;
+  --text: #1d2430;
+  --muted: #657084;
+  --line: #e5d8b0;
+  --line-strong: #c69a12;
+  --brand: #b88400;
+  --brand-2: #1f6f8b;
+  --brand-3: #243447;
+  --accent: #f4c430;
+  --danger: #b91c1c;
+  --ok: #15803d;
+  --warn: #b45309;
+  --shadow: 0 18px 44px rgba(62, 48, 12, 0.14);
+  background: #f6f2e7;
+}
+
+.tortela-theme .content,
+.network-shell,
+.public-register-shell,
+.tortela-login-shell,
+.tortela-theme .login-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 250, 232, 0.88)),
+    #f6f2e7;
+}
+
+.tortela-theme .topbar,
+.tortela-topbar {
+  background: #fffefa;
+  border-bottom: 1px solid #dfc776;
+  box-shadow: 0 10px 28px rgba(96, 70, 10, 0.08);
+  color: var(--text);
+}
+
+.tortela-theme .topbar .company,
+.tortela-topbar strong {
+  font-size: 17px;
+  letter-spacing: 0;
+}
+
+.tortela-theme .topbar small,
+.tortela-topbar small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.tortela-logo {
+  height: 58px;
+  max-width: 178px;
+  min-width: 178px;
+  width: 178px;
+}
+
+.tortela-theme .mode-switch {
+  background: #f7edca;
+  border-bottom-color: #e1cf91;
+  padding: 6px 18px;
+}
+
+.mode-switch button {
+  border-radius: 8px;
+}
+
+.mode-switch button.active {
+  border: 1px solid #e7d39a;
+  box-shadow: 0 4px 14px rgba(79, 60, 10, 0.08);
+}
+
+.layout {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.sidebar,
+.network-nav,
+.panel,
+.network-card,
+.public-register-card,
+.login-card {
+  border-color: var(--line);
+  box-shadow: 0 8px 24px rgba(62, 48, 12, 0.08);
+}
+
+.sidebar,
+.network-nav {
+  background: rgba(255, 254, 250, 0.94);
+}
+
+.nav-btn,
+.network-nav button {
+  border-radius: 8px;
+  min-height: 42px;
+}
+
+.nav-btn.active,
+.nav-btn:hover,
+.network-nav button.active,
+.network-nav button:hover {
+  background: #fff4bd;
+  color: #1f6f8b;
+}
+
+.panel-head,
+.network-module-title {
+  align-items: flex-start;
+}
+
+.panel-head h2,
+.panel-head h3,
+.network-module-title h1 {
+  color: #182231;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.panel-body {
+  background: linear-gradient(180deg, #fffefa, #fffaf0);
+}
+
+.kpi,
+.form-card,
+.network-card.kpi {
+  background: #ffffff;
+  border-color: #eadba9;
+}
+
+.kpi strong {
+  color: #1f6f8b;
+  font-size: 26px;
+}
+
+.btn {
+  border-color: #d6c48e;
+  border-radius: 8px;
+  background: #fffefa;
+  color: #1d2430;
+  min-height: 38px;
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: #fff4bd;
+  border-color: #c69a12;
+  box-shadow: 0 5px 14px rgba(72, 55, 12, 0.1);
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.btn.primary {
+  background: #1f6f8b;
+  border-color: #1f6f8b;
+  color: #ffffff;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: #185a72;
+  border-color: #185a72;
+}
+
+.btn.danger {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+input,
+select,
+textarea {
+  border-color: #d9c995;
+  border-radius: 8px;
+  background: #fffefa;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #1f6f8b;
+  box-shadow: 0 0 0 3px rgba(31, 111, 139, 0.14);
+  outline: 0;
+}
+
+.table-wrap,
+.network-table-wrap {
+  border-color: #dfcf9c;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+th,
+.network-table-wrap th {
+  background: #f8edc8;
+  color: #253142;
+  letter-spacing: 0;
+}
+
+td,
+.network-table-wrap td {
+  color: #243142;
+}
+
+tbody tr:hover td {
+  background: #fff9df;
+}
+
+.badge {
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+}
+
+.badge.ok {
+  background: #dff6e8;
+}
+
+.badge.warn {
+  background: #fff0bd;
+}
+
+.badge.danger {
+  background: #ffe1e1;
+}
+
+.login-card {
+  grid-template-columns: minmax(320px, 0.85fr) minmax(380px, 1.15fr);
+}
+
+.tortela-login-brand,
+.tortela-theme .login-brand {
+  background: #fff4bd;
+  border-right: 1px solid #e4cb76;
+}
+
+.login-brand h1 {
+  font-size: 38px;
+  line-height: 1.05;
+}
+
+.login-panel {
+  background: #fffefa;
+}
+
+.public-register-brand {
+  border-bottom-color: #dfc776;
+}
+
+.tortela-theme .pdv {
+  background: #ede6d2;
+}
+
+.tortela-theme .pdv-side {
+  background: #fff8d3;
+  border-right-color: #b88400;
+}
+
+.tortela-theme .pdv-title,
+.tortela-theme .pdv-main-title {
+  background: #243447;
+  color: #ffffff;
+}
+
+.tortela-theme .pdv-client,
+.tortela-theme .shortcut-grid {
+  background: #fff0bd;
+}
+
+.shortcut-grid .btn {
+  background: #fffefa;
+}
+
+.sale-inputs,
+.total-box,
+.pdv-options {
+  border-color: #d9c995;
+}
+
+.grand-total {
+  background: #243447;
+  border-color: #243447;
+  color: #ffffff;
+}
+
+.grand-total strong {
+  color: #f4c430;
+}
+
+.pdv-options {
+  background: #fffefa;
+}
+
+.network-shell {
+  padding: 16px 18px;
+}
+
+.network-dashboard {
+  grid-template-columns: 216px minmax(0, 1fr);
+}
+
+.network-module-title p {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+@media (max-width: 980px) {
+  .tortela-theme .topbar,
+  .tortela-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 10px 12px;
+  }
+
+  .top-right {
+    width: 100%;
+  }
+
+  .top-right .badge,
+  .top-right .btn {
+    flex: 1 1 auto;
+  }
+
+  .sidebar {
+    position: static;
+  }
+
+  .login-card {
+    grid-template-columns: 1fr;
+  }
+
+  .login-brand,
+  .login-panel {
+    padding: 28px;
+  }
+
+  .tortela-logo,
+  .tortela-login-brand .tortela-logo,
+  .tortela-theme .login-brand .tortela-logo {
+    max-width: 210px;
+    min-width: 210px;
+    width: 210px;
+  }
+}
