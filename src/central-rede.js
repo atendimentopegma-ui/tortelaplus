@@ -32,6 +32,22 @@ function escapeAttr(value = "") {
   return escapeHtml(value).replace(/`/g, "&#96;");
 }
 
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.left = "-9999px";
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand("copy");
+  input.remove();
+}
+
 function money(value) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -386,8 +402,12 @@ function bindRender() {
     render();
   }));
   document.querySelectorAll(".copy-registration").forEach((button) => button.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(button.dataset.link);
-    button.textContent = "Link copiado";
+    try {
+      await copyText(button.dataset.link);
+      button.textContent = "Link copiado";
+    } catch {
+      alert(`Nao foi possivel copiar automaticamente. Link: ${button.dataset.link}`);
+    }
   }));
   const promotionForm = byId("promotion-form");
   if (promotionForm) promotionForm.addEventListener("submit", submitPromotion);

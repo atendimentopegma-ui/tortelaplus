@@ -1138,6 +1138,11 @@ function peopleTable() {
   `;
 }
 
+function findPersonByName(name) {
+  const target = String(name || "").trim().toLowerCase();
+  return (state.people || []).find((person) => String(person.name || "").trim().toLowerCase() === target) || {};
+}
+
 function renderProducts() {
   const tabs = ["dados", "impostos", "composicao", "grade", "promocao", "balanca", "tabelas"];
   if (!tabs.includes(currentTab)) currentTab = "dados";
@@ -1341,6 +1346,22 @@ function escapeAttr(value) {
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+async function copyText(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const input = document.createElement("textarea");
+  input.value = text;
+  input.setAttribute("readonly", "");
+  input.style.position = "fixed";
+  input.style.left = "-9999px";
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand("copy");
+  input.remove();
 }
 
 function productsTable() {
@@ -1598,6 +1619,7 @@ function renderFiscal() {
         ${currentTab === "nfse" ? renderNfseIssueForm(serviceRules) : `
         <div class="form-card grid four">
           <div class="field"><label>Modelo</label><input id="fiscal-model" value="${currentModel}" readonly /></div>
+          <div class="field"><label>Venda de origem</label><select id="fiscal-sale-id"><option value="">Selecione uma venda fechada</option>${state.sales.filter((sale) => ["Fechado", "Parcialmente devolvido"].includes(sale.status) && Array.isArray(sale.items) && sale.items.length).map((sale) => `<option value="${sale.id}">${sale.id} - ${escapeAttr(sale.customer)} - ${money(sale.total)}</option>`).join("")}</select></div>
           <div class="field"><label>Serie</label><input id="fiscal-serie" value="1" /></div>
           <div class="field"><label>Natureza da operacao</label><input id="fiscal-nature" value="Venda de mercadoria" /></div>
           <div class="field"><label>Cliente/Tomador</label><input id="fiscal-customer" value="Consumidor Final" /></div>
@@ -1615,7 +1637,7 @@ function renderFiscal() {
         <div class="table-wrap">
           <table>
             <thead><tr><th>Numero</th><th>Modelo</th><th>Status</th><th>Cliente</th><th>Total</th><th>Tentativas</th><th>Ultimo erro</th><th>Chave</th><th>Protocolo</th><th>Acoes</th></tr></thead>
-            <tbody>${filteredRows.map((row) => `<tr><td>${row.id}</td><td>${row.model}</td><td><span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${row.status}</span></td><td>${row.customer}</td><td>${money(row.total)}</td><td>${row.attempts || 0}</td><td>${row.lastFiscalError || "-"}</td><td>${row.key || "-"}</td><td>${row.protocol || "-"}</td><td><button class="btn" data-fiscal-transmit="${row.id}">Transmitir</button> <button class="btn" data-fiscal-query="${row.id}">Consultar</button> <button class="btn" data-fiscal-print="${row.id}">${row.model === "NFS-e" ? "DANFSe" : "DANFE"}</button> ${row.pdfUrl ? `<button class="btn" data-fiscal-pdf="${row.id}">Baixar PDF</button>` : ""} <button class="btn" data-fiscal-xml="${row.id}">XML</button> ${row.model === "NF-e" ? `<button class="btn" data-fiscal-cce="${row.id}">CC-e</button>` : ""} ${row.model === "NFC-e" ? `<button class="btn" data-fiscal-contingency="${row.id}">Contingencia</button>` : ""} <button class="btn danger" data-fiscal-cancel="${row.id}">Cancelar</button></td></tr>`).join("")}</tbody>
+            <tbody>${filteredRows.map((row) => `<tr><td>${row.id}</td><td>${row.model}</td><td><span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${row.status}</span></td><td>${row.customer}</td><td>${money(row.total)}</td><td>${row.attempts || 0}</td><td>${row.lastFiscalError || "-"}</td><td>${row.key || "-"}</td><td>${row.protocol || "-"}</td><td><button class="btn" data-fiscal-transmit="${row.id}">Transmitir</button> <button class="btn" data-fiscal-query="${row.id}">Consultar</button> <button class="btn" data-fiscal-print="${row.id}">${row.model === "NFS-e" ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE"}</button> ${row.pdfUrl ? `<button class="btn" data-fiscal-pdf="${row.id}">Baixar PDF</button>` : ""} <button class="btn" data-fiscal-xml="${row.id}">XML</button> ${row.model === "NF-e" ? `<button class="btn" data-fiscal-cce="${row.id}">CC-e</button>` : ""} ${row.model === "NFC-e" ? `<button class="btn" data-fiscal-contingency="${row.id}">Contingencia</button>` : ""} <button class="btn danger" data-fiscal-cancel="${row.id}">Cancelar</button></td></tr>`).join("")}</tbody>
           </table>
         </div>
       </div>
@@ -2148,8 +2170,12 @@ function bindCurrentModule() {
   const copyPublicRegistration = byId("copy-public-registration");
   if (copyPublicRegistration) copyPublicRegistration.addEventListener("click", async () => {
     const link = `${location.origin}/cadastro-cliente.html?unidade=${encodeURIComponent(state.settings.tenantCode)}`;
-    await navigator.clipboard.writeText(link);
-    alert("Link de cadastro desta unidade copiado.");
+    try {
+      await copyText(link);
+      alert("Link de cadastro desta unidade copiado.");
+    } catch {
+      alert(`Nao foi possivel copiar automaticamente. Link: ${link}`);
+    }
   });
   document.querySelectorAll("[data-edit-person]").forEach((button) => button.addEventListener("click", () => editPersonRecord(Number(button.dataset.editPerson))));
   document.querySelectorAll("[data-toggle-person]").forEach((button) => button.addEventListener("click", () => togglePersonRecord(Number(button.dataset.togglePerson))));
@@ -2271,6 +2297,13 @@ function bindCurrentModule() {
 
   const newFiscal = byId("new-fiscal");
   if (newFiscal) newFiscal.addEventListener("click", createFiscalRecord);
+  const fiscalSale = byId("fiscal-sale-id");
+  if (fiscalSale) fiscalSale.addEventListener("change", () => {
+    const sale = (state.sales || []).find((item) => Number(item.id) === Number(fiscalSale.value));
+    if (!sale) return;
+    byId("fiscal-customer").value = sale.customer || "Consumidor Final";
+    byId("fiscal-total").value = Number(sale.total || 0).toFixed(2);
+  });
 
   const issueNfse = byId("issue-nfse");
   if (issueNfse) issueNfse.addEventListener("click", createNfseRecord);
@@ -4012,6 +4045,9 @@ function ensureFiscalRuleCoverage() {
 function validateFiscalDocument(row) {
   const missing = [];
   const rule = findFiscalRule(row.model, row.nature);
+  const items = Array.isArray(row.items) && row.items.length
+    ? row.items
+    : (state.sales || []).find((sale) => Number(sale.id) === Number(row.saleId))?.items || [];
   if (!rule.id) missing.push(`regra fiscal ativa para ${state.settings.regime}, ${state.settings.uf} e ${row.model}`);
   if (Number(row.total || 0) <= 0) missing.push("total maior que zero");
   if (!String(state.settings.document || "").replace(/\D/g, "").match(/^\d{14}$/)) missing.push("CNPJ valido do emitente");
@@ -4023,7 +4059,12 @@ function validateFiscalDocument(row) {
     if (!row.service?.description) missing.push("discriminacao do servico");
   } else {
     if (!state.settings.stateRegistration) missing.push("inscricao estadual");
-    if (row.model === "NFC-e" && (!state.settings.csc || !state.settings.cscId)) missing.push("CSC e ID CSC");
+    if (!items.length) missing.push("venda de origem com itens");
+    if (row.model === "NF-e") {
+      const customerDocument = String(row.customerDocument || findPersonByName(row.customer)?.document || "").replace(/\D/g, "");
+      if (![11, 14].includes(customerDocument.length)) missing.push("CPF/CNPJ do destinatario da NF-e");
+    }
+    if (row.model === "NFC-e" && (!state.settings.cscConfigured || !state.settings.cscId)) missing.push("CSC e ID CSC");
     if (!rule.ncm) missing.push("NCM na regra fiscal");
     if (state.settings.regime === "Simples Nacional" && !rule.csosn) missing.push("CSOSN");
     if (state.settings.regime !== "Simples Nacional" && !rule.cst) missing.push("CST");
@@ -4083,14 +4124,28 @@ function escapeXml(value) {
 
 function createFiscalRecord() {
   const model = currentTab === "nfe" ? "NF-e" : "NFC-e";
+  const saleId = Number(byId("fiscal-sale-id")?.value || 0);
+  const sale = (state.sales || []).find((item) => Number(item.id) === saleId);
+  if (!sale || !Array.isArray(sale.items) || !sale.items.length) {
+    alert("Selecione uma venda fechada com itens para gerar NF-e/NFC-e.");
+    return;
+  }
+  const customer = byId("fiscal-customer").value || sale.customer || "Consumidor Final";
+  const person = findPersonByName(customer);
   const row = {
     id: nextId(state.fiscalQueue),
     model,
+    saleId: sale.id,
     serie: byId("fiscal-serie").value || "1",
     nature: byId("fiscal-nature").value || "Venda de mercadoria",
     status: "Pendente",
-    customer: byId("fiscal-customer").value || "Consumidor Final",
-    total: Number(byId("fiscal-total").value || 0),
+    customer,
+    customerDocument: person.document || sale.customerDocument || "",
+    total: Number(sale.total || byId("fiscal-total").value || 0),
+    payment: sale.payment || "",
+    payments: sale.payments || [],
+    items: sale.items,
+    issuedAt: new Date().toISOString(),
     key: "",
     protocol: "",
     xml: ""
@@ -4225,6 +4280,12 @@ async function retryPendingFiscalQueue() {
   renderShell();
 }
 
+function requireFiscalApiConnection(action) {
+  if (apiOnline && sessionId) return true;
+  alert(`${action} exige conexao com o servidor fiscal.`);
+  return false;
+}
+
 async function queryFiscalRecord(id) {
   const row = state.fiscalQueue.find((item) => item.id === id);
   if (!row || !apiOnline || !sessionId) return alert("A consulta fiscal exige conexao com o servidor.");
@@ -4240,6 +4301,7 @@ async function queryFiscalRecord(id) {
 }
 
 async function sendFiscalCorrection(id) {
+  if (!requireFiscalApiConnection("Carta de Correcao")) return;
   const text = prompt("Informe a correcao da NF-e (minimo 15 caracteres):", "");
   if (!text || text.trim().length < 15) return;
   try {
@@ -4254,6 +4316,7 @@ async function sendFiscalCorrection(id) {
 }
 
 async function manifestFiscalRecord() {
+  if (!requireFiscalApiConnection("Manifestacao de NF-e")) return;
   const key = String(prompt("Informe a chave de 44 digitos da NF-e recebida:", "") || "").replace(/\D/g, "");
   if (key.length !== 44) return;
   const type = prompt("Manifestacao: digite confirmacao, ciencia, desconhecimento ou naoRealizada:", "ciencia");
@@ -4269,6 +4332,7 @@ async function manifestFiscalRecord() {
 }
 
 async function distributeFiscalDocuments() {
+  if (!requireFiscalApiConnection("Distribuicao DF-e")) return;
   const query = prompt("Informe uma chave NF-e para busca especifica ou deixe vazio para buscar a partir do ultimo NSU:", "");
   try {
     const result = await api(`/api/tenant/${state.settings.tenantCode}/fiscal/distribution`, {
@@ -4282,6 +4346,7 @@ async function distributeFiscalDocuments() {
 }
 
 async function inutilizeFiscalRange() {
+  if (!requireFiscalApiConnection("Inutilizacao fiscal")) return;
   const model = prompt("Modelo a inutilizar: NF-e ou NFC-e", currentTab === "nfce" ? "NFC-e" : "NF-e");
   if (!["NF-e", "NFC-e"].includes(model)) return;
   const series = Number(prompt("Serie:", "1"));
@@ -4335,51 +4400,20 @@ async function cancelFiscalRecord(id) {
 async function printFiscalRecord(id) {
   const row = state.fiscalQueue.find((item) => item.id === id);
   if (!row) return;
-  if (apiOnline && sessionId) {
-    try {
-      const result = await api(`/api/tenant/${state.settings.tenantCode}/fiscal/print`, {
-        method: "POST",
-        body: JSON.stringify({ id })
-      });
-      Object.assign(row, result.document);
-      audit("Impressao fiscal solicitada ao ACBr", `${row.model} ${row.id}`);
-      save();
-      if (result.pdfUrl) window.open(result.pdfUrl, "_blank");
-      return;
-    } catch (error) {
-      alert(`Impressao oficial indisponivel: ${error.message}`);
-      return;
-    }
+  const label = row.model === "NFS-e" ? "DANFSe oficial" : row.model === "NFC-e" ? "DANFCE oficial" : "DANFE oficial";
+  if (!requireFiscalApiConnection(label)) return;
+  try {
+    const result = await api(`/api/tenant/${state.settings.tenantCode}/fiscal/print`, {
+      method: "POST",
+      body: JSON.stringify({ id })
+    });
+    Object.assign(row, result.document);
+    audit("Impressao fiscal solicitada ao ACBr", `${row.model} ${row.id}`);
+    save();
+    if (result.pdfUrl) window.open(result.pdfUrl, "_blank");
+  } catch (error) {
+    alert(`Impressao oficial indisponivel: ${error.message}`);
   }
-  const documentLabel = row.model === "NFS-e" ? "DANFSe" : "DANFE/EXTRATO OPERACIONAL";
-  const lines = [
-    `PEGMA PLUS - ${documentLabel}`,
-    `Modelo: ${row.model}`,
-    `Numero: ${row.id} Serie: ${row.serie || 1}`,
-    `Status: ${row.status}`,
-    `Cliente: ${row.customer}`,
-    row.model === "NFS-e" ? `Servico: ${row.service?.description || row.nature || "-"}` : "",
-    `Total: ${money(row.total)}`,
-    `Chave: ${row.key || "Ainda nao transmitida"}`,
-    `Protocolo: ${row.protocol || "-"}`
-  ];
-  const content = lines.filter(Boolean).join("\n");
-  if (apiOnline && sessionId) {
-    try {
-      const uploaded = await uploadTenantFile({
-        category: "danfe",
-        filename: `${row.model === "NFS-e" ? "danfse" : "danfe"}-${row.model}-${row.id}.txt`,
-        mimeType: "text/plain",
-        content: btoa(unescape(encodeURIComponent(content)))
-      });
-      row.danfeUrl = uploaded.url;
-    } catch {
-      undefined;
-    }
-  }
-  downloadText(`${row.model === "NFS-e" ? "danfse" : "danfe"}-${row.model}-${row.id}.txt`, content);
-  audit(`${documentLabel} exportado`, `${row.model} ${row.id}`);
-  save();
 }
 
 function downloadFiscalPdf(id) {
@@ -4436,6 +4470,7 @@ async function exportFiscalXml(id) {
 }
 
 async function markFiscalContingency(id) {
+  if (!requireFiscalApiConnection("Contingencia NFC-e")) return;
   const row = state.fiscalQueue.find((item) => item.id === id);
   if (!row || row.cancelledAt || String(row.status).startsWith("Cancelada")) return;
   const reason = prompt("Informe o motivo real da contingencia (minimo 15 caracteres):", "Indisponibilidade temporaria de comunicacao com a SEFAZ");
