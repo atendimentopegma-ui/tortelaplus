@@ -373,48 +373,174 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .online-store-page {
-  background: #f8fbff;
+  background: #ffca1d;
 }
 
 .store-header {
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 8;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 18px;
-  background: #ffffff;
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 10px 24px rgba(15, 59, 112, 0.08);
+  padding: 10px 22px;
+  background: #ff007a;
+  border-bottom: 0;
+  color: #ffffff;
 }
 
-.store-brand {
+.store-brand,
+.store-header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
 .store-brand img {
-  width: 92px;
-  height: 46px;
+  width: 112px;
+  height: 52px;
   object-fit: contain;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 4px;
 }
 
 .store-brand strong {
   display: block;
+  color: #ffffff;
   font-size: 18px;
+  font-weight: 900;
 }
 
-.store-brand small {
-  color: var(--muted);
+.store-brand small,
+.store-header-actions span {
+  color: #fff8d3;
+  font-weight: 800;
+}
+
+.store-header .btn {
+  background: #efff00;
+  color: #101a64;
+  border-color: #efff00;
+}
+
+.store-hero {
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(320px, 0.8fr);
+  gap: 54px;
+  align-items: center;
+  width: min(1220px, 100%);
+  margin: 0 auto;
+  padding: 58px 28px 28px;
+  color: #20206f;
+}
+
+.store-hero-logo {
+  width: 210px;
+  max-width: 70vw;
+  margin-bottom: 20px;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.store-hero h1 {
+  max-width: 720px;
+  margin: 0 0 16px;
+  color: #20206f;
+  font-size: clamp(42px, 6vw, 76px);
+  line-height: 0.98;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.store-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.store-pills span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px 28px;
+  border-radius: 999px;
+  background: #ff007a;
+  color: #ffffff;
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.store-hero p {
+  max-width: 620px;
+  margin: 0;
+  color: #20206f;
+  font-size: 19px;
+  line-height: 1.65;
+  font-weight: 750;
+}
+
+.store-hero-card {
+  min-height: 520px;
+  display: grid;
+  align-content: end;
+  gap: 12px;
+  padding: 28px;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 28px 70px rgba(32, 32, 111, 0.22);
+  overflow: hidden;
+}
+
+.store-hero-photo {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #fff4a8, #ffffff);
+  color: #20206f;
+  font-size: 58px;
+  font-weight: 950;
+}
+
+.store-hero-card strong {
+  color: #20206f;
+  font-size: 24px;
+}
+
+.store-hero-card span {
+  color: #ff007a;
+  font-weight: 900;
+}
+
+.store-cta-strip {
+  background: #ff007a;
+  padding: 16px 18px;
+  display: grid;
+  place-items: center;
+}
+
+.store-jump,
+.store-jump.btn {
+  width: min(620px, 100%);
+  min-height: 62px;
+  border-radius: 999px;
+  background: #efff00;
+  color: #111827;
+  border-color: #efff00;
+  font-size: 19px;
+  font-weight: 950;
 }
 
 .store-shell {
   width: min(1380px, 100%);
   margin: 0 auto;
-  padding: 18px;
+  padding: 24px 18px 34px;
 }
 
 .store-tools {
@@ -423,6 +549,10 @@ header.topbar .top-right .central-top-action:hover {
   gap: 12px;
   align-items: end;
   margin-bottom: 16px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #fff8d3;
+  border: 2px solid rgba(32, 32, 111, 0.18);
 }
 
 .store-layout {
@@ -442,9 +572,9 @@ header.topbar .top-right .central-top-action:hover {
 .store-cart,
 .store-empty {
   background: #ffffff;
-  border: 1px solid var(--line);
+  border: 2px solid rgba(32, 32, 111, 0.14);
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(17, 30, 36, 0.05);
+  box-shadow: 0 12px 30px rgba(32, 32, 111, 0.12);
 }
 
 .store-product {
@@ -453,7 +583,7 @@ header.topbar .top-right .central-top-action:hover {
 
 .store-product-media {
   aspect-ratio: 4 / 3;
-  background: #edf6ff;
+  background: #fff8d3;
 }
 
 .store-product-media img,
@@ -469,10 +599,10 @@ header.topbar .top-right .central-top-action:hover {
 .store-product-placeholder {
   display: grid;
   place-items: center;
-  color: #075985;
-  font-weight: 900;
-  font-size: 28px;
-  background: linear-gradient(135deg, #e0f2fe, #fff7cc);
+  color: #20206f;
+  font-weight: 950;
+  font-size: 34px;
+  background: linear-gradient(135deg, #ffca1d, #fff8d3);
 }
 
 .store-product-body,
@@ -489,12 +619,15 @@ header.topbar .top-right .central-top-action:hover {
 .store-product-body h2,
 .store-cart h2 {
   margin: 0;
+  color: #20206f;
   font-size: 18px;
+  font-weight: 950;
 }
 
 .store-product-body small,
 .cart-line small {
-  color: var(--muted);
+  color: #53606f;
+  font-weight: 800;
 }
 
 .store-price {
@@ -505,13 +638,21 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .store-price strong {
-  color: #075985;
-  font-size: 22px;
+  color: #ff007a;
+  font-size: 24px;
+  font-weight: 950;
 }
 
 .store-price span {
-  color: var(--muted);
+  color: #53606f;
   font-size: 12px;
+  font-weight: 800;
+}
+
+.store-product .btn.primary,
+.store-cart .btn.primary {
+  background: #20206f;
+  border-color: #20206f;
 }
 
 .store-cart {
@@ -525,7 +666,7 @@ header.topbar .top-right .central-top-action:hover {
   display: grid;
   gap: 8px;
   padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid #eadba9;
 }
 
 .cart-line-actions {
@@ -546,12 +687,14 @@ header.topbar .top-right .central-top-action:hover {
   justify-content: space-between;
   padding: 12px;
   border-radius: 8px;
-  background: #edf6ff;
+  background: #ffca1d;
+  color: #20206f;
 }
 
 .store-total strong {
-  color: #075985;
-  font-size: 24px;
+  color: #20206f;
+  font-size: 26px;
+  font-weight: 950;
 }
 
 .full {
@@ -1943,6 +2086,35 @@ tbody tr:hover td {
   .store-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .store-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .store-hero {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 32px 18px 24px;
+  }
+
+  .store-hero h1 {
+    font-size: 42px;
+  }
+
+  .store-pills span {
+    min-height: 48px;
+    font-size: 28px;
+  }
+
+  .store-hero-card {
+    min-height: 0;
+  }
+
+  .store-hero-photo {
+    min-height: 220px;
   }
 
   .store-tools,
