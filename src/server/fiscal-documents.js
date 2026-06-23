@@ -153,6 +153,63 @@ function pisCofinsXml(kind, cst, base, rate) {
   return `<${inner}><CST>${cst}</CST><vBC>${decimal(base)}</vBC><${rateTag}>${decimal(rate, 4)}</${rateTag}><${valueTag}>${decimal(base * rate / 100)}</${valueTag}></${inner}>`;
 }
 
+function reformRate(rule, primary, fallback) {
+  return number(rule[primary] || rule[fallback]);
+}
+
+function reformEffectiveRate(rate, reduction) {
+  return Math.max(0, number(rate) * (1 - Math.min(Math.max(number(reduction), 0), 100) / 100));
+}
+
+function reformReductionXml(rate, reduction) {
+  if (!number(reduction)) return "";
+  return `<gRed><pRedAliq>${decimal(reduction, 4)}</pRedAliq><pAliqEfet>${decimal(reformEffectiveRate(rate, reduction), 4)}</pAliqEfet></gRed>`;
+}
+
+function reformValues(rule, base) {
+  const reduction = number(rule.reformReductionRate);
+  const ibsUfRate = reformRate(rule, "ibsUfRate", "ibsRate");
+  const ibsCityRate = reformRate(rule, "ibsCityRate", "ibsRate");
+  const cbsRate = reformRate(rule, "cbsFederalRate", "cbsRate");
+  const ibsUfEffective = reformEffectiveRate(ibsUfRate, reduction);
+  const ibsCityEffective = reformEffectiveRate(ibsCityRate, reduction);
+  const cbsEffective = reformEffectiveRate(cbsRate, reduction);
+  const vIBSUF = base * ibsUfEffective / 100;
+  const vIBSMun = base * ibsCityEffective / 100;
+  const vCBS = base * cbsEffective / 100;
+  return {
+    base,
+    reduction,
+    ibsUfRate,
+    ibsCityRate,
+    cbsRate,
+    vIBSUF,
+    vIBSMun,
+    vIBS: vIBSUF + vIBSMun,
+    vCBS,
+    selectiveRate: number(rule.selectiveTaxRate),
+    vIS: base * number(rule.selectiveTaxRate) / 100
+  };
+}
+
+function ibsCbsXml(rule, values) {
+  const cst = digits(rule.ibsCbsCst || "000").padStart(3, "0").slice(0, 3);
+  const cClassTrib = digits(rule.ibsClass || rule.cbsClass || "000001").padStart(6, "0").slice(0, 6);
+  return `<IBSCBS><CST>${cst}</CST><cClassTrib>${cClassTrib}</cClassTrib><gIBSCBS><vBC>${decimal(values.base)}</vBC><gIBSUF><pIBSUF>${decimal(values.ibsUfRate, 4)}</pIBSUF>${reformReductionXml(values.ibsUfRate, values.reduction)}<vIBSUF>${decimal(values.vIBSUF)}</vIBSUF></gIBSUF><gIBSMun><pIBSMun>${decimal(values.ibsCityRate, 4)}</pIBSMun>${reformReductionXml(values.ibsCityRate, values.reduction)}<vIBSMun>${decimal(values.vIBSMun)}</vIBSMun></gIBSMun><vIBS>${decimal(values.vIBS)}</vIBS><gCBS><pCBS>${decimal(values.cbsRate, 4)}</pCBS>${reformReductionXml(values.cbsRate, values.reduction)}<vCBS>${decimal(values.vCBS)}</vCBS></gCBS></gIBSCBS></IBSCBS>`;
+}
+
+function selectiveTaxXml(rule, values) {
+  if (!values.selectiveRate) return "";
+  const cst = digits(rule.selectiveTaxCst || rule.ibsCbsCst || "000").padStart(3, "0").slice(0, 3);
+  const cClassTrib = digits(rule.selectiveTaxClass || rule.ibsClass || "000001").padStart(6, "0").slice(0, 6);
+  return `<IS><CSTIS>${cst}</CSTIS><cClassTribIS>${cClassTrib}</cClassTribIS><vBCIS>${decimal(values.base)}</vBCIS><pIS>${decimal(values.selectiveRate, 4)}</pIS><vIS>${decimal(values.vIS)}</vIS></IS>`;
+}
+
+function ibsCbsTotalsXml(totals) {
+  if (!totals.hasReform) return "";
+  return `<IBSCBSTot><vBCIBSCBS>${decimal(totals.base)}</vBCIBSCBS><gIBS><gIBSUF><vDif>0.00</vDif><vDevTrib>0.00</vDevTrib><vIBSUF>${decimal(totals.vIBSUF)}</vIBSUF></gIBSUF><gIBSMun><vDif>0.00</vDif><vDevTrib>0.00</vDevTrib><vIBSMun>${decimal(totals.vIBSMun)}</vIBSMun></gIBSMun><vIBS>${decimal(totals.vIBS)}</vIBS><vCredPres>0.00</vCredPres><vCredPresCondSus>0.00</vCredPresCondSus></gIBS><gCBS><vDif>0.00</vDif><vDevTrib>0.00</vDevTrib><vCBS>${decimal(totals.vCBS)}</vCBS><vCredPres>0.00</vCredPres><vCredPresCondSus>0.00</vCredPresCondSus></gCBS></IBSCBSTot>`;
+}
+
 function nfceQrCodeUrl(settings, key, options = {}) {
   if (settings.qrCodeUrl) return settings.qrCodeUrl;
   if (settings.nfceQrCodeUrl) return settings.nfceQrCodeUrl;
@@ -246,6 +303,7 @@ function generateNfeXml(state, row, options = {}) {
   }, 0);
   const totalPis = items.reduce((sum, item) => sum + number(item.qty) * number(item.price) * number(itemRule(state, row, item).pisRate) / 100, 0);
   const totalCofins = items.reduce((sum, item) => sum + number(item.qty) * number(item.price) * number(itemRule(state, row, item).cofinsRate) / 100, 0);
+  const reformTotals = { hasReform: false, base: 0, vIBSUF: 0, vIBSMun: 0, vIBS: 0, vCBS: 0, vIS: 0 };
   const details = items.map((item, index) => {
     const rule = itemRule(state, row, item);
     const itemTotal = number(item.qty) * number(item.price);
@@ -256,8 +314,18 @@ function generateNfeXml(state, row, options = {}) {
     const pisRate = Number(rule.pisRate || 0);
     const cofinsRate = Number(rule.cofinsRate || 0);
     const pisCst = digits(rule.pisCofinsCst || "01").padStart(2, "0");
-    return `<det nItem="${index + 1}"><prod><cProd>${xml(item.id || item.productId || index + 1)}</cProd><cEAN>${digits(rule.barcode) || "SEM GTIN"}</cEAN><xProd>${xml(item.description || rule.description)}</xProd><NCM>${digits(rule.ncm)}</NCM>${rule.cest ? `<CEST>${digits(rule.cest)}</CEST>` : ""}<CFOP>${digits(rule.cfop)}</CFOP><uCom>${xml(item.unit || rule.unit || "UN")}</uCom><qCom>${decimal(item.qty, 4)}</qCom><vUnCom>${decimal(item.price, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${digits(rule.barcode) || "SEM GTIN"}</cEANTrib><uTrib>${xml(item.unit || rule.unit || "UN")}</uTrib><qTrib>${decimal(item.qty, 4)}</qTrib><vUnTrib>${decimal(item.price, 10)}</vUnTrib>${itemDiscount ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}${itemOther ? `<vOutro>${decimal(itemOther)}</vOutro>` : ""}<indTot>1</indTot></prod><imposto><ICMS>${icmsXml(settings, rule, itemTotal)}</ICMS><PIS>${pisCofinsXml("PIS", pisCst, itemTotal, pisRate)}</PIS><COFINS>${pisCofinsXml("COFINS", pisCst, itemTotal, cofinsRate)}</COFINS></imposto></det>`;
+    const reformBase = Math.max(0, itemTotal - itemDiscount + itemOther);
+    const reform = reformValues(rule, reformBase);
+    reformTotals.hasReform = true;
+    reformTotals.base += reform.base;
+    reformTotals.vIBSUF += reform.vIBSUF;
+    reformTotals.vIBSMun += reform.vIBSMun;
+    reformTotals.vIBS += reform.vIBS;
+    reformTotals.vCBS += reform.vCBS;
+    reformTotals.vIS += reform.vIS;
+    return `<det nItem="${index + 1}"><prod><cProd>${xml(item.id || item.productId || index + 1)}</cProd><cEAN>${digits(rule.barcode) || "SEM GTIN"}</cEAN><xProd>${xml(item.description || rule.description)}</xProd><NCM>${digits(rule.ncm)}</NCM>${rule.cest ? `<CEST>${digits(rule.cest)}</CEST>` : ""}<CFOP>${digits(rule.cfop)}</CFOP><uCom>${xml(item.unit || rule.unit || "UN")}</uCom><qCom>${decimal(item.qty, 4)}</qCom><vUnCom>${decimal(item.price, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd><cEANTrib>${digits(rule.barcode) || "SEM GTIN"}</cEANTrib><uTrib>${xml(item.unit || rule.unit || "UN")}</uTrib><qTrib>${decimal(item.qty, 4)}</qTrib><vUnTrib>${decimal(item.price, 10)}</vUnTrib>${itemDiscount ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}${itemOther ? `<vOutro>${decimal(itemOther)}</vOutro>` : ""}<indTot>1</indTot></prod><imposto><ICMS>${icmsXml(settings, rule, itemTotal)}</ICMS><PIS>${pisCofinsXml("PIS", pisCst, itemTotal, pisRate)}</PIS><COFINS>${pisCofinsXml("COFINS", pisCst, itemTotal, cofinsRate)}</COFINS>${selectiveTaxXml(rule, reform)}${ibsCbsXml(rule, reform)}</imposto></det>`;
   }).join("");
+  const reformTotalsXml = `${reformTotals.vIS ? `<ISTot><vIS>${decimal(reformTotals.vIS)}</vIS></ISTot>` : ""}${ibsCbsTotalsXml(reformTotals)}${reformTotals.hasReform ? `<vNFTot>${decimal(totals.net + reformTotals.vIBS + reformTotals.vCBS + reformTotals.vIS)}</vNFTot>` : ""}`;
   const document = digits(customer.document);
   const destination = document ? `<dest><${document.length === 11 ? "CPF" : "CNPJ"}>${document}</${document.length === 11 ? "CPF" : "CNPJ"}><xNome>${xml(customer.name || row.customer)}</xNome><enderDest><xLgr>${xml(customer.address || "Nao informado")}</xLgr><nro>${xml(customer.number || "SN")}</nro><xBairro>${xml(customer.district || "Nao informado")}</xBairro><cMun>${digits(customer.cityCode || settings.cityCode)}</cMun><xMun>${xml(customer.city || settings.city)}</xMun><UF>${xml(customer.uf || settings.uf)}</UF><CEP>${digits(customer.cep || settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderDest><indIEDest>9</indIEDest></dest>` : "";
   const paymentsSource = row.payments?.length ? row.payments : [{ method: row.payment || "Outros", value: totals.net }];
@@ -269,7 +337,7 @@ function generateNfeXml(state, row, options = {}) {
     : "";
   const isReturn = row.operationType === "return" || row.operationType === "exchange-return";
   const reference = isReturn && /^\d{44}$/.test(digits(row.referencedKey)) ? `<NFref><refNFe>${digits(row.referencedKey)}</refNFe></NFref>` : "";
-  const nfe = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00"><ide><cUF>${UF_CODES[settings.uf]}</cUF><cNF>${key.slice(35, 43)}</cNF><natOp>${xml(row.nature || (isReturn ? "Devolucao de venda" : "Venda de mercadoria"))}</natOp><mod>${model}</mod><serie>${Number(row.serie || 1)}</serie><nNF>${Number(row.number || row.id || 1)}</nNF><dhEmi>${isoDateTime(row.issuedAt)}</dhEmi><tpNF>${isReturn ? "0" : "1"}</tpNF><idDest>1</idDest><cMunFG>${digits(settings.cityCode)}</cMunFG><tpImp>${model === "65" ? "4" : "1"}</tpImp><tpEmis>${Number(row.emissionType || 1)}</tpEmis><cDV>${key.slice(-1)}</cDV><tpAmb>${settings.fiscalEnvironment === "Producao" ? "1" : "2"}</tpAmb><finNFe>${isReturn ? "4" : "1"}</finNFe><indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TortelaPlus-0.1.0</verProc>${contingency}${reference}</ide><emit><CNPJ>${digits(settings.document)}</CNPJ><xNome>${xml(settings.company)}</xNome><enderEmit><xLgr>${xml(settings.address)}</xLgr><nro>${xml(settings.number)}</nro><xBairro>${xml(settings.district)}</xBairro><cMun>${digits(settings.cityCode)}</cMun><xMun>${xml(settings.city)}</xMun><UF>${xml(settings.uf)}</UF><CEP>${digits(settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>${digits(settings.stateRegistration)}</IE><CRT>${settings.regime === "Simples Nacional" ? "1" : "3"}</CRT></emit>${destination}${details}<total><ICMSTot><vBC>${settings.regime === "Simples Nacional" ? "0.00" : decimal(totals.gross)}</vBC><vICMS>${decimal(totalIcms)}</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>${decimal(totals.gross)}</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>${decimal(totals.discount)}</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>${decimal(totalPis)}</vPIS><vCOFINS>${decimal(totalCofins)}</vCOFINS><vOutro>${decimal(totals.other)}</vOutro><vNF>${decimal(totals.net)}</vNF></ICMSTot></total><transp><modFrete>9</modFrete></transp><pag>${payments}${change ? `<vTroco>${decimal(change)}</vTroco>` : ""}</pag>${settings.fiscalResponsible ? `<infAdic><infCpl>${xml(`Responsavel fiscal: ${settings.fiscalResponsible}`)}</infCpl></infAdic>` : ""}</infNFe></NFe>`;
+  const nfe = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00"><ide><cUF>${UF_CODES[settings.uf]}</cUF><cNF>${key.slice(35, 43)}</cNF><natOp>${xml(row.nature || (isReturn ? "Devolucao de venda" : "Venda de mercadoria"))}</natOp><mod>${model}</mod><serie>${Number(row.serie || 1)}</serie><nNF>${Number(row.number || row.id || 1)}</nNF><dhEmi>${isoDateTime(row.issuedAt)}</dhEmi><tpNF>${isReturn ? "0" : "1"}</tpNF><idDest>1</idDest><cMunFG>${digits(settings.cityCode)}</cMunFG><tpImp>${model === "65" ? "4" : "1"}</tpImp><tpEmis>${Number(row.emissionType || 1)}</tpEmis><cDV>${key.slice(-1)}</cDV><tpAmb>${settings.fiscalEnvironment === "Producao" ? "1" : "2"}</tpAmb><finNFe>${isReturn ? "4" : "1"}</finNFe><indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TortelaPlus-0.1.0</verProc>${contingency}${reference}</ide><emit><CNPJ>${digits(settings.document)}</CNPJ><xNome>${xml(settings.company)}</xNome><enderEmit><xLgr>${xml(settings.address)}</xLgr><nro>${xml(settings.number)}</nro><xBairro>${xml(settings.district)}</xBairro><cMun>${digits(settings.cityCode)}</cMun><xMun>${xml(settings.city)}</xMun><UF>${xml(settings.uf)}</UF><CEP>${digits(settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>${digits(settings.stateRegistration)}</IE><CRT>${settings.regime === "Simples Nacional" ? "1" : "3"}</CRT></emit>${destination}${details}<total><ICMSTot><vBC>${settings.regime === "Simples Nacional" ? "0.00" : decimal(totals.gross)}</vBC><vICMS>${decimal(totalIcms)}</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>${decimal(totals.gross)}</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>${decimal(totals.discount)}</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>${decimal(totalPis)}</vPIS><vCOFINS>${decimal(totalCofins)}</vCOFINS><vOutro>${decimal(totals.other)}</vOutro><vNF>${decimal(totals.net)}</vNF></ICMSTot>${reformTotalsXml}</total><transp><modFrete>9</modFrete></transp><pag>${payments}${change ? `<vTroco>${decimal(change)}</vTroco>` : ""}</pag>${settings.fiscalResponsible ? `<infAdic><infCpl>${xml(`Responsavel fiscal: ${settings.fiscalResponsible}`)}</infCpl></infAdic>` : ""}</infNFe></NFe>`;
   const supplement = model === "65" ? nfceSupplement(settings, key, options) : "";
   return `<?xml version="1.0" encoding="UTF-8"?>${nfe.replace("</infNFe></NFe>", `</infNFe>${supplement}</NFe>`)}`;
 }
