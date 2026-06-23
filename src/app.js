@@ -284,6 +284,8 @@ const seed = {
     acbrApiToken: "",
     cscId: "",
     cscConfigured: false,
+    nfceQrCodeUrl: "",
+    nfceConsultaUrl: "",
     certificatePasswordConfigured: false,
     sefazCredentialed: false,
     sefazUf: "SP",
@@ -1894,6 +1896,8 @@ function renderSettings() {
             <div class="field"><label>UF credenciada SEFAZ</label><input id="set-sefaz-uf" value="${escapeAttr(state.settings.sefazUf || state.settings.uf || "")}" maxlength="2" /></div>
             <div class="field"><label>ID CSC NFC-e</label><input id="set-csc-id" value="${escapeAttr(state.settings.cscId || "")}" /></div>
             <div class="field"><label>CSC NFC-e</label><input id="set-csc" type="password" placeholder="${state.settings.cscConfigured ? "CSC protegido configurado" : "Informar no provedor"}" /></div>
+            <div class="field"><label>URL QR Code NFC-e</label><input id="set-nfce-qrcode-url" value="${escapeAttr(state.settings.nfceQrCodeUrl || "")}" placeholder="Padrao da UF quando vazio" /></div>
+            <div class="field"><label>URL consulta NFC-e</label><input id="set-nfce-consulta-url" value="${escapeAttr(state.settings.nfceConsultaUrl || "")}" placeholder="Padrao da UF quando vazio" /></div>
             <div class="field"><label>Padrao NFS-e</label><select id="set-nfse-standard"><option>Nacional</option><option>Municipal</option></select></div>
             <div class="field"><label>Provedor NFS-e municipal</label><input id="set-nfse-provider" value="${escapeAttr(state.settings.nfseProvider || "")}" placeholder="Ex.: padrao nacional ou provedor municipal" /></div>
             <div class="field"><label>Codigo municipio NFS-e</label><input id="set-nfse-city-code" value="${escapeAttr(state.settings.nfseCityCode || "")}" /></div>
@@ -3764,6 +3768,8 @@ async function saveSettingsRecord() {
   state.settings.sefazCredentialed = byId("set-sefaz-credentialed").value === "true";
   state.settings.sefazUf = byId("set-sefaz-uf").value.toUpperCase();
   state.settings.cscId = byId("set-csc-id").value;
+  state.settings.nfceQrCodeUrl = byId("set-nfce-qrcode-url").value.trim();
+  state.settings.nfceConsultaUrl = byId("set-nfce-consulta-url").value.trim();
   state.settings.nfseStandard = byId("set-nfse-standard").value;
   state.settings.nfseProvider = byId("set-nfse-provider").value;
   state.settings.nfseCityCode = byId("set-nfse-city-code").value;
@@ -4142,6 +4148,10 @@ function createFiscalRecord() {
     customer,
     customerDocument: person.document || sale.customerDocument || "",
     total: Number(sale.total || byId("fiscal-total").value || 0),
+    discount: Number(sale.discount || 0),
+    addition: Number(sale.addition || 0),
+    exchangeCredit: Number(sale.exchangeCredit || 0),
+    change: Number(sale.change || 0),
     payment: sale.payment || "",
     payments: sale.payments || [],
     items: sale.items,
@@ -4860,6 +4870,10 @@ async function finishSaleRecord() {
     items: structuredClone(sale.items),
     payments: structuredClone(sale.payments),
     payment: sale.payment,
+    discount,
+    addition,
+    exchangeCredit,
+    change: sale.change,
     total,
     key: "",
     protocol: "",

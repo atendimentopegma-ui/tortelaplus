@@ -8,6 +8,7 @@ const { PostgresStore } = require("./src/server/postgres-store");
 const {
   generateFiscalXml,
   generateNfseIni,
+  validateNfeState,
   parseAcbrResponse,
   importNfeXml
 } = require("./src/server/fiscal-documents");
@@ -228,6 +229,8 @@ const initialTenantState = {
     acbrApiToken: "",
     cscId: "",
     cscConfigured: false,
+    nfceQrCodeUrl: "",
+    nfceConsultaUrl: "",
     certificatePasswordConfigured: false,
     sefazCredentialed: false,
     sefazUf: "SP",
@@ -1043,8 +1046,9 @@ async function completeProviderBackup(reason = "backup-geral-central-saas") {
   return backup;
 }
 
-function fiscalXmlFromState(tenantState, row) {
-  return generateFiscalXml(tenantState, row);
+function fiscalXmlFromState(tenantState, row, tenantCode = "") {
+  const secrets = tenantCode ? loadFiscalSecrets(tenantCode) : {};
+  return generateFiscalXml(tenantState, row, { csc: secrets.csc || "" });
 }
 
 function findFiscalRuleFromState(tenantState, model, nature = "") {
@@ -1085,8 +1089,9 @@ function validateFiscalDocumentFromState(tenantState, row) {
     if (!rule.ncm) missing.push("NCM");
     if (settings.regime === "Simples Nacional" && !rule.csosn) missing.push("CSOSN");
     if (settings.regime !== "Simples Nacional" && !rule.cst) missing.push("CST");
+    missing.push(...validateNfeState(tenantState, row));
   }
-  return missing;
+  return [...new Set(missing)];
 }
 
 function escapeXml(value) {
@@ -1404,9 +1409,9 @@ async function transmitFiscalDocument(tenantCode, row, sessionUser) {
     attempts: Number(row.attempts || 0) + 1,
     lastAttemptAt: new Date().toISOString()
   };
-  fiscalRow.xml = fiscalXmlFromState(tenantState, fiscalRow);
+  fiscalRow.xml = fiscalXmlFromState(tenantState, fiscalRow, tenantCode);
+  fiscalRow.key = fiscalRow.xml.match(/Id="NFe(\d{44})"/)?.[1] || "";
   fiscalRow.protocol = "";
-  fiscalRow.key = "";
   fiscalRow.localReference = `${fiscalRow.model}-${fiscalRow.id}`;
   fiscalRow.status = "XML oficial gerado - aguardando ACBr";
   fiscalRow.fiscalProvider = monitor.engine;
@@ -1449,7 +1454,7 @@ async function transmitFiscalDocument(tenantCode, row, sessionUser) {
     const parsed = acbrResponseOrThrow(response, "Emitir NFS-e");
     fiscalRow.acbrCode = Number(response.code);
     fiscalRow.acbrResponse = parsed.raw;
-    fiscalRow.key = parsed.key;
+    fiscalRow.key = parsed.key || fiscalRow.key;
     fiscalRow.protocol = parsed.protocol;
     fiscalRow.statusCode = parsed.statusCode;
     fiscalRow.statusMessage = parsed.statusMessage;
@@ -1466,7 +1471,7 @@ async function transmitFiscalDocument(tenantCode, row, sessionUser) {
     const parsed = parseAcbrResponse(response.response);
     fiscalRow.acbrCode = Number(response.code);
     fiscalRow.acbrResponse = parsed.raw;
-    fiscalRow.key = parsed.key;
+    fiscalRow.key = parsed.key || fiscalRow.key;
     fiscalRow.protocol = parsed.protocol;
     fiscalRow.statusCode = parsed.statusCode;
     fiscalRow.statusMessage = parsed.statusMessage;
@@ -2703,7 +2708,8 @@ async function handleApi(req, res, urlPath) {
       row.emissionType = 9;
       row.contingencyAt = new Date().toISOString();
       row.contingencyReason = reason;
-      row.xml = fiscalXmlFromState(tenantState, row);
+      row.xml = fiscalXmlFromState(tenantState, row, tenantCode);
+      row.key = row.xml.match(/Id="NFe(\d{44})"/)?.[1] || row.key || "";
       const xmlFile = saveTenantFile({ tenantCode, category: "xml", filename: `NFCe-contingencia-${row.id}.xml`, mimeType: "application/xml", content: Buffer.from(row.xml, "utf8").toString("base64") });
       row.xmlUrl = xmlFile.url;
       if (tenantState.settings.acbrApiUrl) {
