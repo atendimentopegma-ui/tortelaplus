@@ -708,6 +708,7 @@ function byId(id) {
 
 function canAccess(module) {
   const permissions = authUser?.permissions || rolePermissions[authUser?.role] || rolePermissions.Administrador;
+  if (module === "online") return permissions.includes("sales");
   if (!permissions.includes(module)) return false;
   const tenant = getCurrentTenant();
   const contracted = tenant?.modules || ["PDV", "NF-e", "NFC-e", "NFS-e", "Estoque", "Financeiro", "Relatorios", "Compras"];
@@ -744,6 +745,7 @@ function visibleModules() {
     ["stock", "Estoque e producao", "ES"],
     ["purchases", "Compras", "CO"],
     ["sales", "Vendas e orcamentos", "VE"],
+    ["online", "Pedidos online", "ON"],
     ["finance", "Financeiro", "FI"],
     ["fiscal", "Fiscal", "NF"],
     ["reports", "Relatorios", "RE"],
@@ -989,6 +991,7 @@ function renderModule() {
     stock: renderStock,
     purchases: renderPurchases,
     sales: renderSales,
+    online: renderOnlineOrders,
     finance: renderFinance,
     fiscal: renderFiscal,
     reports: renderReports,
@@ -1525,6 +1528,51 @@ function renderSales() {
         </div>
         <div class="table-wrap">
           <table><thead><tr><th>Numero</th><th>Data</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Comissao</th><th>Tipo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.sales.map((sale) => `<tr><td>${sale.id}</td><td>${sale.date}</td><td>${sale.customer}</td><td>${sale.seller}</td><td>${money(sale.total)}</td><td>${money(sale.commission || 0)}</td><td>${sale.type}</td><td><span class="badge ${sale.status === "Cancelado" || sale.status === "Devolvido" || sale.status === "Trocado" ? "danger" : sale.status === "Aberto" || sale.status === "Parcialmente devolvido" ? "warn" : "ok"}">${sale.status || "Fechado"}</span></td><td>${sale.type === "Orcamento" && sale.status === "Aberto" ? `<button class="btn primary" data-convert-quote="${sale.id}">Converter em pedido</button>` : ["Fechado", "Parcialmente devolvido"].includes(sale.status) ? `<button class="btn" data-return-sale="${sale.id}">Devolver</button> <button class="btn" data-exchange-sale="${sale.id}">Trocar</button> ${sale.status === "Fechado" ? `<button class="btn danger" data-cancel-sale-record="${sale.id}">Cancelar</button>` : ""}` : "-"}</td></tr>`).join("")}</tbody></table>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderOnlineOrders() {
+  const orders = (state.sales || []).filter((sale) => sale.onlineOrder).sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)));
+  const pending = orders.filter((sale) => !["Entregue", "Cancelado"].includes(sale.status));
+  return `
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Pedidos online</h2>
+        <div class="actions"><a class="btn" href="./loja.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir loja online</a></div>
+      </div>
+      <div class="panel-body grid">
+        <div class="grid four">
+          <div class="kpi"><small>Em andamento</small><strong>${pending.length}</strong></div>
+          <div class="kpi"><small>A conferir</small><strong>${orders.filter((sale) => sale.status === "Aberto").length}</strong></div>
+          <div class="kpi"><small>Em entrega</small><strong>${orders.filter((sale) => sale.status === "Saiu para entrega").length}</strong></div>
+          <div class="kpi"><small>Total online</small><strong>${money(orders.reduce((sum, sale) => sum + Number(sale.total || 0), 0))}</strong></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Endereco</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th>Acoes</th></tr></thead>
+            <tbody>${orders.map((sale) => {
+              const customer = sale.customerData || {};
+              const items = (sale.items || []).map((item) => `${item.qty}x ${item.description}${item.coverage ? ` (${item.coverage})` : ""}`).join("<br>");
+              return `<tr>
+                <td>${sale.id}<br><small>${sale.date || ""}</small></td>
+                <td>${sale.customer}<br><small>${customer.phone || ""}</small></td>
+                <td>${[customer.address, customer.number, customer.district, customer.city, customer.uf].filter(Boolean).join(", ")}<br><small>${customer.cep || ""} · ${sale.delivery || "Entrega"}</small></td>
+                <td>${items}</td>
+                <td>${sale.payment || "PIX"}</td>
+                <td>${money(sale.total)}</td>
+                <td><span class="badge ${sale.status === "Entregue" ? "ok" : sale.status === "Cancelado" ? "danger" : "warn"}">${sale.status || "Aberto"}</span></td>
+                <td>
+                  <button class="btn" data-print-online-order="${sale.id}">Comprovante</button>
+                  ${sale.status === "Aberto" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Conferido">Conferir</button>` : ""}
+                  ${["Aberto", "Conferido"].includes(sale.status) ? `<button class="btn" data-online-status="${sale.id}" data-status="Saiu para entrega">Saiu entrega</button>` : ""}
+                  ${sale.status !== "Entregue" && sale.status !== "Cancelado" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Entregue">Entregue</button> <button class="btn danger" data-online-status="${sale.id}" data-status="Cancelado">Cancelar</button>` : ""}
+                </td>
+              </tr>`;
+            }).join("") || `<tr><td colspan="8">Nenhum pedido online recebido.</td></tr>`}</tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -2287,6 +2335,12 @@ function bindCurrentModule() {
   });
   document.querySelectorAll("[data-exchange-sale]").forEach((button) => {
     button.addEventListener("click", () => exchangeSaleRecord(Number(button.dataset.exchangeSale)));
+  });
+  document.querySelectorAll("[data-print-online-order]").forEach((button) => {
+    button.addEventListener("click", () => printOnlineOrder(Number(button.dataset.printOnlineOrder)));
+  });
+  document.querySelectorAll("[data-online-status]").forEach((button) => {
+    button.addEventListener("click", () => updateOnlineOrderStatus(Number(button.dataset.onlineStatus), button.dataset.status));
   });
 
   const saveFinance = byId("save-finance");
@@ -3650,6 +3704,61 @@ function convertQuoteToOrder(id) {
   audit("Orcamento convertido", `Venda ${quote.id} ${money(quote.total)}`);
   save();
   renderShell();
+}
+
+function updateOnlineOrderStatus(id, status) {
+  const sale = state.sales.find((row) => Number(row.id) === Number(id) && row.onlineOrder);
+  if (!sale) return;
+  if (status === "Cancelado" && !confirm(`Cancelar o pedido online ${id}? O estoque sera estornado.`)) return;
+  if (status === "Cancelado" && sale.status !== "Cancelado") {
+    restoreSaleStock(sale.items || [], id);
+    state.receivables.filter((row) => Number(row.sourceSaleId) === Number(id) && !row.paid).forEach((row) => {
+      row.cancelled = true;
+      row.paid = true;
+      row.balance = 0;
+    });
+  }
+  sale.status = status;
+  sale.updatedAt = new Date().toISOString();
+  if (status === "Conferido") sale.checkedAt = sale.updatedAt;
+  if (status === "Saiu para entrega") sale.deliveryStartedAt = sale.updatedAt;
+  if (status === "Entregue") sale.deliveredAt = sale.updatedAt;
+  audit(`Pedido online ${status.toLowerCase()}`, `Pedido ${sale.id} - ${sale.customer}`);
+  save();
+  renderShell();
+}
+
+function onlineOrderReceipt(sale) {
+  const customer = sale.customerData || {};
+  const lines = [
+    state.settings.company,
+    `PEDIDO ONLINE ${sale.id}`,
+    `Data: ${sale.date || today()}  Status: ${sale.status || "Aberto"}`,
+    `Cliente: ${sale.customer}`,
+    `Telefone: ${customer.phone || "-"}`,
+    `Endereco: ${[customer.address, customer.number, customer.district].filter(Boolean).join(", ")}`,
+    `${[customer.city, customer.uf, customer.cep].filter(Boolean).join(" - ")}`,
+    `Entrega: ${sale.delivery || "Entrega"}  Pagamento: ${sale.payment || "PIX"}`,
+    "",
+    "ITENS"
+  ];
+  (sale.items || []).forEach((item) => {
+    lines.push(`${item.qty} ${item.unit || "UN"} x ${item.description}`);
+    if (item.coverage) lines.push(`  Cobertura: ${item.coverage}`);
+    if (item.note) lines.push(`  Obs.: ${item.note}`);
+    lines.push(`  ${money(item.price)}  Total ${money(Number(item.qty || 0) * Number(item.price || 0))}`);
+  });
+  lines.push("", `TOTAL: ${money(sale.total || 0)}`, "", "Assinatura/recebimento: __________________________");
+  return lines.join("\n");
+}
+
+function printOnlineOrder(id) {
+  const sale = state.sales.find((row) => Number(row.id) === Number(id) && row.onlineOrder);
+  if (!sale) return;
+  sale.receiptPrintedAt = new Date().toISOString();
+  audit("Comprovante pedido online impresso", `Pedido ${sale.id}`);
+  save();
+  downloadText(`comprovante-pedido-online-${sale.id}.txt`, onlineOrderReceipt(sale));
 }
 
 function saveFinanceRecord() {
@@ -5243,6 +5352,15 @@ function applySaleStock(items, reference = "Venda") {
         addStockMovement(raw, "Baixa composicao", -usedQty, `Componente de ${product.description}`);
       }
     });
+  });
+}
+
+function restoreSaleStock(items, saleId) {
+  saleStockRequirements(items).forEach((requirement) => {
+    const product = state.products.find((row) => Number(row.id) === Number(requirement.productId));
+    if (!product) return;
+    product.stock = Number(product.stock || 0) + Number(requirement.qty || 0);
+    addStockMovement(product, "Estorno pedido online", Number(requirement.qty || 0), `Cancelamento pedido online ${saleId}`);
   });
 }
 

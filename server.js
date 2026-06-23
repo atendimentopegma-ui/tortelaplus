@@ -1019,6 +1019,52 @@ function onlineStoreCatalog(query = {}) {
   };
 }
 
+function onlineOrderRequirements(items, products) {
+  const totals = new Map();
+  items.forEach((item) => {
+    const product = products.find((row) => Number(row.id) === Number(item.productId));
+    if (!product) return;
+    const components = (product.composition || []).filter((component) => component.mode !== "production");
+    if (components.length) {
+      components.forEach((component) => {
+        totals.set(Number(component.productId), Number(totals.get(Number(component.productId)) || 0) + Number(component.qty || 0) * Number(item.qty || 0));
+      });
+      return;
+    }
+    totals.set(Number(product.id), Number(totals.get(Number(product.id)) || 0) + Number(item.qty || 0));
+  });
+  return Array.from(totals, ([productId, qty]) => ({ productId, qty }));
+}
+
+function applyOnlineOrderStock(tenantState, items, saleId) {
+  tenantState.stockMovements = Array.isArray(tenantState.stockMovements) ? tenantState.stockMovements : [];
+  const products = tenantState.products || [];
+  const requirements = onlineOrderRequirements(items, products);
+  const shortage = requirements
+    .map((requirement) => {
+      const product = products.find((row) => Number(row.id) === Number(requirement.productId));
+      return product && Number(product.stock || 0) >= Number(requirement.qty || 0) ? null : `${product?.description || requirement.productId}: saldo ${product?.stock || 0}, necessario ${requirement.qty}`;
+    })
+    .filter(Boolean);
+  if (shortage.length) return shortage;
+  requirements.forEach((requirement) => {
+    const product = products.find((row) => Number(row.id) === Number(requirement.productId));
+    if (!product) return;
+    product.stock = Number(product.stock || 0) - Number(requirement.qty || 0);
+    tenantState.stockMovements.push({
+      id: Math.max(0, ...tenantState.stockMovements.map((row) => Number(row.id) || 0)) + 1,
+      date: today(),
+      productId: product.id,
+      product: product.description,
+      type: "Pedido online",
+      qty: -Number(requirement.qty || 0),
+      balance: product.stock,
+      history: `Pedido online ${saleId}`
+    });
+  });
+  return [];
+}
+
 function bearerToken(req) {
   const authorization = req.headers.authorization || "";
   if (!authorization.toLowerCase().startsWith("bearer ")) return "";
@@ -1860,6 +1906,11 @@ async function handleApi(req, res, urlPath) {
     };
     tenantState.sales = Array.isArray(tenantState.sales) ? tenantState.sales : [];
     tenantState.receivables = Array.isArray(tenantState.receivables) ? tenantState.receivables : [];
+    const shortage = applyOnlineOrderStock(tenantState, normalizedItems, sale.id);
+    if (shortage.length) {
+      sendJson(res, 409, { ok: false, error: `Estoque insuficiente na loja selecionada: ${shortage.join("; ")}` });
+      return;
+    }
     tenantState.sales.push(sale);
     tenantState.receivables.push({
       id: Math.max(0, ...tenantState.receivables.map((row) => Number(row.id) || 0)) + 1,
