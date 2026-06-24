@@ -1133,7 +1133,7 @@ function renderPeople() {
             <div class="field"><label>UF</label><input id="person-uf" value="${escapeAttr(draft.uf || "")}" maxlength="2" /></div>
             <div class="field"><label>Complemento</label><input id="person-complement" value="${escapeAttr(draft.complement || "")}" /></div>
           </div>
-          <div class="actions"><button class="btn" id="lookup-cep" type="button">Buscar CEP</button><span class="helper">Cadastro aberto: ${editingPersonId ? `alterando codigo ${editingPersonId}` : "novo registro"}</span></div>
+          <div class="actions"><span class="helper">Cadastro aberto: ${editingPersonId ? `alterando codigo ${editingPersonId}` : "novo registro"}. O endereco e preenchido automaticamente ao concluir o CEP.</span></div>
         </form>
       </div>
       <div class="erp-action-bar">
@@ -2260,8 +2260,8 @@ function bindCurrentModule() {
   const openPdv = byId("open-pdv");
   if (openPdv) openPdv.addEventListener("click", () => { currentMode = "pdv"; renderShell(); });
 
-  const lookupCep = byId("lookup-cep");
-  if (lookupCep) lookupCep.addEventListener("click", lookupPersonCep);
+  bindCepAutocomplete("person-cep", lookupPersonCep);
+  bindCepAutocomplete("set-cep", lookupSettingsCep);
 
   const savePerson = byId("save-person");
   if (savePerson) savePerson.addEventListener("click", savePersonRecord);
@@ -2944,22 +2944,56 @@ function recoverHeldSale() {
   renderShell();
 }
 
+function bindCepAutocomplete(inputId, callback) {
+  const input = byId(inputId);
+  if (!input) return;
+  let lastCep = "";
+  const run = () => {
+    const cep = digits(input.value);
+    if (cep.length !== 8 || cep === lastCep) return;
+    lastCep = cep;
+    callback().catch(() => undefined);
+  };
+  input.addEventListener("input", run);
+  input.addEventListener("blur", run);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Tab") run();
+  });
+}
+
+async function fetchCepData(cep) {
+  const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+  const data = await response.json();
+  if (data.erro) throw new Error("CEP nao encontrado");
+  return data;
+}
+
 async function lookupPersonCep() {
-  const cep = byId("person-cep").value.replace(/\D/g, "");
-  if (cep.length !== 8) {
-    alert("Informe um CEP com 8 digitos.");
-    return;
-  }
+  const cep = digits(byId("person-cep")?.value);
+  if (cep.length !== 8) return;
   try {
-    const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-    const data = await response.json();
-    if (data.erro) throw new Error("CEP nao encontrado");
+    const data = await fetchCepData(cep);
     byId("person-address").value = data.logradouro || "";
     byId("person-district").value = data.bairro || "";
     byId("person-city").value = data.localidade || "";
     byId("person-uf").value = data.uf || "";
   } catch {
-    alert("Nao foi possivel buscar o CEP agora. O cadastro pode ser salvo e sincronizado depois.");
+    undefined;
+  }
+}
+
+async function lookupSettingsCep() {
+  const cep = digits(byId("set-cep")?.value);
+  if (cep.length !== 8) return;
+  try {
+    const data = await fetchCepData(cep);
+    byId("set-address").value = data.logradouro || "";
+    byId("set-district").value = data.bairro || "";
+    byId("set-city").value = data.localidade || "";
+    byId("set-uf").value = data.uf || byId("set-uf").value;
+    if (data.ibge && byId("set-city-code")) byId("set-city-code").value = data.ibge;
+  } catch {
+    undefined;
   }
 }
 

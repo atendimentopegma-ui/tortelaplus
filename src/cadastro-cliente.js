@@ -41,7 +41,7 @@ function render() {
             <div class="field"><label>Nome completo</label><input id="name" required /></div>
             <div class="field"><label>CPF</label><input id="document" inputmode="numeric" maxlength="14" required /></div>
             <div class="field"><label>Telefone / WhatsApp</label><input id="phone" inputmode="tel" required /></div>
-            <div class="field"><label>CEP</label><div class="field-action"><input id="cep" inputmode="numeric" maxlength="9" required /><button class="btn" id="lookup-cep" type="button">Buscar CEP</button></div></div>
+            <div class="field"><label>CEP</label><input id="cep" inputmode="numeric" maxlength="9" required placeholder="Digite o CEP" /></div>
             <div class="field"><label>Endereco</label><input id="address" required /></div>
             <div class="field"><label>Numero</label><input id="number" required /></div>
             <div class="field"><label>Complemento</label><input id="complement" /></div>
@@ -55,13 +55,29 @@ function render() {
         </form>
       </section>
     </main>`;
-  byId("lookup-cep").addEventListener("click", lookupCep);
+  bindCepAutocomplete();
   byId("customer-form").addEventListener("submit", submit);
+}
+
+function bindCepAutocomplete() {
+  const input = byId("cep");
+  let lastCep = "";
+  const run = () => {
+    const cep = digits(input.value);
+    if (cep.length !== 8 || cep === lastCep) return;
+    lastCep = cep;
+    lookupCep().catch(() => undefined);
+  };
+  input.addEventListener("input", run);
+  input.addEventListener("blur", run);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Tab") run();
+  });
 }
 
 async function lookupCep() {
   const cep = digits(byId("cep").value);
-  if (cep.length !== 8) return show("Informe um CEP com 8 digitos.", true);
+  if (cep.length !== 8) return;
   try {
     const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
     const data = await response.json();
