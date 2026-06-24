@@ -372,6 +372,83 @@ header.topbar .top-right .central-top-action:hover {
   display: none;
 }
 
+.erp-screen {
+  min-height: calc(100vh - 188px);
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.erp-search-strip {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  display: grid;
+  gap: 8px;
+}
+
+.erp-search-strip label {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.erp-search-line {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.compact-tabs {
+  padding-top: 4px;
+}
+
+.erp-body {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(260px, 1fr) auto;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.erp-table {
+  min-height: 0;
+  overflow: auto;
+}
+
+.erp-table table {
+  min-width: 980px;
+}
+
+.erp-table tr[data-select-person],
+.erp-table tr[data-select-product] {
+  cursor: pointer;
+}
+
+.erp-table tr.selected-row td {
+  background: rgba(250, 204, 21, 0.28);
+  font-weight: 800;
+}
+
+.erp-edit-panel {
+  max-height: 340px;
+  overflow: auto;
+}
+
+.erp-action-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.erp-action-bar .btn {
+  min-width: 118px;
+  min-height: 48px;
+}
+
 .online-store-page {
   background: #ffca1d;
 }

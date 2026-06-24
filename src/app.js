@@ -327,6 +327,8 @@ let editingPersonId = 0;
 let editingProductId = 0;
 let editingFiscalRuleId = 0;
 let editingAccountId = 0;
+let selectedPersonId = 0;
+let selectedProductId = 0;
 let personSearch = "";
 let productSearch = "";
 let sessionId = sessionStorage.getItem("tortelaplus-session-id") || "";
@@ -1092,14 +1094,23 @@ function sendAutomaticOrderToCentral() {
 
 function renderPeople() {
   const draft = pendingPersonDraft;
+  const personTypeFilter = ["Cliente", "Fornecedor", "Funcionario", "Parceiro"].includes(currentTab) ? currentTab : "Todos";
   return `
-    <section class="panel">
+    <section class="panel erp-screen">
       <div class="panel-head">
         <h2>Pessoas</h2>
-        <div class="actions"><input class="compact-input" id="person-search" value="${escapeAttr(personSearch)}" placeholder="Buscar pessoa" /><button class="btn" id="filter-people">Buscar</button><button class="btn" id="copy-public-registration">Copiar link de cadastro</button><button class="btn primary" id="save-person">${editingPersonId ? "Atualizar pessoa" : "Salvar pessoa"}</button></div>
+        <div class="actions"><button class="btn" id="copy-public-registration">Copiar link de cadastro</button></div>
       </div>
-      <div class="panel-body grid">
-        <form class="form-card" id="person-form">
+      <div class="erp-search-strip">
+        <label>Localizar</label>
+        <div class="erp-search-line"><input id="person-search" value="${escapeAttr(personSearch)}" placeholder="Digite nome, fantasia, CPF/CNPJ, cidade ou telefone" /><button class="btn" id="filter-people">Buscar</button></div>
+      </div>
+      <div class="module-tabs compact-tabs">
+        ${["Cliente", "Funcionario", "Fornecedor", "Parceiro", "Todos"].map((type) => `<button type="button" class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : "Todos"}</button>`).join("")}
+      </div>
+      <div class="panel-body erp-body">
+        ${peopleTable()}
+        <form class="form-card erp-edit-panel" id="person-form">
           <div class="grid three">
             <div class="field"><label>Tipo</label><select id="person-type">${["Cliente", "Fornecedor", "Funcionario", "Parceiro"].map((type) => `<option ${draft.type === type ? "selected" : ""}>${type}</option>`).join("")}</select></div>
             <div class="field"><label>Nome/Razao social</label><input id="person-name" value="${escapeAttr(draft.name || "")}" required /></div>
@@ -1107,8 +1118,6 @@ function renderPeople() {
             <div class="field"><label>CPF/CNPJ</label><input id="person-doc" value="${escapeAttr(draft.document || "")}" /></div>
             <div class="field"><label>RG/IE</label><input id="person-ie" value="${escapeAttr(draft.stateRegistration || "")}" /></div>
             <div class="field"><label>Contribuinte</label><select id="person-taxpayer"><option>Nao contribuinte</option><option>Contribuinte ICMS</option><option>Isento</option></select></div>
-          </div>
-          <div class="grid three">
             <div class="field"><label>Email</label><input id="person-email" value="${escapeAttr(draft.email || "")}" /></div>
             <div class="field"><label>Telefone</label><input id="person-phone" value="${escapeAttr(draft.phone || "")}" /></div>
             <div class="field"><label>WhatsApp</label><input id="person-whatsapp" value="${escapeAttr(draft.whatsapp || "")}" /></div>
@@ -1124,9 +1133,16 @@ function renderPeople() {
             <div class="field"><label>UF</label><input id="person-uf" value="${escapeAttr(draft.uf || "")}" maxlength="2" /></div>
             <div class="field"><label>Complemento</label><input id="person-complement" value="${escapeAttr(draft.complement || "")}" /></div>
           </div>
-          <div class="actions"><button class="btn" id="lookup-cep" type="button">Buscar CEP</button><span class="helper">Todos os cadastros com endereco usam busca automatica quando houver internet.</span></div>
+          <div class="actions"><button class="btn" id="lookup-cep" type="button">Buscar CEP</button><span class="helper">Cadastro aberto: ${editingPersonId ? `alterando codigo ${editingPersonId}` : "novo registro"}</span></div>
         </form>
-        ${peopleTable()}
+      </div>
+      <div class="erp-action-bar">
+        <button class="btn primary" id="new-person" type="button">Novo</button>
+        <button class="btn" id="edit-selected-person" type="button">Alterar</button>
+        <button class="btn" id="print-people" type="button">Imprimir</button>
+        <button class="btn" id="refresh-people" type="button">Atualizar</button>
+        <button class="btn primary" id="save-person" type="button">${editingPersonId ? "Salvar alteracao" : "Salvar novo"}</button>
+        <button class="btn" id="close-people" type="button">Fechar</button>
       </div>
     </section>
   `;
@@ -1134,12 +1150,13 @@ function renderPeople() {
 
 function peopleTable() {
   const query = personSearch.trim().toLowerCase();
-  const rows = state.people.filter((person) => !query || [person.name, person.alias, person.document, person.city].some((value) => String(value || "").toLowerCase().includes(query)));
+  const filter = ["Cliente", "Fornecedor", "Funcionario", "Parceiro"].includes(currentTab) ? currentTab : "";
+  const rows = state.people.filter((person) => (!filter || person.type === filter) && (!query || [person.name, person.alias, person.document, person.city, person.phone].some((value) => String(value || "").toLowerCase().includes(query))));
   return `
-    <div class="table-wrap">
+    <div class="table-wrap erp-table">
       <table>
         <thead><tr><th>Codigo</th><th>Tipo</th><th>Nome</th><th>Fantasia</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>UF</th><th>Status</th><th>Acoes</th></tr></thead>
-        <tbody>${rows.map((person) => `<tr><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td>${person.document}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td><span class="badge ${person.active === false ? "danger" : "ok"}">${person.active === false ? "Inativo" : "Ativo"}</span></td><td><button class="btn" data-edit-person="${person.id}">Editar</button> <button class="btn ${person.active === false ? "" : "danger"}" data-toggle-person="${person.id}">${person.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
+        <tbody>${rows.map((person) => `<tr class="${Number(selectedPersonId) === Number(person.id) ? "selected-row" : ""}" data-select-person="${person.id}"><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td>${person.document}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td><span class="badge ${person.active === false ? "danger" : "ok"}">${person.active === false ? "Inativo" : "Ativo"}</span></td><td><button class="btn" data-edit-person="${person.id}">Editar</button> <button class="btn ${person.active === false ? "" : "danger"}" data-toggle-person="${person.id}">${person.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
       </table>
     </div>
   `;
@@ -1158,11 +1175,23 @@ function renderProducts() {
     ? `${formHtml}${productsTable()}`
     : `${productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>${productsTable()}`;
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Produtos</h2><div class="actions"><input class="compact-input" id="product-search" value="${escapeAttr(productSearch)}" placeholder="Buscar produto" /><button class="btn" id="filter-products">Buscar</button><button class="btn primary" id="save-product">${editingProductId ? "Atualizar produto" : "Salvar produto"}</button></div></div>
+    <section class="panel erp-screen">
+      <div class="panel-head"><h2>Produtos</h2><div class="actions"><button class="btn primary" id="save-product">${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button></div></div>
+      <div class="erp-search-strip">
+        <label>Localizar</label>
+        <div class="erp-search-line"><input id="product-search" value="${escapeAttr(productSearch)}" placeholder="Digite descricao, codigo de barras, marca, grupo ou NCM" /><button class="btn" id="filter-products">Buscar</button></div>
+      </div>
       <div class="module-tabs">${tabs.map((tab) => `<button type="button" class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" aria-pressed="${currentTab === tab ? "true" : "false"}">${tabLabel(tab)}</button>`).join("")}</div>
-      <div class="panel-body grid">
+      <div class="panel-body erp-body">
         ${bodyHtml}
+      </div>
+      <div class="erp-action-bar">
+        <button class="btn primary" id="new-product" type="button">Novo</button>
+        <button class="btn" id="edit-selected-product" type="button">Alterar</button>
+        <button class="btn" id="label-selected-product" type="button">Etiqueta</button>
+        <button class="btn" id="print-products" type="button">Imprimir</button>
+        <button class="btn" id="refresh-products" type="button">Atualizar</button>
+        <button class="btn" id="close-products" type="button">Fechar</button>
       </div>
     </section>
   `;
@@ -1377,10 +1406,10 @@ function productsTable() {
   const query = productSearch.trim().toLowerCase();
   const rows = state.products.filter((product) => !query || [product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query)));
   return `
-    <div class="table-wrap">
+    <div class="table-wrap erp-table">
       <table>
         <thead><tr><th>Foto</th><th>Codigo</th><th>Descricao</th><th>Tipo</th><th>NCM</th><th>Preco</th><th>Estoque</th><th>Minimo</th><th>Status</th><th>Acoes</th></tr></thead>
-        <tbody>${rows.map((product) => `<tr><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.description}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td>${product.minStock}</td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : product.stock <= product.minStock ? "Comprar" : "OK"}</span></td><td><button class="btn" data-edit-product="${product.id}">Editar</button> <button class="btn" data-label-product="${product.id}">Etiqueta</button> <button class="btn ${product.active === false ? "" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
+        <tbody>${rows.map((product) => `<tr class="${Number(selectedProductId) === Number(product.id) ? "selected-row" : ""}" data-select-product="${product.id}"><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.description}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td>${product.minStock}</td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : product.stock <= product.minStock ? "Comprar" : "OK"}</span></td><td><button class="btn" data-edit-product="${product.id}">Editar</button> <button class="btn" data-label-product="${product.id}">Etiqueta</button> <button class="btn ${product.active === false ? "" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
       </table>
     </div>
   `;
@@ -2236,6 +2265,16 @@ function bindCurrentModule() {
 
   const savePerson = byId("save-person");
   if (savePerson) savePerson.addEventListener("click", savePersonRecord);
+  const newPerson = byId("new-person");
+  if (newPerson) newPerson.addEventListener("click", newPersonRecord);
+  const editSelectedPerson = byId("edit-selected-person");
+  if (editSelectedPerson) editSelectedPerson.addEventListener("click", () => editPersonRecord(selectedPersonId || Number(document.querySelector("[data-select-person]")?.dataset.selectPerson || 0)));
+  const printPeople = byId("print-people");
+  if (printPeople) printPeople.addEventListener("click", printPeopleList);
+  const refreshPeople = byId("refresh-people");
+  if (refreshPeople) refreshPeople.addEventListener("click", renderShell);
+  const closePeople = byId("close-people");
+  if (closePeople) closePeople.addEventListener("click", () => { currentModule = "dashboard"; renderShell(); });
   const filterPeople = byId("filter-people");
   if (filterPeople) filterPeople.addEventListener("click", () => { personSearch = byId("person-search").value; renderShell(); });
   const copyPublicRegistration = byId("copy-public-registration");
@@ -2248,13 +2287,39 @@ function bindCurrentModule() {
       alert(`Nao foi possivel copiar automaticamente. Link: ${link}`);
     }
   });
+  document.querySelectorAll("[data-person-filter]").forEach((button) => button.addEventListener("click", () => {
+    currentTab = button.dataset.personFilter === "Todos" ? "dados" : button.dataset.personFilter;
+    renderShell();
+  }));
+  document.querySelectorAll("[data-select-person]").forEach((row) => row.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    selectedPersonId = Number(row.dataset.selectPerson);
+    renderShell();
+  }));
   document.querySelectorAll("[data-edit-person]").forEach((button) => button.addEventListener("click", () => editPersonRecord(Number(button.dataset.editPerson))));
   document.querySelectorAll("[data-toggle-person]").forEach((button) => button.addEventListener("click", () => togglePersonRecord(Number(button.dataset.togglePerson))));
 
   const saveProduct = byId("save-product");
   if (saveProduct) saveProduct.addEventListener("click", saveProductRecord);
+  const newProduct = byId("new-product");
+  if (newProduct) newProduct.addEventListener("click", newProductRecord);
+  const editSelectedProduct = byId("edit-selected-product");
+  if (editSelectedProduct) editSelectedProduct.addEventListener("click", () => editProductRecord(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
+  const labelSelectedProduct = byId("label-selected-product");
+  if (labelSelectedProduct) labelSelectedProduct.addEventListener("click", () => printProductLabel(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
+  const printProducts = byId("print-products");
+  if (printProducts) printProducts.addEventListener("click", printProductsList);
+  const refreshProducts = byId("refresh-products");
+  if (refreshProducts) refreshProducts.addEventListener("click", renderShell);
+  const closeProducts = byId("close-products");
+  if (closeProducts) closeProducts.addEventListener("click", () => { currentModule = "dashboard"; renderShell(); });
   const filterProducts = byId("filter-products");
   if (filterProducts) filterProducts.addEventListener("click", () => { productSearch = byId("product-search").value; renderShell(); });
+  document.querySelectorAll("[data-select-product]").forEach((row) => row.addEventListener("click", (event) => {
+    if (event.target.closest("button")) return;
+    selectedProductId = Number(row.dataset.selectProduct);
+    renderShell();
+  }));
   document.querySelectorAll("[data-edit-product]").forEach((button) => button.addEventListener("click", () => editProductRecord(Number(button.dataset.editProduct))));
   document.querySelectorAll("[data-toggle-product]").forEach((button) => button.addEventListener("click", () => toggleProductRecord(Number(button.dataset.toggleProduct))));
   document.querySelectorAll("[data-label-product]").forEach((button) => button.addEventListener("click", () => printProductLabel(Number(button.dataset.labelProduct))));
@@ -2933,6 +2998,7 @@ function savePersonRecord() {
   };
   if (editingPersonId) Object.assign(state.people.find((person) => person.id === editingPersonId), record);
   else state.people.push(record);
+  selectedPersonId = record.id;
   audit(editingPersonId ? "Pessoa alterada" : "Pessoa cadastrada", name);
   editingPersonId = 0;
   pendingPersonDraft = {};
@@ -2940,10 +3006,19 @@ function savePersonRecord() {
   renderShell();
 }
 
+function newPersonRecord() {
+  editingPersonId = 0;
+  selectedPersonId = 0;
+  pendingPersonDraft = {};
+  currentTab = "dados";
+  renderShell();
+}
+
 function editPersonRecord(id) {
   const person = state.people.find((row) => row.id === id);
   if (!person) return;
   editingPersonId = id;
+  selectedPersonId = id;
   pendingPersonDraft = structuredClone(person);
   renderShell();
 }
@@ -3010,12 +3085,23 @@ function saveProductRecord() {
   };
   if (editingProductId) Object.assign(state.products.find((product) => product.id === editingProductId), record);
   else state.products.push(record);
+  selectedProductId = record.id;
   audit(editingProductId ? "Produto alterado" : "Produto cadastrado", description);
   save();
   editingProductId = 0;
   pendingProductPhoto = "";
   pendingComposition = [];
   pendingProductDraft = {};
+  renderShell();
+}
+
+function newProductRecord() {
+  editingProductId = 0;
+  selectedProductId = 0;
+  pendingProductPhoto = "";
+  pendingComposition = [];
+  pendingProductDraft = {};
+  currentTab = "dados";
   renderShell();
 }
 
@@ -3100,6 +3186,7 @@ function editProductRecord(id) {
   const product = state.products.find((row) => row.id === id);
   if (!product) return;
   editingProductId = id;
+  selectedProductId = id;
   pendingProductDraft = structuredClone(product);
   pendingComposition = structuredClone(product.composition || []);
   pendingProductPhoto = product.photo || "";
@@ -3704,6 +3791,25 @@ function convertQuoteToOrder(id) {
   audit("Orcamento convertido", `Venda ${quote.id} ${money(quote.total)}`);
   save();
   renderShell();
+}
+
+function printProductsList() {
+  const query = productSearch.trim().toLowerCase();
+  const rows = state.products.filter((product) => !query || [product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query)));
+  downloadText(`produtos-${today()}.csv`, [
+    "Codigo;Descricao;Tipo;NCM;Preco;Estoque;Minimo;Status",
+    ...rows.map((product) => [product.id, product.description, product.type, product.ncm || "", product.price || 0, product.stock || 0, product.minStock || 0, product.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
+  ].join("\n"));
+}
+
+function printPeopleList() {
+  const query = personSearch.trim().toLowerCase();
+  const filter = ["Cliente", "Fornecedor", "Funcionario", "Parceiro"].includes(currentTab) ? currentTab : "";
+  const rows = state.people.filter((person) => (!filter || person.type === filter) && (!query || [person.name, person.alias, person.document, person.city, person.phone].some((value) => String(value || "").toLowerCase().includes(query))));
+  downloadText(`pessoas-${today()}.csv`, [
+    "Codigo;Tipo;Nome;Fantasia;CPF/CNPJ;Telefone;Cidade;UF;Status",
+    ...rows.map((person) => [person.id, person.type, person.name, person.alias || "", person.document || "", person.phone || "", person.city || "", person.uf || "", person.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
+  ].join("\n"));
 }
 
 function updateOnlineOrderStatus(id, status) {
