@@ -1019,6 +1019,23 @@ function onlineStoreCatalog(query = {}) {
   };
 }
 
+function normalizedUnit(unit) {
+  return String(unit || "").trim().toUpperCase();
+}
+
+function componentStockQty(component, product) {
+  const qty = Number(component?.qty || 0);
+  const useUnit = normalizedUnit(component?.useUnit || product?.unit);
+  const stockUnit = normalizedUnit(product?.unit);
+  if (!qty) return 0;
+  if (!useUnit || useUnit === "AUTO" || useUnit === stockUnit) return qty;
+  if (useUnit === "G" && stockUnit === "KG") return qty / 1000;
+  if (useUnit === "KG" && stockUnit === "G") return qty * 1000;
+  if (useUnit === "ML" && stockUnit === "LT") return qty / 1000;
+  if (useUnit === "LT" && stockUnit === "ML") return qty * 1000;
+  return qty;
+}
+
 function onlineOrderRequirements(items, products) {
   const totals = new Map();
   items.forEach((item) => {
@@ -1027,7 +1044,8 @@ function onlineOrderRequirements(items, products) {
     const components = (product.composition || []).filter((component) => component.mode !== "production");
     if (components.length) {
       components.forEach((component) => {
-        totals.set(Number(component.productId), Number(totals.get(Number(component.productId)) || 0) + Number(component.qty || 0) * Number(item.qty || 0));
+        const raw = products.find((row) => Number(row.id) === Number(component.productId));
+        totals.set(Number(component.productId), Number(totals.get(Number(component.productId)) || 0) + componentStockQty(component, raw) * Number(item.qty || 0));
       });
       return;
     }
@@ -2145,7 +2163,7 @@ async function handleApi(req, res, urlPath) {
       products.filter((product) => Array.isArray(product.composition) && product.composition.length).forEach((product) => {
         const components = product.composition.map((component) => {
           const rawMaterial = products.find((row) => Number(row.id) === Number(component.productId));
-          const required = Number(component.qty || 0);
+          const required = componentStockQty(component, rawMaterial);
           const available = Number(rawMaterial?.stock || 0);
           return {
             product: rawMaterial?.description || component.description || `Produto ${component.productId}`,

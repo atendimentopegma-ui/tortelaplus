@@ -396,6 +396,7 @@ function withDefaults(data) {
     ...product,
     composition: (product.composition || []).map((component) => ({
       ...component,
+      useUnit: component.useUnit || "",
       mode: component.mode || (product.type === "Produto fabricado" ? "production" : "sale")
     }))
   }));
@@ -1244,7 +1245,7 @@ function productForm() {
         <div class="field"><label>Descricao</label><input id="product-description" value="${escapeAttr(draft.description)}" required /></div>
         <div class="field"><label>Codigo de barras</label><input id="product-barcode" value="${escapeAttr(draft.barcode)}" /></div>
         <div class="field"><label>Tipo</label><select id="product-type">${["Mercadoria para revenda", "Materia-prima", "Produto fabricado", "Servico", "Combustivel"].map((item) => `<option ${draft.type === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
-          <div class="field"><label>Unidade</label><select id="product-unit">${["UN", "KG", "LT", "CX", "HR"].map((item) => `<option ${draft.unit === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+          <div class="field"><label>Unidade de estoque/compra</label><select id="product-unit">${["UN", "KG", "G", "LT", "ML", "CX", "HR"].map((item) => `<option ${draft.unit === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
       </div>
       <div class="grid four">
         <div class="field"><label>Marca</label><input id="product-brand" value="${escapeAttr(draft.brand)}" /></div>
@@ -1270,8 +1271,8 @@ function productForm() {
         <div class="photo-preview" id="product-photo-preview">${pendingProductPhoto ? `<img src="${pendingProductPhoto}" alt="Foto do produto" />` : "Sem foto"}</div>
         <div class="grid">
           <div class="field"><label>Foto do produto</label><input id="product-photo" type="file" accept="image/*" /></div>
-          <label class="check-row"><input id="product-is-bundle" type="checkbox" ${pendingComposition.length ? "checked" : ""} /> Este produto e formado por partes/componentes</label>
-          <p class="helper">Ao vender um produto marcado como composto, o sistema baixa automaticamente os itens informados na aba Composicao.</p>
+          <label class="check-row"><input id="product-is-bundle" type="checkbox" ${pendingComposition.length ? "checked" : ""} /> Este produto e composto ou produzido com materia-prima</label>
+          <p class="helper">Marque quando este cadastro for uma receita/produto produzido, como torta de limao, ou um kit. A ficha tecnica fica na aba Composicao.</p>
         </div>
       </div>
     </form>
@@ -1291,16 +1292,17 @@ function productTab() {
   if (currentTab === "composicao") {
     const compositionCost = pendingComposition.reduce((sum, component) => {
       const product = state.products.find((item) => item.id === component.productId);
-      return sum + Number(product?.cost || 0) * Number(component.qty || 0);
+      return sum + Number(product?.cost || 0) * componentStockQty(component, product);
     }, 0);
     return `
       <div class="form-card">
-        <h3>Composicao / fabricacao</h3>
-        <p class="muted">Use para produto montado por partes. Exemplo: um kit, uma cesta, uma receita ou um produto fabricado. Ao vender o produto principal, os componentes tambem sofrem baixa.</p>
-        <div class="grid three">
-          <div class="field"><label>Materia-prima</label><select id="composition-product">${state.products.map((product) => `<option value="${product.id}">${product.description}</option>`).join("")}</select></div>
-          <div class="field"><label>Quantidade usada</label><input id="composition-qty" type="number" step="0.001" value="1" /></div>
-          <div class="field"><label>Tipo de baixa</label><select id="composition-mode"><option value="sale">Baixar na venda</option><option value="production">Baixar na fabricacao</option><option value="both">Baixar em ambos</option></select></div>
+        <h3>Ficha tecnica: composicao e fabricacao</h3>
+        <p class="muted">Informe quanto de cada materia-prima entra em 1 unidade do produto final. Exemplo: farinha cadastrada em KG, usar 500 G na torta baixa 0,5 KG do estoque.</p>
+        <div class="grid four">
+          <div class="field"><label>Materia-prima / componente</label><select id="composition-product">${state.products.map((product) => `<option value="${product.id}">${product.description} (${product.unit || "UN"})</option>`).join("")}</select></div>
+          <div class="field"><label>Quantidade usada por unidade</label><input id="composition-qty" type="number" step="0.001" value="1" /></div>
+          <div class="field"><label>Unidade de uso</label><select id="composition-use-unit">${["AUTO", "G", "KG", "ML", "LT", "UN"].map((unit) => `<option value="${unit}">${unit === "AUTO" ? "Mesma do estoque" : unit}</option>`).join("")}</select></div>
+          <div class="field"><label>Quando baixar</label><select id="composition-mode"><option value="production">Na ordem de producao/cozinha</option><option value="sale">Na venda</option><option value="both">Na producao e na venda</option></select></div>
         </div>
         <div class="actions">
           <button class="btn primary" id="add-composition" type="button">Adicionar componente</button>
@@ -1308,10 +1310,10 @@ function productTab() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Componente</th><th>Qtd usada</th><th>Unidade</th><th>Custo unit.</th><th>Baixa</th><th>Acao</th></tr></thead>
+            <thead><tr><th>Componente</th><th>Uso por unidade</th><th>Baixa no estoque</th><th>Custo unit.</th><th>Quando baixa</th><th>Acao</th></tr></thead>
             <tbody>${pendingComposition.length ? pendingComposition.map((component, index) => {
               const product = state.products.find((item) => item.id === component.productId);
-              return `<tr><td>${product?.description || component.productId}</td><td>${component.qty}</td><td>${product?.unit || ""}</td><td>${money(product?.cost || 0)}</td><td>${compositionModeLabel(component.mode)}</td><td><button class="btn danger" data-remove-composition="${index}" type="button">Remover</button></td></tr>`;
+              return `<tr><td>${product?.description || component.productId}</td><td>${formatQty(component.qty)} ${component.useUnit || product?.unit || ""}</td><td>${formatQty(componentStockQty(component, product))} ${product?.unit || ""}</td><td>${money(product?.cost || 0)}</td><td>${compositionModeLabel(component.mode)}</td><td><button class="btn danger" data-remove-composition="${index}" type="button">Remover</button></td></tr>`;
             }).join("") : `<tr><td colspan="6">Nenhum componente adicionado para o novo produto.</td></tr>`}</tbody>
           </table>
         </div>
@@ -1381,9 +1383,30 @@ function productTab() {
 function compositionModeLabel(mode) {
   return {
     sale: "Venda",
-    production: "Fabricacao",
-    both: "Venda e fabricacao"
+    production: "Ordem de producao/cozinha",
+    both: "Producao e venda"
   }[mode] || "Venda";
+}
+
+function formatQty(value) {
+  return Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function normalizedUnit(unit) {
+  return String(unit || "").trim().toUpperCase();
+}
+
+function componentStockQty(component, product) {
+  const qty = Number(component?.qty || 0);
+  const useUnit = normalizedUnit(component?.useUnit || product?.unit);
+  const stockUnit = normalizedUnit(product?.unit);
+  if (!qty) return 0;
+  if (!useUnit || useUnit === "AUTO" || useUnit === stockUnit) return qty;
+  if (useUnit === "G" && stockUnit === "KG") return qty / 1000;
+  if (useUnit === "KG" && stockUnit === "G") return qty * 1000;
+  if (useUnit === "ML" && stockUnit === "LT") return qty / 1000;
+  if (useUnit === "LT" && stockUnit === "ML") return qty * 1000;
+  return qty;
 }
 
 function escapeAttr(value) {
@@ -1427,11 +1450,11 @@ function renderStock() {
   const movements = state.stockMovements || [];
   return `
     <section class="panel">
-      <div class="panel-head"><h2>Estoque e producao</h2><div class="actions"><button class="btn" id="plan-production">Programar ordem</button><button class="btn primary" id="make-production">Fabricar</button></div></div>
+      <div class="panel-head"><h2>Estoque e producao</h2><div class="actions"><button class="btn" id="plan-production">Programar ordem para cozinha</button><button class="btn primary" id="make-production">Concluir producao</button></div></div>
       <div class="panel-body grid two">
         <div class="form-card">
-          <h3>Baixa por composicao</h3>
-          <p class="muted">Exemplo: fabricar 10 paes baixa farinha e oleo conforme a ficha tecnica do produto.</p>
+          <h3>Ordem de producao da cozinha</h3>
+          <p class="muted">Ao concluir a producao, o sistema da entrada no produto final e baixa as materias-primas pela ficha tecnica. Exemplo: 1 torta usa 500 G de farinha, baixando 0,5 KG se a farinha estiver em KG.</p>
           <div class="field"><label>Produto fabricado</label><select id="production-product">${state.products.filter((p) => (p.composition || []).some((component) => component.mode === "production" || component.mode === "both")).map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
           <div class="field"><label>Ordem planejada</label><select id="production-order"><option value="">Nova producao</option>${(state.productions || []).filter((row) => row.status === "Planejada").map((row) => `<option value="${row.id}">Ordem ${row.id} - ${row.product} (${row.plannedQty})</option>`).join("")}</select></div>
           <div class="grid two">
@@ -3088,7 +3111,10 @@ function saveProductRecord() {
   if (type !== "Servico" && ncm.length !== 8) return alert("Informe um NCM valido com 8 digitos.");
   const composition = pendingComposition.map((component) => ({ ...component }));
   if (composition.length && composition.some((component) => !state.products.some((product) => product.id === component.productId))) return alert("A composicao possui componente inexistente.");
-  const compositionCost = composition.reduce((sum, component) => sum + Number(state.products.find((product) => product.id === component.productId)?.cost || 0) * Number(component.qty || 0), 0);
+  const compositionCost = composition.reduce((sum, component) => {
+    const product = state.products.find((row) => row.id === component.productId);
+    return sum + Number(product?.cost || 0) * componentStockQty(component, product);
+  }, 0);
   const record = {
     id: editingProductId || nextId(state.products),
     description,
@@ -3151,6 +3177,7 @@ function addCompositionRecord() {
   captureProductDraft();
   const componentId = Number(byId("composition-product")?.value || 0);
   const qty = Number(byId("composition-qty")?.value || 0);
+  const useUnit = byId("composition-use-unit")?.value || "AUTO";
   const mode = byId("composition-mode")?.value || "sale";
   if (!componentId || qty <= 0) {
     alert("Informe o componente e a quantidade usada.");
@@ -3160,9 +3187,10 @@ function addCompositionRecord() {
     alert("Este componente ja foi incluido com outro tipo de baixa. Remova-o antes de alterar.");
     return;
   }
-  const existing = pendingComposition.find((component) => component.productId === componentId && component.mode === mode);
+  const normalizedUseUnit = useUnit === "AUTO" ? "" : useUnit;
+  const existing = pendingComposition.find((component) => component.productId === componentId && component.mode === mode && (component.useUnit || "") === normalizedUseUnit);
   if (existing) existing.qty += qty;
-  else pendingComposition.push({ productId: componentId, qty, mode });
+  else pendingComposition.push({ productId: componentId, qty, useUnit: normalizedUseUnit, mode });
   const bundleCheck = byId("product-is-bundle");
   if (bundleCheck) bundleCheck.checked = true;
   renderShell();
@@ -3330,13 +3358,11 @@ function makeProductionRecord() {
   addStockMovement(product, "Producao", actualQty, `Fabricacao de ${product.description}`, { lot, expiry });
   if (lot) upsertStockLot(product, lot, expiry, actualQty);
   if (serials.length) registerStockSerials(product, serials, lot, `Producao ${production.id}`);
-  (product.composition || []).forEach((component) => {
-    if (component.mode === "sale") return;
-    const raw = state.products.find((item) => item.id === component.productId);
+  requirements.forEach((requirement) => {
+    const raw = state.products.find((item) => item.id === requirement.productId);
     if (raw) {
-      const usedQty = component.qty * plannedQty;
-      raw.stock -= usedQty;
-      addStockMovement(raw, "Baixa producao", -usedQty, `Componente de ${product.description}`);
+      raw.stock -= requirement.qty;
+      addStockMovement(raw, "Baixa producao", -requirement.qty, `Componente de ${product.description}`);
     }
   });
   save();
@@ -5490,11 +5516,10 @@ function applySaleStock(items, reference = "Venda") {
       addStockMovement(product, "Venda", -item.qty, `Venda ${item.description}`);
     }
     item.componentTraceability = [];
-    saleComponents.forEach((component) => {
-      if (component.mode === "production") return;
-      const raw = state.products.find((rawItem) => rawItem.id === component.productId);
+    compositionRequirements(product, item.qty, ["sale", "both"]).forEach((requirement) => {
+      const raw = state.products.find((rawItem) => rawItem.id === requirement.productId);
       if (raw) {
-        const usedQty = component.qty * item.qty;
+        const usedQty = requirement.qty;
         item.componentTraceability.push({ productId: raw.id, qty: usedQty, traceability: consumeProductTraceability(raw, usedQty, reference) });
         raw.stock -= usedQty;
         addStockMovement(raw, "Baixa composicao", -usedQty, `Componente de ${product.description}`);
@@ -5515,7 +5540,10 @@ function restoreSaleStock(items, saleId) {
 function compositionRequirements(product, qty, modes) {
   return (product.composition || [])
     .filter((component) => modes.includes(component.mode || "both"))
-    .map((component) => ({ productId: component.productId, qty: Number(component.qty || 0) * Number(qty || 0) }));
+    .map((component) => {
+      const raw = state.products.find((row) => row.id === component.productId);
+      return { productId: component.productId, qty: componentStockQty(component, raw) * Number(qty || 0), useQty: Number(component.qty || 0) * Number(qty || 0), useUnit: component.useUnit || raw?.unit || "" };
+    });
 }
 
 function saleStockRequirements(items) {
