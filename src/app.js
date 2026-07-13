@@ -916,6 +916,7 @@ function renderLicenseGate() {
 
 function renderShell() {
   ensureAllowedModule();
+  ensureAutomaticStockOrder();
   const tenant = getCurrentTenant();
   const license = licenseStatus(tenant);
   const modules = visibleModules();
@@ -980,8 +981,6 @@ function renderShell() {
   if (headerBackup) headerBackup.addEventListener("click", downloadCompleteTenantBackup);
   const headerXmlBackup = byId("header-xml-backup");
   if (headerXmlBackup) headerXmlBackup.addEventListener("click", downloadTenantXmlBackup);
-  const automaticOrderButton = byId("send-automatic-order");
-  if (automaticOrderButton) automaticOrderButton.addEventListener("click", sendAutomaticOrderToCentral);
   bindCurrentModule();
 }
 
@@ -1028,8 +1027,8 @@ function renderDashboard() {
       </section>
       <section class="panel">
         <div class="panel-head">
-          <h3>Compra sugerida ao abrir retaguarda</h3>
-          <button class="btn primary" id="send-automatic-order" ${lowStock.length ? "" : "disabled"}>Pedido automatico para Central</button>
+          <h3>Pedido automatico semanal para Central</h3>
+          <span class="badge ${lowStock.length ? "warn" : "ok"}">${lowStock.length ? "Enviado automaticamente" : "Sem necessidade"}</span>
         </div>
         <div class="panel-body">
           ${lowStock.length ? `
@@ -1055,7 +1054,16 @@ function renderDashboard() {
   `;
 }
 
-function sendAutomaticOrderToCentral() {
+function stockOrderWeekKey(date = new Date()) {
+  const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = target.getUTCDay() || 7;
+  target.setUTCDate(target.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+  return `${target.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function ensureAutomaticStockOrder() {
   const items = state.products
     .filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0))
     .map((product) => ({
@@ -1068,28 +1076,28 @@ function sendAutomaticOrderToCentral() {
       cost: Number(product.cost || 0)
     }));
 
-  if (!items.length) {
-    alert("Nenhum produto abaixo do estoque minimo.");
-    return;
-  }
+  if (!items.length) return;
 
   state.automaticOrders = state.automaticOrders || [];
+  const weekKey = stockOrderWeekKey();
+  const alreadySent = state.automaticOrders.some((order) => order.weekKey === weekKey && order.origin === "Estoque minimo semanal");
+  if (alreadySent) return;
+
   state.automaticOrders.unshift({
     id: nextId(state.automaticOrders),
     date: today(),
     createdAt: new Date().toISOString(),
     status: "Enviado",
-    origin: "Estoque minimo",
-    requestedBy: state.settings.user || "Operador",
+    origin: "Estoque minimo semanal",
+    requestedBy: "Sistema automatico",
+    weekKey,
     totalItems: items.length,
     estimatedCost: items.reduce((sum, item) => sum + item.suggestedQty * item.cost, 0),
     items
   });
 
-  audit("Pedido automatico para Central Tortela", `${items.length} itens abaixo do minimo`);
+  audit("Pedido automatico semanal para Central Tortela", `${items.length} itens abaixo do minimo`);
   save();
-  renderShell();
-  alert("Pedido automatico enviado para a Central Tortela.");
 }
 
 function renderPeople() {

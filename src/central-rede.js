@@ -9,6 +9,7 @@ const modules = [
   ["orders", "Pedidos", "Automaticos"],
   ["promotions", "Promocoes", "Rede ou unidades"],
   ["royalties", "Royalties", "Propaganda e taxas"],
+  ["customers", "Clientes", "Consumo e retorno"],
   ["finance", "Financeiro", "Contas e repasses"],
   ["permissions", "Permissoes", "Acesso das lojas"],
   ["production", "Producao", "Capacidade"],
@@ -85,6 +86,8 @@ function normalizeSummary(payload = {}) {
     finance: [],
     permissions: [],
     productionCapacity: [],
+    customerConsumption: [],
+    inactiveCustomers: [],
     ...payload,
     totals: { ...(payload.totals || {}) },
     periods: { hour: 0, day: 0, week: 0, fortnight: 0, month: 0, ...(payload.periods || {}) }
@@ -174,6 +177,7 @@ function renderCurrentModule() {
     orders: renderOrders,
     promotions: renderPromotions,
     royalties: renderRoyalties,
+    customers: renderCustomers,
     finance: renderFinance,
     permissions: renderPermissions,
     production: renderProduction,
@@ -371,6 +375,41 @@ function renderRoyalties() {
         `<strong>${money(row.total || 0)}</strong>`,
         escapeHtml(row.status || "A gerar")
       ]))}
+    </section>
+  </div>`;
+}
+
+function renderCustomers() {
+  const consumptionRows = summary.customerConsumption || [];
+  const inactiveRows = summary.inactiveCustomers || [];
+  return `<div class="network-module compact">
+    ${moduleTitle("Clientes da rede", "Consumo por unidade, retorno de compra e lista de clientes sem compra ha 30 dias ou mais.")}
+    <div class="network-grid three">
+      ${kpi("Clientes com compra", amount(consumptionRows.length))}
+      ${kpi("Sem comprar 30+ dias", amount(inactiveRows.length))}
+      ${kpi("Ticket acumulado", money(consumptionRows.reduce((sum, row) => sum + Number(row.total || 0), 0)))}
+    </div>
+    <section class="network-card">
+      <h2>Consumo entre unidades</h2>
+      ${table(["Cliente", "Documento", "Unidades", "Compras", "Total", "Ultima compra", "Mais consumidos"], consumptionRows.map((row) => [
+        `<strong>${escapeHtml(row.customer || "-")}</strong><br><small>${escapeHtml(row.whatsapp || "")}</small>`,
+        escapeHtml(row.document || "-"),
+        escapeHtml((row.units || []).join(", ") || "-"),
+        amount(row.purchases || 0),
+        money(row.total || 0),
+        `${escapeHtml(String(row.lastPurchase || "").slice(0, 10) || "-")}<br><small>${row.daysSinceLastPurchase === null || row.daysSinceLastPurchase === undefined ? "-" : `${amount(row.daysSinceLastPurchase)} dias`}</small>`,
+        escapeHtml((row.favoriteProducts || []).map((item) => item.product).join(", ") || "-")
+      ]))}
+    </section>
+    <section class="network-card">
+      <h2>Recuperacao por WhatsApp</h2>
+      ${table(["Cliente", "WhatsApp", "Dias sem comprar", "Ultima compra", "Sugestao"], inactiveRows.map((row) => [
+        escapeHtml(row.customer || "-"),
+        escapeHtml(row.whatsapp || "-"),
+        amount(row.daysSinceLastPurchase || 0),
+        escapeHtml(String(row.lastPurchase || "").slice(0, 10) || "-"),
+        "Enviar campanha de retorno"
+      ]), "Nenhum cliente com 30 dias ou mais sem compra.")}
     </section>
   </div>`;
 }

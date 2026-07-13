@@ -1820,6 +1820,13 @@ async function handleApi(req, res, urlPath) {
       uf,
       source: "Cadastro online Tortela",
       registeredAt: new Date().toISOString(),
+      lgpdConsent: {
+        accepted: true,
+        acceptedAt: new Date().toISOString(),
+        version: "2026-07-13",
+        legalBasis: "consentimento",
+        purpose: "Cadastro de cliente, atendimento de pedidos, comunicacao operacional e ofertas da rede Tortela."
+      },
       active: true
     };
     tenantState.people.push(customer);
@@ -1967,6 +1974,7 @@ async function handleApi(req, res, urlPath) {
     const royalties = [];
     const permissions = [];
     const productionCapacity = [];
+    const customerConsumptionMap = new Map();
     const saleDate = (sale) => {
       const raw = sale.createdAt || sale.finishedAt || sale.date || currentDay;
       const parsed = new Date(raw);
@@ -1977,6 +1985,60 @@ async function handleApi(req, res, urlPath) {
       && (!promotion?.from || currentDay >= promotion.from)
       && (!promotion?.to || currentDay <= promotion.to)
       && promotion?.status !== "Cancelada";
+    const digitsOnly = (value) => String(value || "").replace(/\D/g, "");
+    const normalizeCustomerKey = (value) => String(value || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    const maskDocument = (value) => {
+      const document = digitsOnly(value);
+      if (document.length === 11) return `${document.slice(0, 3)}.***.***-${document.slice(-2)}`;
+      if (document.length === 14) return `${document.slice(0, 2)}.***.***/****-${document.slice(-2)}`;
+      return "";
+    };
+    const registerCustomerSale = (tenant, tenantState, sale) => {
+      const customerName = String(sale.customer || sale.customerData?.name || "").trim();
+      if (!customerName || customerName === "Consumidor Final") return;
+      const customers = tenantState.people || [];
+      const profile = customers.find((person) =>
+        person.type === "Cliente"
+        && (digitsOnly(person.document) === digitsOnly(sale.customerData?.document)
+          || normalizeCustomerKey(person.name) === normalizeCustomerKey(customerName))
+      ) || {};
+      const document = digitsOnly(profile.document || sale.customerData?.document || "");
+      const phoneKey = digitsOnly(profile.whatsapp || profile.phone || sale.customerData?.phone || "");
+      const key = document || phoneKey || normalizeCustomerKey(customerName);
+      if (!key) return;
+      const current = customerConsumptionMap.get(key) || {
+        customer: profile.name || customerName,
+        document: maskDocument(document),
+        whatsapp: profile.whatsapp || profile.phone || sale.customerData?.phone || "",
+        purchases: 0,
+        total: 0,
+        firstPurchase: "",
+        lastPurchase: "",
+        units: new Set(),
+        products: new Map()
+      };
+      const moment = saleDate(sale);
+      const purchaseDate = moment.toISOString();
+      current.purchases += 1;
+      current.total += Number(sale.total || 0);
+      current.firstPurchase = !current.firstPurchase || purchaseDate < current.firstPurchase ? purchaseDate : current.firstPurchase;
+      current.lastPurchase = !current.lastPurchase || purchaseDate > current.lastPurchase ? purchaseDate : current.lastPurchase;
+      current.units.add(tenant.tradeName || tenant.tenantCode);
+      (sale.items || []).forEach((item) => {
+        const productName = item.description || item.product || `Produto ${item.productId || item.id || ""}`.trim();
+        const product = current.products.get(productName) || { product: productName, qty: 0, total: 0 };
+        product.qty += Number(item.qty || item.quantity || 0);
+        product.total += Number(item.total || 0);
+        current.products.set(productName, product);
+      });
+      customerConsumptionMap.set(key, current);
+    };
     for (const tenant of provider.clients || []) {
       const tenantState = readTenantState(tenant.tenantCode);
       const sales = (tenantState.sales || []).filter((sale) => !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status));
@@ -2037,6 +2099,7 @@ async function handleApi(req, res, urlPath) {
       });
       sales.forEach((sale) => {
         const moment = saleDate(sale);
+        registerCustomerSale(tenant, tenantState, sale);
         if (withinDays(moment, 1 / 24)) periods.hour += Number(sale.total || 0);
         if ((sale.date || "").slice(0, 10) === currentDay) periods.day += Number(sale.total || 0);
         if (withinDays(moment, 7)) periods.week += Number(sale.total || 0);
@@ -2102,6 +2165,28 @@ async function handleApi(req, res, urlPath) {
       });
     }
     const ranking = [...salesByProduct.values()].sort((a, b) => b.value - a.value);
+    const customerConsumption = [...customerConsumptionMap.values()].map((row) => {
+      const lastPurchaseDate = row.lastPurchase ? new Date(row.lastPurchase) : null;
+      const daysSinceLastPurchase = lastPurchaseDate && !Number.isNaN(lastPurchaseDate.getTime())
+        ? Math.floor((now.getTime() - lastPurchaseDate.getTime()) / 86400000)
+        : null;
+      const favoriteProducts = [...row.products.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);
+      return {
+        customer: row.customer,
+        document: row.document,
+        whatsapp: row.whatsapp,
+        purchases: row.purchases,
+        total: moneyRound(row.total),
+        firstPurchase: row.firstPurchase,
+        lastPurchase: row.lastPurchase,
+        daysSinceLastPurchase,
+        units: [...row.units],
+        favoriteProducts
+      };
+    }).sort((a, b) => b.total - a.total);
+    const inactiveCustomers = customerConsumption
+      .filter((row) => Number(row.daysSinceLastPurchase) >= 30)
+      .sort((a, b) => Number(b.daysSinceLastPurchase || 0) - Number(a.daysSinceLastPurchase || 0));
     sendJson(res, 200, {
       ok: true,
       generatedAt: new Date().toISOString(),
@@ -2117,7 +2202,9 @@ async function handleApi(req, res, urlPath) {
       finance,
       royalties,
       permissions,
-      productionCapacity: productionCapacity.slice(0, 80)
+      productionCapacity: productionCapacity.slice(0, 80),
+      customerConsumption: customerConsumption.slice(0, 120),
+      inactiveCustomers: inactiveCustomers.slice(0, 120)
     });
     return;
   }
