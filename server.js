@@ -245,6 +245,7 @@ const initialTenantState = {
     district: "",
     city: "",
     cityCode: "",
+    deliveryRadiusKm: 10,
     cepProvider: "ViaCEP",
     fiscalEnvironment: "Homologacao",
     fiscalEngine: "ACBrLib",
@@ -264,7 +265,15 @@ const initialTenantState = {
     nfseCityCode: "",
     certificateName: "",
     certificateExpiresAt: "",
-    fiscalResponsible: ""
+    fiscalResponsible: "",
+    pixApiUrl: "",
+    boletoApiUrl: "",
+    paymentApiUrl: "",
+    paymentProvider: "",
+    paymentAuthHeader: "Authorization",
+    paymentAuthScheme: "Bearer",
+    paymentCallbackUrl: "",
+    paymentApiTokenConfigured: false
   }
 };
 
@@ -1119,6 +1128,14 @@ function moneyRound(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
 
+function normalizeText(value = "") {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
 function activeSalesForRoyalties(tenantState) {
   return (tenantState.sales || []).filter((sale) => !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status));
 }
@@ -1203,20 +1220,135 @@ function catalogProduct(product, tenant, tenantState) {
   };
 }
 
-function cepDistance(inputCep, tenantCep) {
+async function lookupCepAddress(cep) {
+  const normalized = String(cep || "").replace(/\D/g, "");
+  if (normalized.length !== 8) return null;
+  try {
+    const response = await fetch(`https://viacep.com.br/ws/${normalized}/json/`, { signal: AbortSignal.timeout(5000) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.erro) return { cep: normalized };
+    return {
+      cep: normalized,
+      address: data.logradouro || "",
+      district: data.bairro || "",
+      city: data.localidade || "",
+      uf: String(data.uf || "").toUpperCase(),
+      complement: data.complemento || ""
+    };
+  } catch (error) {
+    return { cep: normalized };
+  }
+}
+
+function cepDistanceKm(inputCep, tenantCep, inputAddress = {}, tenantAddress = {}) {
   const input = String(inputCep || "").replace(/\D/g, "");
   const tenant = String(tenantCep || "").replace(/\D/g, "");
   if (!input || !tenant) return 999999;
   const a = Number(input.slice(0, 5) || 0);
   const b = Number(tenant.slice(0, 5) || 0);
-  return Math.abs(a - b);
+  let distance = Math.abs(a - b) * 0.12;
+  if (input.slice(0, 3) === tenant.slice(0, 3)) distance = Math.min(distance, Math.abs(a - b) * 0.06);
+  const sameCity = inputAddress.city && tenantAddress.city && normalizeText(inputAddress.city) === normalizeText(tenantAddress.city);
+  const sameUf = inputAddress.uf && tenantAddress.uf && String(inputAddress.uf).toUpperCase() === String(tenantAddress.uf).toUpperCase();
+  if (inputAddress.city && tenantAddress.city && !sameCity) distance = Math.max(distance, 15);
+  if (inputAddress.uf && tenantAddress.uf && !sameUf) distance = Math.max(distance, 80);
+  if (input === tenant) distance = 0;
+  return moneyRound(distance);
 }
 
-function onlineStoreCatalog(query = {}) {
+function deliveryRadiusKm(tenant, tenantState) {
+  return Number(tenant.deliveryRadiusKm || tenantState.settings?.deliveryRadiusKm || 10) || 10;
+}
+
+function onlineDeliveryDecision(unit, address) {
+  if (!address?.cep || address.cep.length !== 8) {
+    return {
+      available: null,
+      message: "Informe o CEP para localizar a loja Tortela mais proxima.",
+      distanceKm: null
+    };
+  }
+  if (!unit) {
+    return {
+      available: false,
+      message: "Infelizmente neste endereco ainda nao e possivel fazer a entrega.",
+      distanceKm: null
+    };
+  }
+  const available = Number(unit.distanceKm || 999999) <= Number(unit.deliveryRadiusKm || 10);
+  return {
+    available,
+    distanceKm: unit.distanceKm,
+    message: available
+      ? `Entrega disponivel pela ${unit.tradeName} - distancia estimada ${unit.distanceKm} km.`
+      : "Infelizmente neste endereco ainda nao e possivel fazer a entrega. Estamos atendendo somente enderecos em ate 10 km da loja."
+  };
+}
+
+async function createOnlinePaymentCharge(tenantCode, tenantState, saleDraft, paymentMethod) {
+  const secrets = loadFiscalSecrets(tenantCode);
+  const isPix = paymentMethod === "PIX";
+  const url = isPix ? (tenantState.settings?.pixApiUrl || tenantState.settings?.paymentApiUrl) : tenantState.settings?.paymentApiUrl;
+  const token = isPix ? (secrets.pixApiToken || secrets.paymentApiToken) : secrets.paymentApiToken;
+  if (!url || !token) {
+    return {
+      method: paymentMethod,
+      online: true,
+      status: "Pendente",
+      provider: "Aguardando provedor de pagamento",
+      message: "Configure URL e token do gateway online para capturar PIX/cartao automaticamente."
+    };
+  }
+  const authHeader = String(tenantState.settings.paymentAuthHeader || "Authorization").replace(/[^A-Za-z0-9-]/g, "") || "Authorization";
+  const authScheme = String(tenantState.settings.paymentAuthScheme || "Bearer").trim();
+  const authValue = [authScheme, token].filter(Boolean).join(" ");
+  const payload = {
+    provider: tenantState.settings.paymentProvider || "",
+    method: paymentMethod.toLowerCase(),
+    amount: Number(saleDraft.total || 0),
+    reference: `online-${tenantCode}-${saleDraft.id}`,
+    customer: saleDraft.customerData,
+    items: saleDraft.items,
+    callbackUrl: tenantState.settings.paymentCallbackUrl || ""
+  };
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [authHeader]: authValue, "Idempotency-Key": payload.reference },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20000)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `Gateway retornou HTTP ${response.status}.`);
+    return {
+      method: paymentMethod,
+      online: true,
+      status: result.status || "Aguardando pagamento",
+      provider: tenantState.settings.paymentProvider || "Gateway online",
+      chargeId: result.id || result.chargeId || result.txid || "",
+      qrCode: result.qrCode || result.pixQrCode || "",
+      paymentUrl: result.paymentUrl || result.checkoutUrl || result.url || "",
+      raw: result,
+      message: "Cobranca online criada no provedor configurado."
+    };
+  } catch (error) {
+    return {
+      method: paymentMethod,
+      online: true,
+      status: "Erro no gateway",
+      provider: tenantState.settings.paymentProvider || "Gateway online",
+      error: error.message,
+      message: `Nao foi possivel criar a cobranca online: ${error.message}`
+    };
+  }
+}
+
+async function onlineStoreCatalog(query = {}) {
   const provider = readProvider();
   const cep = String(query.cep || "").replace(/\D/g, "");
   const q = String(query.q || "").trim().toLowerCase();
   const forcedTenantCode = normalizeTenantCode(query.tenantCode || "");
+  const deliveryAddress = await lookupCepAddress(cep);
   const units = [];
   const products = [];
   for (const tenant of provider.clients || []) {
@@ -1226,25 +1358,41 @@ function onlineStoreCatalog(query = {}) {
     const unitProducts = (tenantState.products || [])
       .filter((product) => product.active !== false && effectiveProductPrice(product, 1) > 0)
       .map((product) => catalogProduct(product, tenant, tenantState));
-    const distance = cepDistance(cep, tenant.cep || tenantState.settings?.cep || "");
+    const tenantAddress = {
+      cep: tenant.cep || tenantState.settings?.cep || "",
+      city: tenant.city || tenantState.settings?.city || "",
+      uf: tenant.uf || tenantState.settings?.uf || ""
+    };
+    const radiusKm = deliveryRadiusKm(tenant, tenantState);
+    const distanceKm = cepDistanceKm(cep, tenantAddress.cep, deliveryAddress || {}, tenantAddress);
     units.push({
       tenantCode: tenant.tenantCode,
       tradeName: tenant.tradeName,
-      city: tenant.city || tenantState.settings?.city || "",
-      uf: tenant.uf || tenantState.settings?.uf || "",
-      cep: tenant.cep || tenantState.settings?.cep || "",
-      distance,
+      city: tenantAddress.city,
+      uf: tenantAddress.uf,
+      cep: tenantAddress.cep,
+      distanceKm,
+      deliveryRadiusKm: radiusKm,
+      deliveryAvailable: cep.length === 8 ? distanceKm <= radiusKm : null,
       products: unitProducts.length
     });
     products.push(...unitProducts);
   }
   const filtered = products.filter((product) => !q || product.description.toLowerCase().includes(q));
-  const nearest = units.slice().sort((a, b) => a.distance - b.distance || b.products - a.products)[0] || null;
+  const nearest = units.slice().sort((a, b) => a.distanceKm - b.distanceKm || b.products - a.products)[0] || null;
+  const delivery = onlineDeliveryDecision(nearest, deliveryAddress);
+  const deliveryProducts = cep.length === 8 && nearest
+    ? filtered.filter((product) => product.tenantCode === nearest.tenantCode)
+    : filtered;
   return {
     ok: true,
     nearest,
-    units: units.sort((a, b) => a.distance - b.distance || String(a.tradeName).localeCompare(String(b.tradeName))),
-    products: filtered.sort((a, b) => {
+    deliveryAddress,
+    deliveryAvailable: delivery.available,
+    deliveryMessage: delivery.message,
+    deliveryDistanceKm: delivery.distanceKm,
+    units: units.sort((a, b) => a.distanceKm - b.distanceKm || String(a.tradeName).localeCompare(String(b.tradeName))),
+    products: deliveryProducts.sort((a, b) => {
       if (!nearest) return String(a.description).localeCompare(String(b.description));
       return (a.tenantCode === nearest.tenantCode ? 0 : 1) - (b.tenantCode === nearest.tenantCode ? 0 : 1)
         || String(a.description).localeCompare(String(b.description));
@@ -2054,7 +2202,8 @@ async function handleApi(req, res, urlPath) {
     const cep = String(body.cep || "").replace(/\D/g, "");
     const birthDate = String(body.birthDate || "").trim();
     const whatsappGroupAuthorized = body.whatsappGroupAuthorized === true;
-    const requestedTenantCode = publicCustomerMatch ? decodeURIComponent(publicCustomerMatch[1]) : body.tenantCode || onlineStoreCatalog({ cep }).nearest?.tenantCode || "";
+    const publicCatalog = publicCustomerMatch ? null : await onlineStoreCatalog({ cep });
+    const requestedTenantCode = publicCustomerMatch ? decodeURIComponent(publicCustomerMatch[1]) : body.tenantCode || publicCatalog?.nearest?.tenantCode || "";
     const provider = readProvider();
     const tenant = findTenant(provider, requestedTenantCode);
     if (!tenant || !["Ativo", "Homologacao"].includes(tenant.status)) {
@@ -2125,7 +2274,7 @@ async function handleApi(req, res, urlPath) {
 
   if (req.method === "GET" && urlPath === "/api/public/store/catalog") {
     const url = new URL(req.url, "http://localhost");
-    sendJson(res, 200, onlineStoreCatalog({
+    sendJson(res, 200, await onlineStoreCatalog({
       cep: url.searchParams.get("cep") || "",
       q: url.searchParams.get("q") || "",
       tenantCode: url.searchParams.get("unidade") || ""
@@ -2135,11 +2284,15 @@ async function handleApi(req, res, urlPath) {
 
   if (req.method === "POST" && urlPath === "/api/public/store/orders") {
     const body = await readBody(req);
-    const catalog = onlineStoreCatalog({ cep: body.cep || "" });
+    const catalog = await onlineStoreCatalog({ cep: body.cep || "", tenantCode: body.tenantCode || "" });
     const tenantCode = normalizeTenantCode(body.tenantCode || catalog.nearest?.tenantCode || "");
     const tenant = findTenant(readProvider(), tenantCode);
     if (!tenant || tenant.status !== "Ativo") {
       sendJson(res, 404, { ok: false, error: "Loja indisponivel para pedido online." });
+      return;
+    }
+    if (catalog.deliveryAvailable === false) {
+      sendJson(res, 409, { ok: false, error: catalog.deliveryMessage || "Infelizmente neste endereco ainda nao e possivel fazer a entrega." });
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
@@ -2192,12 +2345,28 @@ async function handleApi(req, res, urlPath) {
       type: "Pedido online",
       status: "Aberto",
       payment,
+      paymentOnline: true,
+      paymentStatus: "Pendente",
+      paymentInfo: { method: payment, online: true, status: "Pendente" },
       due: today(),
       onlineOrder: true,
       delivery: body.deliveryMode === "Retirada" ? "Retirada" : "Entrega",
+      deliveryStore: {
+        tenantCode: tenant.tenantCode,
+        tradeName: tenant.tradeName,
+        distanceKm: catalog.deliveryDistanceKm,
+        radiusKm: catalog.nearest?.deliveryRadiusKm || 10
+      },
       customerData: customer,
       items: normalizedItems
     };
+    const paymentInfo = await createOnlinePaymentCharge(tenant.tenantCode, tenantState, sale, payment);
+    if (paymentInfo.status === "Erro no gateway") {
+      sendJson(res, 503, { ok: false, error: paymentInfo.message || "Nao foi possivel gerar o pagamento online." });
+      return;
+    }
+    sale.paymentInfo = paymentInfo;
+    sale.paymentStatus = paymentInfo.status || "Pendente";
     tenantState.sales = Array.isArray(tenantState.sales) ? tenantState.sales : [];
     tenantState.receivables = Array.isArray(tenantState.receivables) ? tenantState.receivables : [];
     const shortage = applyOnlineOrderStock(tenantState, normalizedItems, sale.id);
@@ -2219,7 +2388,7 @@ async function handleApi(req, res, urlPath) {
     });
     writeTenantState(tenant.tenantCode, tenantState);
     appendTenantAudit(tenant.tenantCode, "Pedido online recebido", `${customer.name} ${moneyRound(total)}`, "loja-online");
-    sendJson(res, 201, { ok: true, orderId: sale.id, tenantCode: tenant.tenantCode, unit: tenant.tradeName, total, payment });
+    sendJson(res, 201, { ok: true, orderId: sale.id, tenantCode: tenant.tenantCode, unit: tenant.tradeName, total, payment, paymentInfo });
     return;
   }
 
@@ -3133,6 +3302,7 @@ async function handleApi(req, res, urlPath) {
         ...(body.certificatePassword ? { certificatePassword: String(body.certificatePassword) } : {}),
         ...(body.csc ? { csc: String(body.csc) } : {}),
         ...(body.acbrApiToken ? { acbrApiToken: String(body.acbrApiToken) } : {}),
+        ...(body.paymentApiToken ? { paymentApiToken: String(body.paymentApiToken) } : {}),
         ...(body.pixApiToken ? { pixApiToken: String(body.pixApiToken) } : {}),
         ...(body.boletoApiToken ? { boletoApiToken: String(body.boletoApiToken) } : {}),
         ...(body.alertWebhookToken ? { alertWebhookToken: String(body.alertWebhookToken) } : {}),
@@ -3146,6 +3316,7 @@ async function handleApi(req, res, urlPath) {
     tenantState.settings.certificatePasswordConfigured = Boolean(body.certificatePassword) || Boolean(tenantState.settings.certificatePasswordConfigured);
     tenantState.settings.cscConfigured = Boolean(body.csc) || Boolean(tenantState.settings.cscConfigured);
     tenantState.settings.acbrApiTokenConfigured = Boolean(body.acbrApiToken) || Boolean(tenantState.settings.acbrApiTokenConfigured);
+    tenantState.settings.paymentApiTokenConfigured = Boolean(body.paymentApiToken) || Boolean(tenantState.settings.paymentApiTokenConfigured);
     tenantState.settings.pixApiTokenConfigured = Boolean(body.pixApiToken) || Boolean(tenantState.settings.pixApiTokenConfigured);
     tenantState.settings.boletoApiTokenConfigured = Boolean(body.boletoApiToken) || Boolean(tenantState.settings.boletoApiTokenConfigured);
     tenantState.settings.alertWebhookTokenConfigured = Boolean(body.alertWebhookToken) || Boolean(tenantState.settings.alertWebhookTokenConfigured);
@@ -3157,6 +3328,7 @@ async function handleApi(req, res, urlPath) {
       certificatePasswordConfigured: tenantState.settings.certificatePasswordConfigured,
       cscConfigured: tenantState.settings.cscConfigured,
       acbrApiTokenConfigured: tenantState.settings.acbrApiTokenConfigured,
+      paymentApiTokenConfigured: tenantState.settings.paymentApiTokenConfigured,
       pixApiTokenConfigured: tenantState.settings.pixApiTokenConfigured,
       boletoApiTokenConfigured: tenantState.settings.boletoApiTokenConfigured,
       alertWebhookTokenConfigured: tenantState.settings.alertWebhookTokenConfigured,

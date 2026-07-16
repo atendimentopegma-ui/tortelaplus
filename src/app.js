@@ -304,10 +304,13 @@ const seed = {
     emailWebhookUrl: "",
     pixApiUrl: "",
     boletoApiUrl: "",
+    paymentApiUrl: "",
     paymentProvider: "",
     paymentAuthHeader: "Authorization",
     paymentAuthScheme: "Bearer",
-    paymentCallbackUrl: ""
+    paymentCallbackUrl: "",
+    paymentApiTokenConfigured: false,
+    deliveryRadiusKm: 10
   }
 };
 
@@ -1778,16 +1781,18 @@ function renderOnlineOrders() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Pedido</th><th>Cliente</th><th>Endereco</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th>Acoes</th></tr></thead>
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Endereco</th><th>Entrega</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th>Acoes</th></tr></thead>
             <tbody>${orders.map((sale) => {
               const customer = sale.customerData || {};
+              const deliveryStore = sale.deliveryStore || {};
               const items = (sale.items || []).map((item) => `${item.qty}x ${item.description}${item.coverage ? ` (${item.coverage})` : ""}`).join("<br>");
               return `<tr>
                 <td>${sale.id}<br><small>${sale.date || ""}</small></td>
                 <td>${sale.customer}<br><small>${customer.phone || ""}</small></td>
                 <td>${[customer.address, customer.number, customer.district, customer.city, customer.uf].filter(Boolean).join(", ")}<br><small>${customer.cep || ""} · ${sale.delivery || "Entrega"}</small></td>
+                <td>${deliveryStore.tradeName || state.settings.company || "Loja"}<br><small>${deliveryStore.distanceKm != null ? `${deliveryStore.distanceKm} km` : "-"} de ${deliveryStore.radiusKm || 10} km</small></td>
                 <td>${items}</td>
-                <td>${sale.payment || "PIX"}</td>
+                <td>${sale.payment || "PIX"}<br><small>${sale.paymentOnline ? `Online - ${sale.paymentStatus || "Pendente"}` : "No caixa"}</small></td>
                 <td>${money(sale.total)}</td>
                 <td><span class="badge ${sale.status === "Entregue" ? "ok" : sale.status === "Cancelado" ? "danger" : "warn"}">${sale.status || "Aberto"}</span></td>
                 <td>
@@ -1797,7 +1802,7 @@ function renderOnlineOrders() {
                   ${sale.status !== "Entregue" && sale.status !== "Cancelado" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Entregue">Entregue</button> <button class="btn danger" data-online-status="${sale.id}" data-status="Cancelado">Cancelar</button>` : ""}
                 </td>
               </tr>`;
-            }).join("") || `<tr><td colspan="8">Nenhum pedido online recebido.</td></tr>`}</tbody>
+            }).join("") || `<tr><td colspan="9">Nenhum pedido online recebido.</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -2381,6 +2386,7 @@ function renderSettings() {
             <div class="field"><label>SMTP porta</label><input id="set-smtp-port" type="number" value="${Number(state.settings.smtpPort || 587)}" /></div>
             <div class="field"><label>Email fiscal remetente</label><input id="set-smtp-from" value="${escapeAttr(state.settings.smtpFrom || "")}" /></div>
             <div class="field"><label>Backup automatico</label><select id="set-auto-backup"><option value="true">Sim</option><option value="false" ${state.settings.autoBackup === false ? "selected" : ""}>Nao</option></select></div>
+            <div class="field"><label>Raio entrega online km</label><input id="set-delivery-radius-km" type="number" step="0.1" value="${Number(state.settings.deliveryRadiusKm || 10)}" /></div>
             <div class="field"><label>Webhook geral de alertas</label><input id="set-alert-webhook" value="${escapeAttr(state.settings.alertWebhookUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>Token webhook de alertas</label><input id="set-alert-webhook-token" type="password" placeholder="${state.settings.alertWebhookTokenConfigured ? "Token protegido configurado" : "Informe se o provedor exigir"}" /></div>
             <div class="field"><label>Webhook WhatsApp</label><input id="set-whatsapp-webhook" value="${escapeAttr(state.settings.whatsappWebhookUrl || "")}" placeholder="Preencher ao escolher o provedor" /></div>
@@ -2388,11 +2394,13 @@ function renderSettings() {
             <div class="field"><label>Webhook e-mail</label><input id="set-email-webhook" value="${escapeAttr(state.settings.emailWebhookUrl || "")}" placeholder="Preencher ao escolher o provedor" /></div>
             <div class="field"><label>Token e-mail</label><input id="set-email-webhook-token" type="password" placeholder="${state.settings.emailWebhookTokenConfigured ? "Token protegido configurado" : "Informe ao contratar o provedor"}" /></div>
             <div class="field"><label>Provedor PIX/boleto</label><input id="set-payment-provider" value="${escapeAttr(state.settings.paymentProvider || "")}" placeholder="Nome do provedor contratado" /></div>
+            <div class="field"><label>URL gateway online PIX/cartao</label><input id="set-payment-api-url" value="${escapeAttr(state.settings.paymentApiUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>URL API PIX</label><input id="set-pix-api-url" value="${escapeAttr(state.settings.pixApiUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>URL API boleto</label><input id="set-boleto-api-url" value="${escapeAttr(state.settings.boletoApiUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>Cabecalho de autenticacao</label><input id="set-payment-auth-header" value="${escapeAttr(state.settings.paymentAuthHeader || "Authorization")}" /></div>
             <div class="field"><label>Prefixo do token</label><input id="set-payment-auth-scheme" value="${escapeAttr(state.settings.paymentAuthScheme || "Bearer")}" placeholder="Bearer, Token ou vazio" /></div>
             <div class="field"><label>URL de retorno/callback</label><input id="set-payment-callback-url" value="${escapeAttr(state.settings.paymentCallbackUrl || "")}" placeholder="Preencher no dominio definitivo" /></div>
+            <div class="field"><label>Token gateway online</label><input id="set-payment-api-token" type="password" placeholder="${state.settings.paymentApiTokenConfigured ? "Token protegido configurado" : "Informe ao contratar o gateway"}" /></div>
             <div class="field"><label>Token API PIX</label><input id="set-pix-api-token" type="password" placeholder="${state.settings.pixApiTokenConfigured ? "Token protegido configurado" : "Informe ao contratar o provedor"}" /></div>
             <div class="field"><label>Token API boleto</label><input id="set-boleto-api-token" type="password" placeholder="${state.settings.boletoApiTokenConfigured ? "Token protegido configurado" : "Informe ao contratar o provedor"}" /></div>
           </div>
@@ -4797,10 +4805,12 @@ async function saveSettingsRecord() {
   state.settings.smtpPort = Number(byId("set-smtp-port")?.value || 587);
   state.settings.smtpFrom = byId("set-smtp-from")?.value || "";
   state.settings.autoBackup = byId("set-auto-backup")?.value !== "false";
+  state.settings.deliveryRadiusKm = Number(byId("set-delivery-radius-km")?.value || 10);
   state.settings.alertWebhookUrl = byId("set-alert-webhook").value.trim();
   state.settings.whatsappWebhookUrl = byId("set-whatsapp-webhook").value.trim();
   state.settings.emailWebhookUrl = byId("set-email-webhook").value.trim();
   state.settings.paymentProvider = byId("set-payment-provider").value.trim();
+  state.settings.paymentApiUrl = byId("set-payment-api-url").value.trim();
   state.settings.pixApiUrl = byId("set-pix-api-url").value.trim();
   state.settings.boletoApiUrl = byId("set-boleto-api-url").value.trim();
   state.settings.paymentAuthHeader = byId("set-payment-auth-header").value.trim() || "Authorization";
@@ -4809,20 +4819,22 @@ async function saveSettingsRecord() {
   const certificatePassword = byId("set-certificate-password").value;
   const csc = byId("set-csc").value;
   const acbrApiToken = byId("set-acbr-api-token").value;
+  const paymentApiToken = byId("set-payment-api-token")?.value || "";
   const pixApiToken = byId("set-pix-api-token").value;
   const boletoApiToken = byId("set-boleto-api-token").value;
   const alertWebhookToken = byId("set-alert-webhook-token").value;
   const whatsappWebhookToken = byId("set-whatsapp-webhook-token").value;
   const emailWebhookToken = byId("set-email-webhook-token").value;
-  if ((certificatePassword || csc || acbrApiToken || pixApiToken || boletoApiToken || alertWebhookToken || whatsappWebhookToken || emailWebhookToken) && apiOnline && sessionId) {
+  if ((certificatePassword || csc || acbrApiToken || paymentApiToken || pixApiToken || boletoApiToken || alertWebhookToken || whatsappWebhookToken || emailWebhookToken) && apiOnline && sessionId) {
     try {
       const result = await api(`/api/tenant/${state.settings.tenantCode}/fiscal/secrets`, {
         method: "POST",
-        body: JSON.stringify({ certificatePassword, csc, acbrApiToken, pixApiToken, boletoApiToken, alertWebhookToken, whatsappWebhookToken, emailWebhookToken })
+        body: JSON.stringify({ certificatePassword, csc, acbrApiToken, paymentApiToken, pixApiToken, boletoApiToken, alertWebhookToken, whatsappWebhookToken, emailWebhookToken })
       });
       state.settings.certificatePasswordConfigured = result.certificatePasswordConfigured;
       state.settings.cscConfigured = result.cscConfigured;
       state.settings.acbrApiTokenConfigured = result.acbrApiTokenConfigured;
+      state.settings.paymentApiTokenConfigured = result.paymentApiTokenConfigured;
       state.settings.pixApiTokenConfigured = result.pixApiTokenConfigured;
       state.settings.boletoApiTokenConfigured = result.boletoApiTokenConfigured;
       state.settings.alertWebhookTokenConfigured = result.alertWebhookTokenConfigured;

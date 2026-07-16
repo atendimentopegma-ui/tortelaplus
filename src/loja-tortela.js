@@ -50,14 +50,16 @@ function render() {
   const currentCep = fieldValue("store-cep", params.get("cep") || "");
   const currentSearch = fieldValue("store-search", params.get("q") || "");
   const selectedPayment = document.querySelector('input[name="payment-method"]:checked')?.value || "PIX";
+  const deliveryBlocked = catalog.deliveryAvailable === false;
+  const deliveryKnown = catalog.deliveryAvailable === true;
   const formValues = {
     name: fieldValue("customer-name"),
     phone: fieldValue("customer-phone"),
-    address: fieldValue("customer-address"),
+    address: fieldValue("customer-address", catalog.deliveryAddress?.address || ""),
     number: fieldValue("customer-number"),
-    district: fieldValue("customer-district"),
-    city: fieldValue("customer-city"),
-    uf: fieldValue("customer-uf", "SP"),
+    district: fieldValue("customer-district", catalog.deliveryAddress?.district || ""),
+    city: fieldValue("customer-city", catalog.deliveryAddress?.city || ""),
+    uf: fieldValue("customer-uf", catalog.deliveryAddress?.uf || "SP"),
     delivery: fieldValue("delivery-mode", "Entrega"),
     payment: selectedPayment
   };
@@ -86,6 +88,9 @@ function render() {
           <span class="store-kicker">Tortela delivery</span>
           <h1>Escolha sua Tortela e finalize como em um app de delivery.</h1>
           <p>${catalog.nearest ? `${escapeHtml(publicUnitName(catalog.nearest))} recebe o pedido, baixa o estoque e acompanha a entrega.` : "Informe o CEP para localizar a loja Tortela mais proxima."}</p>
+          <div class="store-delivery-status ${deliveryBlocked ? "blocked" : deliveryKnown ? "ok" : ""}">
+            ${escapeHtml(catalog.deliveryMessage || "Informe o CEP para localizar sua loja Tortela.")}
+          </div>
         </div>
         <div class="store-delivery-actions">
           <div class="field"><label>CEP de entrega</label><input id="store-cep" inputmode="numeric" value="${escapeHtml(currentCep)}" placeholder="Digite seu CEP" /></div>
@@ -135,10 +140,10 @@ function render() {
           </div>
           <div class="store-payment">
             ${paymentOption("PIX", "PIX", "Mais rapido", formValues.payment)}
-            ${paymentOption("Debito", "Debito", "Na entrega", formValues.payment)}
-            ${paymentOption("Credito", "Credito", "Na entrega", formValues.payment)}
+            ${paymentOption("Debito", "Debito", "Online", formValues.payment)}
+            ${paymentOption("Credito", "Credito", "Online", formValues.payment)}
           </div>
-          <button class="btn primary full" id="send-online-order" ${cart.length ? "" : "disabled"}>Finalizar pedido</button>
+          <button class="btn primary full" id="send-online-order" ${cart.length && !deliveryBlocked ? "" : "disabled"}>${deliveryBlocked ? "Entrega indisponivel" : "Finalizar pedido"}</button>
         </aside>
       </section>
     </main>`;
@@ -183,6 +188,11 @@ function productCard(product) {
 
 function bind() {
   byId("store-refresh")?.addEventListener("click", loadCatalog);
+  byId("store-cep")?.addEventListener("input", (event) => {
+    const cep = String(event.target.value || "").replace(/\D/g, "");
+    if (cep.length === 8) loadCatalog();
+  });
+  byId("store-cep")?.addEventListener("blur", loadCatalog);
   byId("store-search")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") loadCatalog();
   });
@@ -231,7 +241,21 @@ async function loadCatalog() {
   const unidade = params.get("unidade") || "";
   catalog = await api(`/api/public/store/catalog?cep=${encodeURIComponent(cep)}&q=${encodeURIComponent(q)}&unidade=${encodeURIComponent(unidade)}`);
   if (catalog.nearest) cart = cart.filter((item) => item.tenantCode === catalog.nearest.tenantCode);
+  fillAddressFromCatalog();
   render();
+}
+
+function fillAddressFromCatalog() {
+  const address = catalog.deliveryAddress || {};
+  if (!address.cep) return;
+  const setIfEmpty = (id, value) => {
+    const input = byId(id);
+    if (input && value && !input.value) input.value = value;
+  };
+  setIfEmpty("customer-address", address.address);
+  setIfEmpty("customer-district", address.district);
+  setIfEmpty("customer-city", address.city);
+  setIfEmpty("customer-uf", address.uf);
 }
 
 async function sendOrder() {
@@ -259,7 +283,8 @@ async function sendOrder() {
     });
     cart = [];
     render();
-    alert(`Pedido ${result.orderId} enviado para ${result.unit}. Total ${money(result.total)}. Pagamento: ${result.payment}.`);
+    const paymentLink = result.paymentInfo?.paymentUrl ? `\nPagamento: ${result.paymentInfo.paymentUrl}` : "";
+    alert(`Pedido ${result.orderId} enviado para ${result.unit}. Total ${money(result.total)}. Pagamento: ${result.payment}.${paymentLink}`);
   } catch (error) {
     alert(error.message);
   }

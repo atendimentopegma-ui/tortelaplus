@@ -642,6 +642,30 @@ header.topbar .top-right .central-top-action:hover {
   line-height: 1.5;
 }
 
+.store-delivery-status {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(29, 36, 48, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #344563;
+  font-weight: 900;
+}
+
+.store-delivery-status.ok {
+  border-color: #86efac;
+  background: #ecfdf5;
+  color: #166534;
+}
+
+.store-delivery-status.blocked {
+  border-color: #fecdd3;
+  background: #fff1f2;
+  color: #9f1239;
+}
+
 .store-delivery-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
