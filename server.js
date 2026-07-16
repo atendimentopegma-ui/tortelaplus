@@ -1839,6 +1839,7 @@ async function handleApi(req, res, urlPath) {
     const document = String(body.document || "").replace(/\D/g, "");
     const phone = String(body.phone || "").replace(/\D/g, "");
     const cep = String(body.cep || "").replace(/\D/g, "");
+    const birthDate = String(body.birthDate || "").trim();
     const requestedTenantCode = publicCustomerMatch ? decodeURIComponent(publicCustomerMatch[1]) : body.tenantCode || onlineStoreCatalog({ cep }).nearest?.tenantCode || "";
     const tenant = findTenant(readProvider(), requestedTenantCode);
     if (!tenant || !["Ativo", "Homologacao"].includes(tenant.status)) {
@@ -1847,7 +1848,7 @@ async function handleApi(req, res, urlPath) {
     }
     const name = String(body.name || "").trim();
     const uf = String(body.uf || "").trim().toUpperCase();
-    if (!name || document.length !== 11 || phone.length < 10 || cep.length !== 8 || !body.address || !body.number || !body.district || !body.city || uf.length !== 2 || body.consent !== true) {
+    if (!name || document.length !== 11 || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate) || phone.length < 10 || cep.length !== 8 || !body.address || !body.number || !body.district || !body.city || uf.length !== 2 || body.consent !== true) {
       sendJson(res, 400, { ok: false, error: "Preencha corretamente todos os campos obrigatorios e autorize o cadastro." });
       return;
     }
@@ -1863,6 +1864,7 @@ async function handleApi(req, res, urlPath) {
       name,
       alias: "",
       document,
+      birthDate,
       email: "",
       phone: String(body.phone || "").trim(),
       whatsapp: String(body.phone || "").trim(),

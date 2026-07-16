@@ -68,6 +68,7 @@ function render() {
           <div class="public-form-grid">
             <div class="field wide"><label>Nome completo</label><input id="name" required autocomplete="name" /></div>
             <div class="field"><label>CPF</label><input id="document" inputmode="numeric" maxlength="14" required autocomplete="off" /></div>
+            <div class="field"><label>Data de nascimento</label><input id="birth-date" type="date" required autocomplete="bday" /></div>
             <div class="field"><label>Telefone / WhatsApp</label><input id="phone" inputmode="tel" required autocomplete="tel" /></div>
             <div class="field cep-field"><label>CEP</label><input id="cep" inputmode="numeric" maxlength="9" required placeholder="Digite o CEP" autocomplete="postal-code" /></div>
             <div class="field wide"><label>Endereco</label><input id="address" required autocomplete="street-address" /></div>
@@ -162,6 +163,7 @@ async function submit(event) {
         tenantCode: selectedTenant || nearestUnit?.tenantCode,
         name: byId("name").value,
         document: byId("document").value,
+        birthDate: byId("birth-date").value,
         phone: byId("phone").value,
         cep: byId("cep").value,
         address: byId("address").value,
