@@ -4,6 +4,10 @@ const params = new URLSearchParams(location.search);
 
 const byId = (id) => document.getElementById(id);
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const publicUnitName = (unit) => {
+  const name = String(unit?.tradeName || "").trim();
+  return !name || /cliente\s*exemplo/i.test(name) ? "Loja Tortela selecionada" : name;
+};
 const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -22,89 +26,136 @@ async function api(path, options = {}) {
   return payload;
 }
 
+function fieldValue(id, fallback = "") {
+  return byId(id)?.value || fallback;
+}
+
 function render() {
   const total = cart.reduce((sum, item) => sum + item.qty * item.price, 0);
-  const currentCep = byId("store-cep")?.value || params.get("cep") || "";
-  const currentSearch = byId("store-search")?.value || params.get("q") || "";
+  const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
+  const currentCep = fieldValue("store-cep", params.get("cep") || "");
+  const currentSearch = fieldValue("store-search", params.get("q") || "");
+  const selectedPayment = document.querySelector('input[name="payment-method"]:checked')?.value || "PIX";
   const formValues = {
-    name: byId("customer-name")?.value || "",
-    phone: byId("customer-phone")?.value || "",
-    address: byId("customer-address")?.value || "",
-    number: byId("customer-number")?.value || "",
-    district: byId("customer-district")?.value || "",
-    city: byId("customer-city")?.value || "",
-    uf: byId("customer-uf")?.value || "SP",
-    delivery: byId("delivery-mode")?.value || "Entrega",
-    payment: byId("payment-method")?.value || "PIX"
+    name: fieldValue("customer-name"),
+    phone: fieldValue("customer-phone"),
+    address: fieldValue("customer-address"),
+    number: fieldValue("customer-number"),
+    district: fieldValue("customer-district"),
+    city: fieldValue("customer-city"),
+    uf: fieldValue("customer-uf", "SP"),
+    delivery: fieldValue("delivery-mode", "Entrega"),
+    payment: selectedPayment
   };
+
   byId("store-app").innerHTML = `
     <header class="store-header">
       <div class="store-brand">
         <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-        <div><strong>Tortela</strong><small>${catalog.nearest ? `Loja sugerida: ${escapeHtml(catalog.nearest.tradeName)}` : "Pedido online"}</small></div>
+        <div>
+          <strong>Tortela</strong>
+          <small>${catalog.nearest ? escapeHtml(publicUnitName(catalog.nearest)) : "Pedido online"}</small>
+        </div>
       </div>
       <div class="store-header-actions">
-        <span>${cart.length} item(ns) · ${money(total)}</span>
+        <button class="store-chip" id="store-jump-cart">${itemCount} item(ns) - ${money(total)}</button>
       </div>
     </header>
     <main>
       <section class="store-hero">
         <div class="store-hero-copy">
           <img class="store-hero-logo" src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-          <h1>SABORES TORTELA PARA PEDIR AGORA</h1>
-          <div class="store-pills"><span>NO PALITO</span><span>NA SUA CASA</span></div>
-          <p>A loja mais proxima recebe seu pedido, separa os produtos, baixa o estoque e acompanha a entrega pela retaguarda Tortela Plus.</p>
+          <span class="store-kicker">pedido online tortela</span>
+          <h1>Tortas no palito, bebidas e kits para pedir agora.</h1>
+          <p>Escolha os sabores, informe o CEP e o pedido segue para a loja Tortela mais indicada para preparar, conferir e entregar.</p>
+          <div class="store-hero-actions">
+            <button class="btn primary store-jump" id="store-jump-products">Ver cardapio</button>
+            <span>PIX, debito e credito</span>
+          </div>
+          <div class="store-metrics">
+            <span><strong>${catalog.products.length}</strong> itens disponiveis</span>
+            <span><strong>${catalog.nearest ? "1" : "CEP"}</strong> loja indicada</span>
+            <span><strong>4</strong> etapas ate o pedido</span>
+          </div>
         </div>
         <div class="store-hero-card">
-          <div class="store-hero-photo">Tortela</div>
-          <strong>${catalog.nearest ? escapeHtml(catalog.nearest.tradeName) : "Escolha seu CEP"}</strong>
-          <span>${catalog.products.length} produto(s) disponiveis</span>
-        </div>
-      </section>
-      <div class="store-cta-strip">
-        <button class="btn store-jump" id="store-jump-products">Quero pedir Tortela!</button>
-      </div>
-      <section class="store-shell" id="store-products-area">
-      <section class="store-tools">
-        <div class="field"><label>CEP do pedido</label><input id="store-cep" value="${escapeHtml(currentCep)}" placeholder="01001000" /></div>
-        <div class="field"><label>Buscar produto</label><input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="pao, bolo, torta" /></div>
-        <button class="btn primary" id="store-refresh">Atualizar loja</button>
-      </section>
-      <section class="store-layout">
-        <div class="store-products">
-          ${catalog.products.map(productCard).join("") || `<div class="store-empty">Nenhum produto disponivel para venda online.</div>`}
-        </div>
-        <aside class="store-cart">
-          <h2>Carrinho</h2>
-          ${cart.length ? cart.map((item, index) => `
-            <div class="cart-line">
-              <div><strong>${escapeHtml(item.description)}</strong><small>${escapeHtml(item.unit)} ${item.coverage ? `- ${escapeHtml(item.coverage)}` : ""}</small></div>
-              <div class="cart-line-actions">
-                <button class="btn" data-cart-minus="${index}">-</button>
-                <span>${item.qty}</span>
-                <button class="btn" data-cart-plus="${index}">+</button>
-                <button class="btn danger" data-cart-remove="${index}">Remover</button>
-              </div>
-              <strong>${money(item.qty * item.price)}</strong>
-            </div>`).join("") : `<p class="muted">Inclua produtos para fechar o pedido.</p>`}
-          <div class="store-total"><span>Total</span><strong>${money(total)}</strong></div>
-          <div class="grid two">
-            <div class="field"><label>Nome</label><input id="customer-name" value="${escapeHtml(formValues.name)}" /></div>
-            <div class="field"><label>Telefone</label><input id="customer-phone" value="${escapeHtml(formValues.phone)}" /></div>
-            <div class="field"><label>Endereco</label><input id="customer-address" value="${escapeHtml(formValues.address)}" /></div>
-            <div class="field"><label>Numero</label><input id="customer-number" value="${escapeHtml(formValues.number)}" /></div>
-            <div class="field"><label>Bairro</label><input id="customer-district" value="${escapeHtml(formValues.district)}" /></div>
-            <div class="field"><label>Cidade</label><input id="customer-city" value="${escapeHtml(formValues.city)}" /></div>
-            <div class="field"><label>UF</label><input id="customer-uf" maxlength="2" value="${escapeHtml(formValues.uf)}" /></div>
-            <div class="field"><label>Entrega</label><select id="delivery-mode"><option ${formValues.delivery === "Entrega" ? "selected" : ""}>Entrega</option><option ${formValues.delivery === "Retirada" ? "selected" : ""}>Retirada</option></select></div>
-            <div class="field"><label>Pagamento</label><select id="payment-method"><option ${formValues.payment === "PIX" ? "selected" : ""}>PIX</option><option ${formValues.payment === "Debito" ? "selected" : ""}>Debito</option><option ${formValues.payment === "Credito" ? "selected" : ""}>Credito</option></select></div>
+          <div class="store-showcase">
+            <div class="store-showcase-stick">Tortela</div>
+            <div class="store-showcase-stick alt">No palito</div>
+            <div class="store-showcase-cup">Milk shake</div>
           </div>
-          <button class="btn primary full" id="send-online-order" ${cart.length ? "" : "disabled"}>Finalizar pedido</button>
-        </aside>
+          <div class="store-hero-card-copy">
+            <strong>${catalog.nearest ? escapeHtml(publicUnitName(catalog.nearest)) : "Informe seu CEP"}</strong>
+            <span>${catalog.nearest ? "Esta unidade recebe o pedido e baixa o estoque automaticamente." : "Localizamos a loja mais proxima para atender melhor."}</span>
+          </div>
+        </div>
       </section>
+
+      <section class="store-shell" id="store-products-area">
+        <section class="store-tools">
+          <div class="field"><label>CEP de entrega</label><input id="store-cep" inputmode="numeric" value="${escapeHtml(currentCep)}" placeholder="Digite seu CEP" /></div>
+          <div class="field"><label>Buscar no cardapio</label><input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="Torta, cobertura, bebida" /></div>
+          <button class="btn primary" id="store-refresh">Encontrar loja</button>
+        </section>
+
+        <section class="store-layout">
+          <div class="store-products">
+            ${catalog.products.map(productCard).join("") || `<div class="store-empty">Nenhum produto disponivel para venda online.</div>`}
+          </div>
+
+          <aside class="store-cart" id="store-cart">
+            <div class="store-cart-title">
+              <span>Seu pedido</span>
+              <strong>${money(total)}</strong>
+            </div>
+            ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<p class="muted">Inclua produtos para fechar o pedido.</p>`}
+            <div class="store-total"><span>Total do pedido</span><strong>${money(total)}</strong></div>
+            <div class="store-checkout-steps">
+              <span class="active">1 Carrinho</span>
+              <span>2 Dados</span>
+              <span>3 Pagamento</span>
+            </div>
+            <div class="grid two">
+              <div class="field"><label>Nome</label><input id="customer-name" value="${escapeHtml(formValues.name)}" /></div>
+              <div class="field"><label>Telefone</label><input id="customer-phone" value="${escapeHtml(formValues.phone)}" /></div>
+              <div class="field"><label>Endereco</label><input id="customer-address" value="${escapeHtml(formValues.address)}" /></div>
+              <div class="field"><label>Numero</label><input id="customer-number" value="${escapeHtml(formValues.number)}" /></div>
+              <div class="field"><label>Bairro</label><input id="customer-district" value="${escapeHtml(formValues.district)}" /></div>
+              <div class="field"><label>Cidade</label><input id="customer-city" value="${escapeHtml(formValues.city)}" /></div>
+              <div class="field"><label>UF</label><input id="customer-uf" maxlength="2" value="${escapeHtml(formValues.uf)}" /></div>
+              <div class="field"><label>Entrega</label><select id="delivery-mode"><option ${formValues.delivery === "Entrega" ? "selected" : ""}>Entrega</option><option ${formValues.delivery === "Retirada" ? "selected" : ""}>Retirada</option></select></div>
+            </div>
+            <div class="store-payment">
+              ${paymentOption("PIX", "PIX", "Aprovacao rapida", formValues.payment)}
+              ${paymentOption("Debito", "Debito", "Cartao na entrega", formValues.payment)}
+              ${paymentOption("Credito", "Credito", "Cartao na entrega", formValues.payment)}
+            </div>
+            <button class="btn primary full" id="send-online-order" ${cart.length ? "" : "disabled"}>Finalizar pedido</button>
+          </aside>
+        </section>
       </section>
     </main>`;
   bind();
+}
+
+function cartLine(item, index) {
+  return `<div class="cart-line">
+    <div><strong>${escapeHtml(item.description)}</strong><small>${escapeHtml(item.unit)} ${item.coverage ? `- ${escapeHtml(item.coverage)}` : ""}</small></div>
+    <div class="cart-line-actions">
+      <button class="btn" data-cart-minus="${index}">-</button>
+      <span>${item.qty}</span>
+      <button class="btn" data-cart-plus="${index}">+</button>
+      <button class="btn danger" data-cart-remove="${index}">Remover</button>
+    </div>
+    <strong>${money(item.qty * item.price)}</strong>
+  </div>`;
+}
+
+function paymentOption(value, title, detail, selected) {
+  return `<label class="payment-option ${selected === value ? "selected" : ""}">
+    <input type="radio" name="payment-method" value="${value}" ${selected === value ? "checked" : ""} />
+    <span><strong>${title}</strong><small>${detail}</small></span>
+  </label>`;
 }
 
 function productCard(product) {
@@ -114,10 +165,10 @@ function productCard(product) {
   return `<article class="store-product">
     <div class="store-product-media">${img}</div>
     <div class="store-product-body">
-      <small>${escapeHtml(product.unit)} - ${escapeHtml(product.unitMeasure)}</small>
+      <small>${escapeHtml(product.unit)} - ${escapeHtml(product.unitMeasure || "UN")}</small>
       <h2>${escapeHtml(product.description)}</h2>
-      <div class="store-price"><strong>${money(product.price)}</strong><span>Custo ${money(product.cost)}</span></div>
-      ${product.hasCoverage ? `<select data-coverage="${product.id}">${(product.coverageOptions || []).map((option) => `<option>${escapeHtml(option)}</option>`).join("")}</select>` : ""}
+      <div class="store-price"><strong>${money(product.price)}</strong><span>Pronto para pedir</span></div>
+      ${product.hasCoverage ? `<div class="field compact"><label>Cobertura</label><select data-coverage="${product.id}">${(product.coverageOptions || []).map((option) => `<option>${escapeHtml(option)}</option>`).join("")}</select></div>` : ""}
       <button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}">Incluir no carrinho</button>
     </div>
   </article>`;
@@ -150,8 +201,10 @@ function bind() {
     cart.splice(Number(button.dataset.cartRemove), 1);
     render();
   }));
+  document.querySelectorAll('input[name="payment-method"]').forEach((input) => input.addEventListener("change", render));
   byId("send-online-order")?.addEventListener("click", sendOrder);
   byId("store-jump-products")?.addEventListener("click", () => byId("store-products-area")?.scrollIntoView({ behavior: "smooth" }));
+  byId("store-jump-cart")?.addEventListener("click", () => byId("store-cart")?.scrollIntoView({ behavior: "smooth" }));
 }
 
 async function loadCatalog() {
@@ -172,7 +225,7 @@ async function sendOrder() {
         tenantCode,
         cep: byId("store-cep").value,
         deliveryMode: byId("delivery-mode").value,
-        paymentMethod: byId("payment-method").value,
+        paymentMethod: document.querySelector('input[name="payment-method"]:checked')?.value || "PIX",
         customer: {
           name: byId("customer-name").value,
           phone: byId("customer-phone").value,
