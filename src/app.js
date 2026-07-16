@@ -661,11 +661,16 @@ function daysUntil(dateText) {
 
 function effectiveProductPrice(product, qty = 1) {
   const promotion = product?.promotion || {};
-  const active = promotion.price > 0
+  const active = (Number(promotion.price || 0) > 0 || Number(promotion.retailPercent || 0) > 0 || Number(promotion.wholesalePercent || 0) > 0)
     && (!promotion.from || today() >= promotion.from)
     && (!promotion.to || today() <= promotion.to)
     && Number(qty || 0) >= Number(promotion.minQty || 0);
-  return active ? Number(promotion.price) : Number(product?.price || 0);
+  if (!active) return Number(product?.price || 0);
+  if (Number(promotion.price || 0) > 0) return Number(promotion.price);
+  const base = Number(product?.price || 0);
+  const wholesale = Number(promotion.wholesaleQty || 0) > 0 && Number(qty || 0) >= Number(promotion.wholesaleQty || 0);
+  const percent = wholesale ? Number(promotion.wholesalePercent || 0) : Number(promotion.retailPercent || 0);
+  return Math.max(0, base - base * percent / 100);
 }
 
 function getCurrentTenant() {
@@ -1218,6 +1223,10 @@ function tabLabel(tab) {
   }[tab];
 }
 
+function productCheck(id, label, checked) {
+  return `<label class="check-row desktop-check"><input id="${id}" type="checkbox" ${checked ? "checked" : ""} /> ${label}</label>`;
+}
+
 function productForm() {
   const draft = {
     description: "",
@@ -1231,6 +1240,26 @@ function productForm() {
     brand: "",
     group: "",
     location: "",
+    reference: "",
+    sku: "",
+    packaging: "",
+    fiscalStatus: "Conferir",
+    movesStock: true,
+    allowsSale: true,
+    paysCommission: false,
+    complementary: false,
+    pairProduct: false,
+    showInApp: false,
+    usesPriceTable: false,
+    controlsImei: false,
+    manufactured: false,
+    explodeKitNf: false,
+    adultOnly: false,
+    additional: false,
+    ecommerceIntegration: false,
+    kitchenRequest: false,
+    medicine: false,
+    activePrinciple: "",
     ncm: "00000000",
     cfop: "5102",
     cst: "102",
@@ -1254,10 +1283,33 @@ function productForm() {
         <div class="field"><label>Ativo</label><select id="product-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
       </div>
       <div class="grid four">
+        <div class="field"><label>Referencia</label><input id="product-reference" value="${escapeAttr(draft.reference)}" /></div>
+        <div class="field"><label>Codigo interno/SKU</label><input id="product-sku" value="${escapeAttr(draft.sku)}" /></div>
+        <div class="field"><label>Embalagem</label><input id="product-packaging" value="${escapeAttr(draft.packaging)}" /></div>
+        <div class="field"><label>Status fiscal</label><select id="product-fiscal-status">${["Conferir", "Homologado", "Pendente", "Bloqueado"].map((item) => `<option ${draft.fiscalStatus === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+      </div>
+      <div class="grid four">
         <div class="field"><label>Custo</label><input id="product-cost" type="number" step="0.01" value="${draft.cost}" /></div>
         <div class="field"><label>Venda</label><input id="product-price" type="number" step="0.01" value="${draft.price}" /></div>
         <div class="field"><label>Estoque atual</label><input id="product-stock" type="number" step="0.001" value="${draft.stock}" /></div>
         <div class="field"><label>Estoque minimo</label><input id="product-min" type="number" step="0.001" value="${draft.minStock}" /></div>
+      </div>
+      <div class="desktop-check-grid">
+        ${productCheck("product-moves-stock", "Movimenta estoque", draft.movesStock !== false)}
+        ${productCheck("product-allows-sale", "Permite venda", draft.allowsSale !== false)}
+        ${productCheck("product-pays-commission", "Paga comissao", draft.paysCommission)}
+        ${productCheck("product-complementary", "Complementar", draft.complementary)}
+        ${productCheck("product-pair-product", "Par", draft.pairProduct)}
+        ${productCheck("product-show-app", "Mostrar no App", draft.showInApp)}
+        ${productCheck("product-uses-price-table", "Usar tabela preco", draft.usesPriceTable)}
+        ${productCheck("product-controls-imei", "Usar IMEI", draft.controlsImei)}
+        ${productCheck("product-manufactured", "Fabricado", draft.manufactured || draft.type === "Produto fabricado")}
+        ${productCheck("product-explode-kit-nf", "Explodir kit na NF", draft.explodeKitNf)}
+        ${productCheck("product-adult-only", "Produto +18", draft.adultOnly)}
+        ${productCheck("product-additional", "Adicional", draft.additional)}
+        ${productCheck("product-ecommerce", "Integrar e-commerce", draft.ecommerceIntegration)}
+        ${productCheck("product-kitchen-request", "Pedir na cozinha", draft.kitchenRequest)}
+        ${productCheck("product-medicine", "Medicamento", draft.medicine)}
       </div>
       <div class="grid four">
         <div class="field"><label>NCM</label><input id="product-ncm" value="${escapeAttr(draft.ncm)}" /></div>
@@ -1266,6 +1318,7 @@ function productForm() {
         <div class="field"><label>CST/CSOSN</label><input id="product-cst" value="${escapeAttr(draft.cst)}" /></div>
         <div class="field"><label>Classificacao IBS</label><input id="product-ibs" value="${escapeAttr(draft.ibsClass)}" /></div>
         <div class="field"><label>Classificacao CBS</label><input id="product-cbs" value="${escapeAttr(draft.cbsClass)}" /></div>
+        <div class="field"><label>Principio ativo</label><input id="product-active-principle" value="${escapeAttr(draft.activePrinciple)}" /></div>
       </div>
       <div class="photo-uploader">
         <div class="photo-preview" id="product-photo-preview">${pendingProductPhoto ? `<img src="${pendingProductPhoto}" alt="Foto do produto" />` : "Sem foto"}</div>
@@ -1281,11 +1334,58 @@ function productForm() {
 
 function productTab() {
   if (currentTab === "impostos") {
+    const fiscal = pendingProductDraft.fiscal || {};
+    const reform = pendingProductDraft.reform || {};
     return `
       <div class="form-card">
         <h3>Conferencia fiscal do produto</h3>
-        <p class="muted">NCM, CEST, CFOP, CST/CSOSN, IBS e CBS ficam no cadastro principal do produto para nao perder informacao ao salvar.</p>
-        <div class="fiscal-note">Campos da Reforma Tributaria ficam parametrizados por vigencia, UF, regime e operacao. A emissao real depende das notas tecnicas oficiais e homologacao.</div>
+        <p class="muted">Campos espelhados do ERP desktop para a emissao fiscal, DANFE/DANFCE e reforma tributaria.</p>
+        <div class="grid four">
+          <div class="field"><label>Origem</label><select id="product-origin">${["0 Nacional", "1 Estrangeira direta", "2 Estrangeira mercado interno", "3 Nacional importacao superior 40%", "4 Nacional PPB", "5 Nacional importacao inferior 40%", "6 Estrangeira sem similar", "7 Estrangeira mercado interno sem similar", "8 Nacional importacao superior 70%"].map((item) => `<option ${fiscal.origin === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+          <div class="field"><label>cBenef</label><input id="product-cbenef" value="${escapeAttr(fiscal.cbenef || "")}" /></div>
+          <div class="field"><label>Motivo desoneracao</label><input id="product-mot-deson" value="${escapeAttr(fiscal.motDeson || "")}" /></div>
+          <div class="field"><label>Aliquota interna ICMS %</label><input id="product-icms-internal-rate" type="number" step="0.01" value="${Number(fiscal.icmsInternalRate || 0)}" /></div>
+          <div class="field"><label>CFOP externo</label><input id="product-cfop-external" value="${escapeAttr(fiscal.cfopExternal || "")}" /></div>
+          <div class="field"><label>CST externo</label><input id="product-cst-external" value="${escapeAttr(fiscal.cstExternal || "")}" /></div>
+          <div class="field"><label>ICMS externo %</label><input id="product-icms-external-rate" type="number" step="0.01" value="${Number(fiscal.icmsExternalRate || 0)}" /></div>
+          <div class="field"><label>Base reduzida ICMS %</label><input id="product-icms-base-reduction" type="number" step="0.01" value="${Number(fiscal.icmsBaseReduction || 0)}" /></div>
+        </div>
+        <div class="grid four">
+          <div class="field"><label>ICMS-ST retido %</label><input id="product-icms-st-rate" type="number" step="0.01" value="${Number(fiscal.icmsStRate || 0)}" /></div>
+          <div class="field"><label>MVA %</label><input id="product-mva" type="number" step="0.01" value="${Number(fiscal.mva || 0)}" /></div>
+          <div class="field"><label>FCP %</label><input id="product-fcp-rate" type="number" step="0.01" value="${Number(fiscal.fcpRate || 0)}" /></div>
+          <div class="field"><label>IPI CST</label><input id="product-ipi-cst" value="${escapeAttr(fiscal.ipiCst || "")}" /></div>
+          <div class="field"><label>IPI %</label><input id="product-ipi-rate" type="number" step="0.01" value="${Number(fiscal.ipiRate || 0)}" /></div>
+          <div class="field"><label>PIS entrada CST</label><input id="product-pis-in-cst" value="${escapeAttr(fiscal.pisInCst || "")}" /></div>
+          <div class="field"><label>PIS saida CST</label><input id="product-pis-out-cst" value="${escapeAttr(fiscal.pisOutCst || "")}" /></div>
+          <div class="field"><label>PIS %</label><input id="product-pis-rate" type="number" step="0.01" value="${Number(fiscal.pisRate || 0)}" /></div>
+          <div class="field"><label>COFINS entrada CST</label><input id="product-cofins-in-cst" value="${escapeAttr(fiscal.cofinsInCst || "")}" /></div>
+          <div class="field"><label>COFINS saida CST</label><input id="product-cofins-out-cst" value="${escapeAttr(fiscal.cofinsOutCst || "")}" /></div>
+          <div class="field"><label>COFINS %</label><input id="product-cofins-rate" type="number" step="0.01" value="${Number(fiscal.cofinsRate || 0)}" /></div>
+          <div class="field"><label>Natureza receita</label><input id="product-revenue-nature" value="${escapeAttr(fiscal.revenueNature || "")}" /></div>
+        </div>
+        <h3>Reforma tributaria</h3>
+        <div class="grid four">
+          <div class="field"><label>cClassTrib</label><input id="product-class-trib" value="${escapeAttr(reform.classTrib || pendingProductDraft.ibsClass || "000001")}" /></div>
+          <div class="field"><label>CST CBS/IBS</label><input id="product-reform-cst" value="${escapeAttr(reform.cst || "")}" /></div>
+          <div class="field"><label>CBS %</label><input id="product-cbs-rate" type="number" step="0.0001" value="${Number(reform.cbsRate || 0)}" /></div>
+          <div class="field"><label>IBS UF %</label><input id="product-ibs-uf-rate" type="number" step="0.0001" value="${Number(reform.ibsUfRate || 0)}" /></div>
+          <div class="field"><label>IBS Municipio %</label><input id="product-ibs-city-rate" type="number" step="0.0001" value="${Number(reform.ibsCityRate || 0)}" /></div>
+          <div class="field"><label>Reducao CBS/IBS %</label><input id="product-reform-reduction" type="number" step="0.01" value="${Number(reform.reduction || 0)}" /></div>
+          <div class="field"><label>Diferimento %</label><input id="product-reform-deferral" type="number" step="0.01" value="${Number(reform.deferral || 0)}" /></div>
+          <div class="field"><label>Credito presumido %</label><input id="product-presumed-credit" type="number" step="0.01" value="${Number(reform.presumedCredit || 0)}" /></div>
+          <div class="field"><label>Imposto seletivo %</label><input id="product-selective-tax" type="number" step="0.01" value="${Number(reform.selectiveTax || 0)}" /></div>
+          <div class="field"><label>Vigencia inicio</label><input id="product-reform-from" type="date" value="${escapeAttr(reform.from || "")}" /></div>
+          <div class="field"><label>Monofasico/ad rem</label><select id="product-reform-monophase"><option value="false">Nao</option><option value="true" ${reform.monophase ? "selected" : ""}>Sim</option></select></div>
+          <div class="field"><label>Observacao fiscal</label><input id="product-fiscal-note" value="${escapeAttr(fiscal.note || "")}" /></div>
+        </div>
+        <div class="desktop-check-grid">
+          ${productCheck("product-imported", "Produto importado", reform.imported)}
+          ${productCheck("product-capital-good", "Bem de capital", reform.capitalGood)}
+          ${productCheck("product-return-rule", "Regra de devolucao", reform.returnRule)}
+          ${productCheck("product-exterior-operation", "Operacao exterior", reform.exteriorOperation)}
+        </div>
+        <div class="fiscal-note">A emissao usa estes parametros no XML fiscal e deve ser homologada com certificado/ACBr antes do provedor pago.</div>
       </div>
     `;
   }
@@ -1356,6 +1456,10 @@ function productTab() {
           <div class="field"><label>Fim</label><input id="product-promo-to" type="date" value="${pendingProductDraft.promotion?.to || ""}" /></div>
           <div class="field"><label>Quantidade minima</label><input id="product-promo-qty" type="number" step="0.001" value="${Number(pendingProductDraft.promotion?.minQty || 0)}" /></div>
           <div class="field"><label>Preco promocional</label><input id="product-promo-price" type="number" step="0.01" value="${Number(pendingProductDraft.promotion?.price || 0)}" /></div>
+          <div class="field"><label>% Varejo</label><input id="product-promo-retail-percent" type="number" step="0.01" value="${Number(pendingProductDraft.promotion?.retailPercent || 0)}" /></div>
+          <div class="field"><label>% Atacado</label><input id="product-promo-wholesale-percent" type="number" step="0.01" value="${Number(pendingProductDraft.promotion?.wholesalePercent || 0)}" /></div>
+          <div class="field"><label>Quantidade atacado</label><input id="product-promo-wholesale-qty" type="number" step="0.001" value="${Number(pendingProductDraft.promotion?.wholesaleQty || 0)}" /></div>
+          <div class="field"><label>Campanha</label><input id="product-promo-name" value="${escapeAttr(pendingProductDraft.promotion?.name || "")}" /></div>
         </div>
       </div>
     `;
@@ -1439,8 +1543,8 @@ function productsTable() {
   return `
     <div class="table-wrap erp-table">
       <table>
-        <thead><tr><th>Foto</th><th>Codigo</th><th>Descricao</th><th>Tipo</th><th>NCM</th><th>Preco</th><th>Estoque</th><th>Minimo</th><th>Status</th><th>Acoes</th></tr></thead>
-        <tbody>${rows.map((product) => `<tr class="${Number(selectedProductId) === Number(product.id) ? "selected-row" : ""}" data-select-product="${product.id}"><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.description}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td>${product.minStock}</td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : product.stock <= product.minStock ? "Comprar" : "OK"}</span></td><td><button class="btn" data-edit-product="${product.id}">Editar</button> <button class="btn" data-label-product="${product.id}">Etiqueta</button> <button class="btn ${product.active === false ? "" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
+        <thead><tr><th>Foto</th><th>Codigo</th><th>Referencia</th><th>Descricao</th><th>Tipo</th><th>NCM</th><th>Preco</th><th>Estoque</th><th>Fiscal</th><th>Status</th><th>Acoes</th></tr></thead>
+        <tbody>${rows.map((product) => `<tr class="${Number(selectedProductId) === Number(product.id) ? "selected-row" : ""}" data-select-product="${product.id}"><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.reference || product.sku || "-"}</td><td>${product.description}${product.ecommerceIntegration ? ` <span class="badge ok">Web</span>` : ""}${product.kitchenRequest ? ` <span class="badge warn">Cozinha</span>` : ""}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td><span class="badge ${product.fiscalStatus === "Homologado" ? "ok" : product.fiscalStatus === "Bloqueado" ? "danger" : "warn"}">${product.fiscalStatus || "Conferir"}</span></td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : product.stock <= product.minStock ? "Comprar" : "OK"}</span></td><td><button class="btn" data-edit-product="${product.id}">Editar</button> <button class="btn" data-label-product="${product.id}">Etiqueta</button> <button class="btn ${product.active === false ? "" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
       </table>
     </div>
   `;
@@ -3124,6 +3228,26 @@ function saveProductRecord() {
     brand: byId("product-brand").value,
     group: byId("product-group").value,
     location: byId("product-location").value,
+    reference: pendingProductDraft.reference || "",
+    sku: pendingProductDraft.sku || "",
+    packaging: pendingProductDraft.packaging || "",
+    fiscalStatus: pendingProductDraft.fiscalStatus || "Conferir",
+    movesStock: pendingProductDraft.movesStock !== false,
+    allowsSale: pendingProductDraft.allowsSale !== false,
+    paysCommission: Boolean(pendingProductDraft.paysCommission),
+    complementary: Boolean(pendingProductDraft.complementary),
+    pairProduct: Boolean(pendingProductDraft.pairProduct),
+    showInApp: Boolean(pendingProductDraft.showInApp),
+    usesPriceTable: Boolean(pendingProductDraft.usesPriceTable),
+    controlsImei: Boolean(pendingProductDraft.controlsImei),
+    manufactured: Boolean(pendingProductDraft.manufactured) || type === "Produto fabricado",
+    explodeKitNf: Boolean(pendingProductDraft.explodeKitNf),
+    adultOnly: Boolean(pendingProductDraft.adultOnly),
+    additional: Boolean(pendingProductDraft.additional),
+    ecommerceIntegration: Boolean(pendingProductDraft.ecommerceIntegration),
+    kitchenRequest: Boolean(pendingProductDraft.kitchenRequest),
+    medicine: Boolean(pendingProductDraft.medicine),
+    activePrinciple: pendingProductDraft.activePrinciple || "",
     cost: composition.length && cost <= 0 ? compositionCost : cost,
     price,
     stock: Number(byId("product-stock").value || 0),
@@ -3134,6 +3258,8 @@ function saveProductRecord() {
     cst: byId("product-cst")?.value || "102",
     cbsClass: byId("product-cbs")?.value || "000001",
     ibsClass: byId("product-ibs")?.value || "000001",
+    fiscal: structuredClone(pendingProductDraft.fiscal || {}),
+    reform: structuredClone(pendingProductDraft.reform || {}),
     photo: pendingProductPhoto,
     isBundle: byId("product-is-bundle")?.checked || composition.length > 0,
     composition,
@@ -3207,6 +3333,26 @@ function captureProductDraft() {
     brand: byId("product-brand")?.value || "",
     group: byId("product-group")?.value || "",
     location: byId("product-location")?.value || "",
+    reference: byId("product-reference")?.value || previous.reference || "",
+    sku: byId("product-sku")?.value || previous.sku || "",
+    packaging: byId("product-packaging")?.value || previous.packaging || "",
+    fiscalStatus: byId("product-fiscal-status")?.value || previous.fiscalStatus || "Conferir",
+    movesStock: byId("product-moves-stock") ? byId("product-moves-stock").checked : previous.movesStock !== false,
+    allowsSale: byId("product-allows-sale") ? byId("product-allows-sale").checked : previous.allowsSale !== false,
+    paysCommission: byId("product-pays-commission") ? byId("product-pays-commission").checked : Boolean(previous.paysCommission),
+    complementary: byId("product-complementary") ? byId("product-complementary").checked : Boolean(previous.complementary),
+    pairProduct: byId("product-pair-product") ? byId("product-pair-product").checked : Boolean(previous.pairProduct),
+    showInApp: byId("product-show-app") ? byId("product-show-app").checked : Boolean(previous.showInApp),
+    usesPriceTable: byId("product-uses-price-table") ? byId("product-uses-price-table").checked : Boolean(previous.usesPriceTable),
+    controlsImei: byId("product-controls-imei") ? byId("product-controls-imei").checked : Boolean(previous.controlsImei),
+    manufactured: byId("product-manufactured") ? byId("product-manufactured").checked : Boolean(previous.manufactured),
+    explodeKitNf: byId("product-explode-kit-nf") ? byId("product-explode-kit-nf").checked : Boolean(previous.explodeKitNf),
+    adultOnly: byId("product-adult-only") ? byId("product-adult-only").checked : Boolean(previous.adultOnly),
+    additional: byId("product-additional") ? byId("product-additional").checked : Boolean(previous.additional),
+    ecommerceIntegration: byId("product-ecommerce") ? byId("product-ecommerce").checked : Boolean(previous.ecommerceIntegration),
+    kitchenRequest: byId("product-kitchen-request") ? byId("product-kitchen-request").checked : Boolean(previous.kitchenRequest),
+    medicine: byId("product-medicine") ? byId("product-medicine").checked : Boolean(previous.medicine),
+    activePrinciple: byId("product-active-principle")?.value || previous.activePrinciple || "",
     cost: byId("product-cost")?.value || 0,
     price: byId("product-price")?.value || 0,
     stock: byId("product-stock")?.value || 0,
@@ -3217,6 +3363,8 @@ function captureProductDraft() {
     cest: byId("product-cest")?.value || "",
     ibsClass: byId("product-ibs")?.value || "000001",
     cbsClass: byId("product-cbs")?.value || "000001",
+    fiscal: structuredClone(previous.fiscal || {}),
+    reform: structuredClone(previous.reform || {}),
     variantColor: previous.variantColor || "",
     variantSize: previous.variantSize || "",
     controlsLot: Boolean(previous.controlsLot),
@@ -3239,11 +3387,55 @@ function captureProductDraft() {
   pendingProductDraft.scaleValidityDays = byId("product-scale-validity")?.value ?? pendingProductDraft.scaleValidityDays ?? 0;
   pendingProductDraft.nutritionCalories = byId("product-nutrition-calories")?.value ?? pendingProductDraft.nutritionCalories ?? "";
   pendingProductDraft.nutritionProtein = byId("product-nutrition-protein")?.value ?? pendingProductDraft.nutritionProtein ?? "";
+  pendingProductDraft.fiscal = {
+    origin: byId("product-origin")?.value ?? pendingProductDraft.fiscal?.origin ?? "0 Nacional",
+    cbenef: byId("product-cbenef")?.value ?? pendingProductDraft.fiscal?.cbenef ?? "",
+    motDeson: byId("product-mot-deson")?.value ?? pendingProductDraft.fiscal?.motDeson ?? "",
+    icmsInternalRate: byId("product-icms-internal-rate")?.value ?? pendingProductDraft.fiscal?.icmsInternalRate ?? 0,
+    cfopExternal: byId("product-cfop-external")?.value ?? pendingProductDraft.fiscal?.cfopExternal ?? "",
+    cstExternal: byId("product-cst-external")?.value ?? pendingProductDraft.fiscal?.cstExternal ?? "",
+    icmsExternalRate: byId("product-icms-external-rate")?.value ?? pendingProductDraft.fiscal?.icmsExternalRate ?? 0,
+    icmsBaseReduction: byId("product-icms-base-reduction")?.value ?? pendingProductDraft.fiscal?.icmsBaseReduction ?? 0,
+    icmsStRate: byId("product-icms-st-rate")?.value ?? pendingProductDraft.fiscal?.icmsStRate ?? 0,
+    mva: byId("product-mva")?.value ?? pendingProductDraft.fiscal?.mva ?? 0,
+    fcpRate: byId("product-fcp-rate")?.value ?? pendingProductDraft.fiscal?.fcpRate ?? 0,
+    ipiCst: byId("product-ipi-cst")?.value ?? pendingProductDraft.fiscal?.ipiCst ?? "",
+    ipiRate: byId("product-ipi-rate")?.value ?? pendingProductDraft.fiscal?.ipiRate ?? 0,
+    pisInCst: byId("product-pis-in-cst")?.value ?? pendingProductDraft.fiscal?.pisInCst ?? "",
+    pisOutCst: byId("product-pis-out-cst")?.value ?? pendingProductDraft.fiscal?.pisOutCst ?? "",
+    pisRate: byId("product-pis-rate")?.value ?? pendingProductDraft.fiscal?.pisRate ?? 0,
+    cofinsInCst: byId("product-cofins-in-cst")?.value ?? pendingProductDraft.fiscal?.cofinsInCst ?? "",
+    cofinsOutCst: byId("product-cofins-out-cst")?.value ?? pendingProductDraft.fiscal?.cofinsOutCst ?? "",
+    cofinsRate: byId("product-cofins-rate")?.value ?? pendingProductDraft.fiscal?.cofinsRate ?? 0,
+    revenueNature: byId("product-revenue-nature")?.value ?? pendingProductDraft.fiscal?.revenueNature ?? "",
+    note: byId("product-fiscal-note")?.value ?? pendingProductDraft.fiscal?.note ?? ""
+  };
+  pendingProductDraft.reform = {
+    classTrib: byId("product-class-trib")?.value ?? pendingProductDraft.reform?.classTrib ?? pendingProductDraft.ibsClass ?? "000001",
+    cst: byId("product-reform-cst")?.value ?? pendingProductDraft.reform?.cst ?? "",
+    cbsRate: byId("product-cbs-rate")?.value ?? pendingProductDraft.reform?.cbsRate ?? 0,
+    ibsUfRate: byId("product-ibs-uf-rate")?.value ?? pendingProductDraft.reform?.ibsUfRate ?? 0,
+    ibsCityRate: byId("product-ibs-city-rate")?.value ?? pendingProductDraft.reform?.ibsCityRate ?? 0,
+    reduction: byId("product-reform-reduction")?.value ?? pendingProductDraft.reform?.reduction ?? 0,
+    deferral: byId("product-reform-deferral")?.value ?? pendingProductDraft.reform?.deferral ?? 0,
+    presumedCredit: byId("product-presumed-credit")?.value ?? pendingProductDraft.reform?.presumedCredit ?? 0,
+    selectiveTax: byId("product-selective-tax")?.value ?? pendingProductDraft.reform?.selectiveTax ?? 0,
+    from: byId("product-reform-from")?.value ?? pendingProductDraft.reform?.from ?? "",
+    monophase: byId("product-reform-monophase") ? byId("product-reform-monophase").value === "true" : Boolean(pendingProductDraft.reform?.monophase),
+    imported: byId("product-imported") ? byId("product-imported").checked : Boolean(pendingProductDraft.reform?.imported),
+    capitalGood: byId("product-capital-good") ? byId("product-capital-good").checked : Boolean(pendingProductDraft.reform?.capitalGood),
+    returnRule: byId("product-return-rule") ? byId("product-return-rule").checked : Boolean(pendingProductDraft.reform?.returnRule),
+    exteriorOperation: byId("product-exterior-operation") ? byId("product-exterior-operation").checked : Boolean(pendingProductDraft.reform?.exteriorOperation)
+  };
   pendingProductDraft.promotion = {
     from: byId("product-promo-from")?.value ?? pendingProductDraft.promotion?.from ?? "",
     to: byId("product-promo-to")?.value ?? pendingProductDraft.promotion?.to ?? "",
     minQty: byId("product-promo-qty")?.value ?? pendingProductDraft.promotion?.minQty ?? 0,
-    price: byId("product-promo-price")?.value ?? pendingProductDraft.promotion?.price ?? 0
+    price: byId("product-promo-price")?.value ?? pendingProductDraft.promotion?.price ?? 0,
+    retailPercent: byId("product-promo-retail-percent")?.value ?? pendingProductDraft.promotion?.retailPercent ?? 0,
+    wholesalePercent: byId("product-promo-wholesale-percent")?.value ?? pendingProductDraft.promotion?.wholesalePercent ?? 0,
+    wholesaleQty: byId("product-promo-wholesale-qty")?.value ?? pendingProductDraft.promotion?.wholesaleQty ?? 0,
+    name: byId("product-promo-name")?.value ?? pendingProductDraft.promotion?.name ?? ""
   };
   pendingProductDraft.priceTables = {
     wholesale: byId("product-price-wholesale")?.value ?? pendingProductDraft.priceTables?.wholesale ?? 0,
@@ -3865,8 +4057,8 @@ function printProductsList() {
   const query = productSearch.trim().toLowerCase();
   const rows = state.products.filter((product) => !query || [product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query)));
   downloadText(`produtos-${today()}.csv`, [
-    "Codigo;Descricao;Tipo;NCM;Preco;Estoque;Minimo;Status",
-    ...rows.map((product) => [product.id, product.description, product.type, product.ncm || "", product.price || 0, product.stock || 0, product.minStock || 0, product.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
+    "Codigo;Referencia;SKU;Descricao;Tipo;NCM;CFOP;CST;Preco;Estoque;Minimo;Fiscal;Ecommerce;Cozinha;Status",
+    ...rows.map((product) => [product.id, product.reference || "", product.sku || "", product.description, product.type, product.ncm || "", product.cfop || "", product.cst || "", product.price || 0, product.stock || 0, product.minStock || 0, product.fiscalStatus || "Conferir", product.ecommerceIntegration ? "Sim" : "Nao", product.kitchenRequest ? "Sim" : "Nao", product.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
   ].join("\n"));
 }
 

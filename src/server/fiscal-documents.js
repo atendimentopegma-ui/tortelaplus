@@ -82,7 +82,39 @@ function itemRule(state, row, item) {
     && (!candidate.validFrom || candidate.validFrom <= new Date().toISOString().slice(0, 10))
     && (!candidate.validTo || candidate.validTo >= new Date().toISOString().slice(0, 10))
   ) || {};
-  return { ...product, ...rule, ...item };
+  const fiscal = product.fiscal || {};
+  const reform = product.reform || {};
+  return {
+    ...product,
+    origin: fiscal.origin || product.origin,
+    taxBenefitCode: fiscal.cbenef || product.taxBenefitCode,
+    desonerationReason: fiscal.motDeson || product.desonerationReason,
+    icmsRate: fiscal.icmsInternalRate || product.icmsRate,
+    cfopExternal: fiscal.cfopExternal || product.cfopExternal,
+    cstExternal: fiscal.cstExternal || product.cstExternal,
+    icmsExternalRate: fiscal.icmsExternalRate || product.icmsExternalRate,
+    baseReductionRate: fiscal.icmsBaseReduction || product.baseReductionRate,
+    mvaRate: fiscal.mva || product.mvaRate,
+    fcpRate: fiscal.fcpRate || product.fcpRate,
+    ipiCst: fiscal.ipiCst || product.ipiCst,
+    ipiRate: fiscal.ipiRate || product.ipiRate,
+    pisCst: fiscal.pisOutCst || product.pisCst,
+    pisRate: fiscal.pisRate || product.pisRate,
+    cofinsCst: fiscal.cofinsOutCst || product.cofinsCst,
+    cofinsRate: fiscal.cofinsRate || product.cofinsRate,
+    revenueNature: fiscal.revenueNature || product.revenueNature,
+    ibsClass: reform.classTrib || product.ibsClass,
+    cbsClass: reform.classTrib || product.cbsClass,
+    ibsCbsCst: reform.cst || product.ibsCbsCst,
+    cbsRate: reform.cbsRate || product.cbsRate,
+    ibsUfRate: reform.ibsUfRate || product.ibsUfRate,
+    ibsCityRate: reform.ibsCityRate || product.ibsCityRate,
+    reformReductionRate: reform.reduction || product.reformReductionRate,
+    selectiveTaxRate: reform.selectiveTax || product.selectiveTaxRate,
+    presumedCreditRate: reform.presumedCredit || product.presumedCreditRate,
+    ...rule,
+    ...item
+  };
 }
 
 function icmsXml(settings, rule, value) {

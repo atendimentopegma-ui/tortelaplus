@@ -949,8 +949,22 @@ function royaltyBreakdown(tenant, tenantState, provider = readProvider(), month 
   };
 }
 
+function effectiveProductPrice(product, qty = 1) {
+  const promotion = product?.promotion || {};
+  const active = (Number(promotion.price || 0) > 0 || Number(promotion.retailPercent || 0) > 0 || Number(promotion.wholesalePercent || 0) > 0)
+    && (!promotion.from || today() >= promotion.from)
+    && (!promotion.to || today() <= promotion.to)
+    && Number(qty || 0) >= Number(promotion.minQty || 0);
+  if (!active) return Number(product?.price || 0);
+  if (Number(promotion.price || 0) > 0) return Number(promotion.price);
+  const base = Number(product?.price || 0);
+  const wholesale = Number(promotion.wholesaleQty || 0) > 0 && Number(qty || 0) >= Number(promotion.wholesaleQty || 0);
+  const percent = wholesale ? Number(promotion.wholesalePercent || 0) : Number(promotion.retailPercent || 0);
+  return Math.max(0, base - base * percent / 100);
+}
+
 function catalogProduct(product, tenant, tenantState) {
-  const price = Number(product.promotion?.price || product.price || 0);
+  const price = effectiveProductPrice(product, 1);
   return {
     id: product.id,
     tenantCode: tenant.tenantCode,
@@ -991,7 +1005,7 @@ function onlineStoreCatalog(query = {}) {
     if (forcedTenantCode && normalizeTenantCode(tenant.tenantCode) !== forcedTenantCode) continue;
     const tenantState = readTenantState(tenant.tenantCode);
     const unitProducts = (tenantState.products || [])
-      .filter((product) => product.active !== false && Number(product.price || product.promotion?.price || 0) > 0)
+      .filter((product) => product.active !== false && effectiveProductPrice(product, 1) > 0)
       .map((product) => catalogProduct(product, tenant, tenantState));
     const distance = cepDistance(cep, tenant.cep || tenantState.settings?.cep || "");
     units.push({
@@ -1880,7 +1894,7 @@ async function handleApi(req, res, urlPath) {
       const product = (tenantState.products || []).find((row) => Number(row.id) === Number(item.productId) && row.active !== false);
       const qty = Number(item.qty || 0);
       if (!product || qty <= 0) continue;
-      const price = Number(product.promotion?.price || product.price || 0);
+      const price = effectiveProductPrice(product, qty);
       normalizedItems.push({
         productId: product.id,
         id: product.id,
@@ -1999,7 +2013,7 @@ async function handleApi(req, res, urlPath) {
       return Number.isNaN(parsed.getTime()) ? new Date(`${currentDay}T00:00:00`) : parsed;
     };
     const withinDays = (date, days) => (now.getTime() - date.getTime()) / 86400000 <= days;
-    const activePromotion = (promotion) => Number(promotion?.price || 0) > 0
+    const activePromotion = (promotion) => (Number(promotion?.price || 0) > 0 || Number(promotion?.retailPercent || 0) > 0 || Number(promotion?.wholesalePercent || 0) > 0)
       && (!promotion?.from || currentDay >= promotion.from)
       && (!promotion?.to || currentDay <= promotion.to)
       && promotion?.status !== "Cancelada";
@@ -2151,7 +2165,7 @@ async function handleApi(req, res, urlPath) {
       }));
       orders.forEach((order) => automaticOrders.push({ ...order, unit: tenant.tradeName, tenantCode: tenant.tenantCode }));
       tenantPromotions.forEach((promotion) => promotions.push({ product: promotion.product || "Campanha geral", unit: tenant.tradeName, value: Number(promotion.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: promotion.from, to: promotion.to, scope: promotion.scope || "Unidade" }));
-      products.filter((product) => activePromotion(product.promotion)).forEach((product) => promotions.push({ product: product.description, unit: tenant.tradeName, value: Number(product.promotion.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: product.promotion.from, to: product.promotion.to, scope: "Produto" }));
+      products.filter((product) => activePromotion(product.promotion)).forEach((product) => promotions.push({ product: product.description, unit: tenant.tradeName, value: Number(effectiveProductPrice(product, 1)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: product.promotion.from, to: product.promotion.to, scope: "Produto" }));
       finance.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, payableOpen, receivableOpen, purchasesTotal, franchiseOpen, franchisePaid });
       royalties.push({
         ...royalty,
