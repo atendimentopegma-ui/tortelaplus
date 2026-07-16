@@ -90,6 +90,7 @@ function normalizeSummary(payload = {}) {
     inactiveCustomers: [],
     whatsapp: {},
     whatsappGroupLeads: [],
+    whatsappGroupQueue: [],
     ...payload,
     totals: { ...(payload.totals || {}) },
     periods: { hour: 0, day: 0, week: 0, fortnight: 0, month: 0, ...(payload.periods || {}) }
@@ -386,6 +387,7 @@ function renderCustomers() {
   const inactiveRows = summary.inactiveCustomers || [];
   const whatsapp = summary.whatsapp || {};
   const whatsappLeads = summary.whatsappGroupLeads || [];
+  const whatsappQueue = summary.whatsappGroupQueue || [];
   return `<div class="network-module compact">
     ${moduleTitle("Clientes da rede", "Consumo por unidade, retorno de compra e lista de clientes sem compra ha 30 dias ou mais.")}
     <div class="network-grid three">
@@ -399,10 +401,23 @@ function renderCustomers() {
         <div class="field"><label>Nome da conta</label><input id="whatsapp-account-name" value="${escapeAttr(whatsapp.accountName || "Central Tortela")}" /></div>
         <div class="field"><label>Numero WhatsApp oficial</label><input id="whatsapp-phone" value="${escapeAttr(whatsapp.phone || "")}" placeholder="55 11 99999-9999" /></div>
         <div class="field"><label>Link do grupo Tortela</label><input id="whatsapp-group-url" value="${escapeAttr(whatsapp.groupInviteUrl || "")}" placeholder="https://chat.whatsapp.com/..." /></div>
+        <div class="field"><label>ID do grupo na API</label><input id="whatsapp-group-id" value="${escapeAttr(whatsapp.groupId || "")}" placeholder="ID informado pela integradora" /></div>
+        <div class="field"><label>Modo integracao</label><select id="whatsapp-integration-mode"><option value="generic" ${whatsapp.integrationMode === "generic" ? "selected" : ""}>Generico</option><option value="wapi" ${whatsapp.integrationMode === "wapi" ? "selected" : ""}>W-API</option></select></div>
         <div class="field"><label>URL API/integradora</label><input id="whatsapp-api-url" value="${escapeAttr(whatsapp.apiUrl || "")}" placeholder="https://api.whatsapp..." /></div>
         <div class="field"><label>Token API</label><input id="whatsapp-api-token" type="password" placeholder="${whatsapp.apiTokenConfigured ? "Token configurado" : "Informe quando contratar a API"}" /></div>
         <button class="btn primary" type="submit">Salvar WhatsApp</button>
       </form>
+    </section>
+    <section class="network-card">
+      <h2>Automacao de entrada no grupo</h2>
+      ${table(["Cliente", "WhatsApp", "Unidade", "Status", "Detalhe", "Atualizado"], whatsappQueue.map((row) => [
+        escapeHtml(row.customer || "-"),
+        escapeHtml(row.phone || "-"),
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        escapeHtml(row.status || "-"),
+        escapeHtml(row.detail || "-"),
+        escapeHtml(String(row.updatedAt || row.createdAt || "").slice(0, 19).replace("T", " ") || "-")
+      ]), "Nenhuma tentativa automatica registrada ainda.")}
     </section>
     <section class="network-card">
       <h2>Autorizados para grupo da Tortela</h2>
@@ -524,6 +539,8 @@ async function saveWhatsappSettings(event) {
         accountName: byId("whatsapp-account-name").value,
         phone: byId("whatsapp-phone").value,
         groupInviteUrl: byId("whatsapp-group-url").value,
+        groupId: byId("whatsapp-group-id").value,
+        integrationMode: byId("whatsapp-integration-mode").value,
         apiUrl: byId("whatsapp-api-url").value,
         apiToken: byId("whatsapp-api-token").value
       })

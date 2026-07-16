@@ -82,9 +82,12 @@ const initialProvider = {
     accountName: "Central Tortela",
     phone: "",
     groupInviteUrl: "",
+    groupId: "",
+    integrationMode: "generic",
     apiUrl: "",
     apiTokenConfigured: false
   },
+  whatsappGroupQueue: [],
   providerAdmins: [
     {
       id: 1,
@@ -730,22 +733,30 @@ function saveFiscalResponse(tenantCode, filename, response) {
 
 function saveFiscalSecrets(tenantCode, secrets) {
   if (fiscalSecretKey.length < 32) throw new Error("Configure PEGMA_SECRET_KEY com pelo menos 32 caracteres no provedor.");
+  const payload = encryptVaultPayload(secrets);
+  fs.writeFileSync(path.join(tenantStorageDir(tenantCode, "secrets"), "fiscal-vault.json"), JSON.stringify(payload));
+}
+
+function encryptVaultPayload(secrets) {
+  if (fiscalSecretKey.length < 32) throw new Error("Configure PEGMA_SECRET_KEY com pelo menos 32 caracteres no provedor.");
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", crypto.createHash("sha256").update(fiscalSecretKey).digest(), iv);
   const encrypted = Buffer.concat([cipher.update(JSON.stringify(secrets), "utf8"), cipher.final()]);
-  const payload = {
+  return {
     iv: iv.toString("base64"),
     tag: cipher.getAuthTag().toString("base64"),
     data: encrypted.toString("base64")
   };
-  fs.writeFileSync(path.join(tenantStorageDir(tenantCode, "secrets"), "fiscal-vault.json"), JSON.stringify(payload));
 }
 
 function loadFiscalSecrets(tenantCode) {
   const vaultPath = path.join(tenantStorageDir(tenantCode, "secrets"), "fiscal-vault.json");
   if (!fs.existsSync(vaultPath)) return {};
+  return decryptVaultPayload(JSON.parse(fs.readFileSync(vaultPath, "utf8")));
+}
+
+function decryptVaultPayload(payload) {
   if (fiscalSecretKey.length < 32) throw new Error("Configure PEGMA_SECRET_KEY com pelo menos 32 caracteres no provedor.");
-  const payload = JSON.parse(fs.readFileSync(vaultPath, "utf8"));
   const decipher = crypto.createDecipheriv("aes-256-gcm", crypto.createHash("sha256").update(fiscalSecretKey).digest(), Buffer.from(payload.iv, "base64"));
   decipher.setAuthTag(Buffer.from(payload.tag, "base64"));
   return JSON.parse(Buffer.concat([decipher.update(Buffer.from(payload.data, "base64")), decipher.final()]).toString("utf8"));
@@ -818,6 +829,85 @@ function fiscalAgentConfig(tenantCode, tenantState, secrets = loadFiscalSecrets(
     nfseCityCode: settings.nfseCityCode || settings.cityCode || "",
     nfseProvider: settings.nfseProvider || ""
   };
+}
+
+async function dispatchWhatsappGroupAutomation(provider, tenant, customer) {
+  const settings = provider.whatsappSettings || {};
+  provider.whatsappGroupQueue = Array.isArray(provider.whatsappGroupQueue) ? provider.whatsappGroupQueue : [];
+  const phone = String(customer.whatsapp || customer.phone || "").replace(/\D/g, "");
+  const item = {
+    id: `WAG-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`,
+    tenantCode: tenant.tenantCode,
+    unit: tenant.tradeName,
+    customerId: customer.id,
+    customer: customer.name,
+    phone,
+    birthDate: customer.birthDate || "",
+    groupId: settings.groupId || "",
+    groupInviteUrl: settings.groupInviteUrl || "",
+    status: "Pendente",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    detail: ""
+  };
+  if (!phone || phone.length < 10) {
+    item.status = "Erro";
+    item.detail = "Telefone invalido para inclusao automatica.";
+    provider.whatsappGroupQueue.unshift(item);
+    return item;
+  }
+  if (!settings.apiUrl) {
+    item.detail = "API WhatsApp da Central nao configurada.";
+    provider.whatsappGroupQueue.unshift(item);
+    return item;
+  }
+  let token = "";
+  try {
+    token = settings.apiTokenVault ? decryptVaultPayload(settings.apiTokenVault).apiToken || "" : "";
+  } catch (error) {
+    item.status = "Erro";
+    item.detail = `Token WhatsApp indisponivel: ${error.message}`;
+    provider.whatsappGroupQueue.unshift(item);
+    return item;
+  }
+  const mode = String(settings.integrationMode || "generic").toLowerCase();
+  const payload = mode === "wapi"
+    ? { groupId: settings.groupId || "", phones: [phone], autoInvite: true }
+    : {
+      action: "add_group_participant",
+      autoInvite: true,
+      groupId: settings.groupId || "",
+      groupInviteUrl: settings.groupInviteUrl || "",
+      phone,
+      customerName: customer.name,
+      tenantCode: tenant.tenantCode,
+      unit: tenant.tradeName
+    };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(settings.apiUrl, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    const text = await response.text().catch(() => "");
+    item.status = response.ok ? "Enviado" : "Erro";
+    item.detail = response.ok ? "Inclusao/convite enviado para API WhatsApp." : `API retornou ${response.status}: ${text.slice(0, 180)}`;
+  } catch (error) {
+    item.status = "Erro";
+    item.detail = error.name === "AbortError" ? "Tempo esgotado ao chamar API WhatsApp." : error.message;
+  } finally {
+    clearTimeout(timeout);
+  }
+  item.updatedAt = new Date().toISOString();
+  provider.whatsappGroupQueue.unshift(item);
+  provider.whatsappGroupQueue = provider.whatsappGroupQueue.slice(0, 500);
+  return item;
 }
 
 function send(res, status, body, type = "text/plain; charset=utf-8") {
@@ -1849,7 +1939,8 @@ async function handleApi(req, res, urlPath) {
     const birthDate = String(body.birthDate || "").trim();
     const whatsappGroupAuthorized = body.whatsappGroupAuthorized === true;
     const requestedTenantCode = publicCustomerMatch ? decodeURIComponent(publicCustomerMatch[1]) : body.tenantCode || onlineStoreCatalog({ cep }).nearest?.tenantCode || "";
-    const tenant = findTenant(readProvider(), requestedTenantCode);
+    const provider = readProvider();
+    const tenant = findTenant(provider, requestedTenantCode);
     if (!tenant || !["Ativo", "Homologacao"].includes(tenant.status)) {
       sendJson(res, 404, { ok: false, error: "Unidade nao encontrada ou indisponivel." });
       return;
@@ -1906,8 +1997,13 @@ async function handleApi(req, res, urlPath) {
     };
     tenantState.people.push(customer);
     writeTenantState(tenant.tenantCode, tenantState);
+    let whatsappGroup = null;
+    if (whatsappGroupAuthorized) {
+      whatsappGroup = await dispatchWhatsappGroupAutomation(provider, tenant, customer);
+      writeProvider(provider);
+    }
     appendTenantAudit(tenant.tenantCode, "Cliente cadastrado online", `${customer.name} - CPF ${document}`, "cadastro-publico");
-    sendJson(res, 201, { ok: true, message: `Cadastro concluido. Sua loja Tortela mais proxima e ${tenant.tradeName}.`, customerId: customer.id, tenantCode: tenant.tenantCode, tenantName: tenant.tradeName });
+    sendJson(res, 201, { ok: true, message: `Cadastro concluido. Sua loja Tortela mais proxima e ${tenant.tradeName}.`, customerId: customer.id, tenantCode: tenant.tenantCode, tenantName: tenant.tradeName, whatsappGroup });
     return;
   }
 
@@ -2292,9 +2388,12 @@ async function handleApi(req, res, urlPath) {
         phone: provider.whatsappSettings?.phone || "",
         groupInviteUrl: provider.whatsappSettings?.groupInviteUrl || "",
         apiUrl: provider.whatsappSettings?.apiUrl || "",
+        groupId: provider.whatsappSettings?.groupId || "",
+        integrationMode: provider.whatsappSettings?.integrationMode || "generic",
         apiTokenConfigured: Boolean(provider.whatsappSettings?.apiTokenConfigured)
       },
       whatsappGroupLeads: whatsappGroupLeads.sort((a, b) => String(b.authorizedAt).localeCompare(String(a.authorizedAt))).slice(0, 200),
+      whatsappGroupQueue: (provider.whatsappGroupQueue || []).slice(0, 200).map(({ id, tenantCode, unit, customer, phone, birthDate, status, detail, createdAt, updatedAt }) => ({ id, tenantCode, unit, customer, phone, birthDate, status, detail, createdAt, updatedAt })),
       finance,
       royalties,
       permissions,
@@ -2365,9 +2464,11 @@ async function handleApi(req, res, urlPath) {
       accountName: String(body.accountName || "").trim(),
       phone: String(body.phone || "").trim(),
       groupInviteUrl: String(body.groupInviteUrl || "").trim(),
+      groupId: String(body.groupId || "").trim(),
+      integrationMode: ["generic", "wapi"].includes(String(body.integrationMode || "").toLowerCase()) ? String(body.integrationMode).toLowerCase() : "generic",
       apiUrl: String(body.apiUrl || "").trim(),
       apiTokenConfigured: Boolean(body.apiToken) || Boolean(provider.whatsappSettings?.apiTokenConfigured),
-      ...(body.apiToken ? { apiTokenHash: hashPassword(String(body.apiToken)) } : {})
+      ...(body.apiToken ? { apiTokenVault: encryptVaultPayload({ apiToken: String(body.apiToken) }) } : {})
     };
     writeProvider(provider);
     appendProviderAudit("WhatsApp da Central atualizado", provider.whatsappSettings.phone || provider.whatsappSettings.accountName || "sem numero", access.username, requestIp(req));

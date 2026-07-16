@@ -178,7 +178,12 @@ async function submit(event) {
       })
     });
     event.target.reset();
-    show(result.message);
+    const whatsappMessage = result.whatsappGroup?.status === "Enviado"
+      ? " Autorizacao de grupo recebida e enviada automaticamente ao WhatsApp."
+      : result.whatsappGroup?.status
+        ? ` Autorizacao de grupo registrada: ${result.whatsappGroup.status}.`
+        : "";
+    show(`${result.message}${whatsappMessage}`);
   } catch (error) {
     show(error.message, true);
   } finally {
