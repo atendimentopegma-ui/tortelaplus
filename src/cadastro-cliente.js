@@ -1,6 +1,7 @@
 const params = new URLSearchParams(location.search);
 const tenantCode = params.get("unidade") || "";
 let unit = null;
+let nearestUnit = null;
 
 function byId(id) {
   return document.getElementById(id);
@@ -8,6 +9,15 @@ function byId(id) {
 
 function digits(value) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 async function api(path, options = {}) {
@@ -18,13 +28,15 @@ async function api(path, options = {}) {
 }
 
 async function boot() {
-  if (!tenantCode) return renderInvalid("Este link nao identifica uma unidade Tortela.");
-  try {
-    unit = await api(`/api/public/unit/${encodeURIComponent(tenantCode)}`);
-    render();
-  } catch (error) {
-    renderInvalid(error.message);
+  if (tenantCode) {
+    try {
+      unit = await api(`/api/public/unit/${encodeURIComponent(tenantCode)}`);
+    } catch (error) {
+      renderInvalid(error.message);
+      return;
+    }
   }
+  render();
 }
 
 function renderInvalid(message) {
@@ -35,7 +47,7 @@ function render() {
   byId("app").innerHTML = `
     <main class="public-register-shell">
       <section class="public-register-card">
-        <div class="public-register-brand"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /><div><strong>${unit.tradeName}</strong><span>Cadastro de cliente</span></div></div>
+        <div class="public-register-brand"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /><div><strong>${escapeHtml(unit ? unit.tradeName : "Rede Tortela")}</strong><span>${unit ? "Cadastro de cliente" : "Cadastro geral com loja mais proxima"}</span></div></div>
         <form id="customer-form">
           <div class="grid two">
             <div class="field"><label>Nome completo</label><input id="name" required /></div>
@@ -49,6 +61,7 @@ function render() {
             <div class="field"><label>Cidade</label><input id="city" required /></div>
             <div class="field"><label>UF</label><input id="uf" maxlength="2" required /></div>
           </div>
+          <div id="nearest-store" class="public-nearest" hidden></div>
           <label class="check-row public-consent"><input id="consent" type="checkbox" required /> Autorizo o uso dos meus dados para cadastro, atendimento de pedidos, comunicacoes operacionais e ofertas da rede Tortela.</label>
           <button class="btn primary public-submit" type="submit">Concluir cadastro</button>
           <div id="message" class="public-message" hidden></div>
@@ -67,6 +80,7 @@ function bindCepAutocomplete() {
     if (cep.length !== 8 || cep === lastCep) return;
     lastCep = cep;
     lookupCep().catch(() => undefined);
+    refreshNearestStore().catch(() => undefined);
   };
   input.addEventListener("input", run);
   input.addEventListener("blur", run);
@@ -87,9 +101,26 @@ async function lookupCep() {
     byId("city").value = data.localidade || "";
     byId("uf").value = data.uf || "";
     byId("number").focus();
+    await refreshNearestStore();
   } catch (error) {
     show(error.message || "Nao foi possivel consultar o CEP.", true);
   }
+}
+
+async function refreshNearestStore() {
+  const panel = byId("nearest-store");
+  const cep = digits(byId("cep")?.value);
+  if (!panel || cep.length !== 8) return;
+  const query = unit ? `cep=${encodeURIComponent(cep)}&unidade=${encodeURIComponent(unit.tenantCode)}` : `cep=${encodeURIComponent(cep)}`;
+  const catalog = await api(`/api/public/store/catalog?${query}`);
+  nearestUnit = catalog.nearest || null;
+  if (!nearestUnit) {
+    panel.hidden = false;
+    panel.textContent = "Nenhuma unidade Tortela disponivel para este CEP no momento.";
+    return;
+  }
+  panel.hidden = false;
+  panel.innerHTML = `<strong>Minha loja mais proxima:</strong> ${escapeHtml(nearestUnit.tradeName)}<span>${escapeHtml([nearestUnit.city, nearestUnit.uf, nearestUnit.cep].filter(Boolean).join(" - "))}</span>`;
 }
 
 function show(message, error = false) {
@@ -104,9 +135,15 @@ async function submit(event) {
   const button = event.submitter;
   button.disabled = true;
   try {
-    const result = await api(`/api/public/unit/${encodeURIComponent(tenantCode)}/customers`, {
+    const selectedTenant = unit?.tenantCode || nearestUnit?.tenantCode || "";
+    if (!selectedTenant) {
+      await refreshNearestStore();
+      if (!nearestUnit?.tenantCode) throw new Error("Informe o CEP para localizar sua loja Tortela mais proxima.");
+    }
+    const result = await api(unit ? `/api/public/unit/${encodeURIComponent(unit.tenantCode)}/customers` : "/api/public/customers", {
       method: "POST",
       body: JSON.stringify({
+        tenantCode: selectedTenant || nearestUnit?.tenantCode,
         name: byId("name").value,
         document: byId("document").value,
         phone: byId("phone").value,

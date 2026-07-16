@@ -1834,16 +1834,17 @@ async function handleApi(req, res, urlPath) {
   }
 
   const publicCustomerMatch = urlPath.match(/^\/api\/public\/unit\/([^/]+)\/customers$/);
-  if (req.method === "POST" && publicCustomerMatch) {
-    const tenant = findTenant(readProvider(), decodeURIComponent(publicCustomerMatch[1]));
-    if (!tenant || !["Ativo", "Homologacao"].includes(tenant.status)) {
-      sendJson(res, 404, { ok: false, error: "Unidade nao encontrada ou indisponivel." });
-      return;
-    }
+  if (req.method === "POST" && (publicCustomerMatch || urlPath === "/api/public/customers")) {
     const body = await readBody(req);
     const document = String(body.document || "").replace(/\D/g, "");
     const phone = String(body.phone || "").replace(/\D/g, "");
     const cep = String(body.cep || "").replace(/\D/g, "");
+    const requestedTenantCode = publicCustomerMatch ? decodeURIComponent(publicCustomerMatch[1]) : body.tenantCode || onlineStoreCatalog({ cep }).nearest?.tenantCode || "";
+    const tenant = findTenant(readProvider(), requestedTenantCode);
+    if (!tenant || !["Ativo", "Homologacao"].includes(tenant.status)) {
+      sendJson(res, 404, { ok: false, error: "Unidade nao encontrada ou indisponivel." });
+      return;
+    }
     const name = String(body.name || "").trim();
     const uf = String(body.uf || "").trim().toUpperCase();
     if (!name || document.length !== 11 || phone.length < 10 || cep.length !== 8 || !body.address || !body.number || !body.district || !body.city || uf.length !== 2 || body.consent !== true) {
@@ -1872,6 +1873,9 @@ async function handleApi(req, res, urlPath) {
       district: String(body.district || "").trim(),
       city: String(body.city || "").trim(),
       uf,
+      preferredTenantCode: tenant.tenantCode,
+      preferredTenantName: tenant.tradeName,
+      nearestStoreSelectedAt: new Date().toISOString(),
       source: "Cadastro online Tortela",
       registeredAt: new Date().toISOString(),
       lgpdConsent: {
@@ -1886,7 +1890,7 @@ async function handleApi(req, res, urlPath) {
     tenantState.people.push(customer);
     writeTenantState(tenant.tenantCode, tenantState);
     appendTenantAudit(tenant.tenantCode, "Cliente cadastrado online", `${customer.name} - CPF ${document}`, "cadastro-publico");
-    sendJson(res, 201, { ok: true, message: `Cadastro concluido na unidade ${tenant.tradeName}.`, customerId: customer.id });
+    sendJson(res, 201, { ok: true, message: `Cadastro concluido. Sua loja Tortela mais proxima e ${tenant.tradeName}.`, customerId: customer.id, tenantCode: tenant.tenantCode, tenantName: tenant.tradeName });
     return;
   }
 
@@ -3725,6 +3729,10 @@ function serveFile(req, res, urlPath) {
   }
   if (urlPath === "/central-saas.html") {
     send(res, 404, "Esta edicao utiliza a Central Tortela.");
+    return;
+  }
+  if (urlPath === "/api-cadastro" || urlPath === "/api-cadastro/") {
+    send(res, 200, fs.readFileSync(path.join(root, "api-cadastro", "index.html")), types[".html"]);
     return;
   }
   const defaultPage = appSurface === "network" ? "/central-rede.html" : appSurface === "central" ? "/central-saas.html" : "/index.html";

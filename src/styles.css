@@ -1516,6 +1516,22 @@ th {
   margin: 18px 0;
 }
 
+.public-nearest {
+  background: #fff7cc;
+  border: 1px solid #facc15;
+  border-radius: 6px;
+  color: #17243d;
+  display: grid;
+  gap: 4px;
+  margin-top: 16px;
+  padding: 12px 14px;
+}
+
+.public-nearest span {
+  color: #56627a;
+  font-size: 13px;
+}
+
 .public-submit {
   width: 100%;
 }
