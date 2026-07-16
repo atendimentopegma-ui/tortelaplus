@@ -83,6 +83,7 @@ function normalizeSummary(payload = {}) {
     salesDetails: [],
     lowStockItems: [],
     automaticOrders: [],
+    approvalRequests: [],
     finance: [],
     permissions: [],
     productionCapacity: [],
@@ -219,14 +220,15 @@ function renderOverview() {
     <div class="network-grid four">
       ${kpi("Faturamento", money(totals.salesTotal))}
       ${kpi("Vendas", amount(totals.salesCount))}
+      ${kpi("Ticket medio rede", money((totals.salesTotal || 0) / Math.max(1, totals.salesCount || 0)))}
       ${kpi("Notas autorizadas", amount(totals.fiscalAuthorized))}
-      ${kpi("Estoque baixo", amount(totals.lowStock))}
     </div>
     <section class="network-card">
       <h2>Unidades e links de cadastro</h2>
-      ${table(["Unidade", "Vendas", "Notas", "Clientes", "Produtos", "Estoque baixo", "Cadastro publico", "Loja online"], summary.units.map((unit) => [
+      ${table(["Unidade", "Vendas", "Ticket medio", "Notas", "Clientes", "Produtos", "Estoque baixo", "Cadastro publico", "Loja online"], summary.units.map((unit) => [
         `<strong>${unitName(unit)}</strong><br><small>${escapeHtml(unit.tenantCode || "")}</small>`,
         `${money(unit.salesTotal)}<br><small>${amount(unit.salesCount)} vendas</small>`,
+        money(unit.averageTicket || 0),
         `${amount(unit.fiscalAuthorized)} autorizadas<br><small>${amount(unit.fiscalPending)} pendentes</small>`,
         amount(unit.customers),
         amount(unit.products),
@@ -276,8 +278,29 @@ function renderProducts() {
 }
 
 function renderOrders() {
+  const pendingApprovals = (summary.approvalRequests || []).filter((row) => row.status === "Pendente");
   return `<div class="network-module compact">
     ${moduleTitle("Pedidos automaticos", "Solicitacoes enviadas pelas unidades com base no estoque minimo.")}
+    <section class="network-card">
+      <h2>QR de remessa da Central</h2>
+      <form class="network-form" id="shipment-qr-form">
+        <div class="field"><label>Unidade destino</label><input id="shipment-tenant" placeholder="cliente-exemplo" /></div>
+        <div class="field full"><label>Itens da remessa</label><textarea id="shipment-items" rows="4" placeholder='[{"productId":5014,"qty":10},{"barcode":"7890000000011","qty":5}]'></textarea></div>
+        <button class="btn primary full" type="submit">Gerar QR da remessa</button>
+      </form>
+      <div id="shipment-qr-result" class="network-qr-result"></div>
+    </section>
+    <section class="network-card">
+      <h2>Aprovacoes pendentes da Central</h2>
+      ${table(["Unidade", "Tipo", "Detalhe", "Justificativa", "Solicitado por", "Acoes"], pendingApprovals.map((row) => [
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        escapeHtml(row.title || row.type || "-"),
+        escapeHtml(row.detail || "-"),
+        escapeHtml(row.justification || "-"),
+        `${escapeHtml(row.requestedBy || "-")}<br><small>${escapeHtml(String(row.requestedAt || "").slice(0, 16).replace("T", " "))}</small>`,
+        `<button class="btn primary" data-approve-request="${row.tenantCode}:${row.id}">Autorizar</button> <button class="btn danger" data-reject-request="${row.tenantCode}:${row.id}">Negar</button>`
+      ]), "Nenhuma autorizacao pendente.")}
+    </section>
     <section class="network-card">
       ${table(["Unidade", "Data", "Origem", "Itens", "Custo estimado", "Status"], summary.automaticOrders.map((order) => [
         escapeHtml(order.unit || order.tradeName || order.tenantCode || "-"),
@@ -293,7 +316,19 @@ function renderOrders() {
 
 function renderPromotions() {
   return `<div class="network-module">
-    ${moduleTitle("Promocoes", "Cadastre uma promocao para toda a rede ou unidades selecionadas.")}
+    ${moduleTitle("Promocoes e tabela de precos", "Cadastre precos e campanhas somente pela Central, por rede, regiao ou unidade.")}
+    <section class="network-card">
+      <h2>Tabela de precos por regiao/unidade</h2>
+      <form class="network-form" id="price-table-form">
+        <div class="field"><label>Aplicar em</label><select id="price-table-scope"><option value="all">Toda a rede</option><option value="region">Regiao/UF</option><option value="selected">Unidades selecionadas</option></select></div>
+        <div class="field"><label>Regiao/UF</label><input id="price-table-region" placeholder="SP, RJ ou Zona Leste" /></div>
+        <div class="field wide"><label>Unidades</label><input id="price-table-units" placeholder="cliente-exemplo, loja-02" /></div>
+        <div class="field wide"><label>Produto</label><input id="price-table-product" required /></div>
+        <div class="field"><label>Preco autorizado</label><input id="price-table-price" type="number" step="0.01" min="0" required /></div>
+        <div class="field full"><label>Justificativa/observacao</label><input id="price-table-note" /></div>
+        <button class="btn primary full" type="submit">Aplicar tabela pela Central</button>
+      </form>
+    </section>
     <section class="network-card">
       <form class="network-form" id="promotion-form">
         <div class="field"><label>Aplicar em</label><select id="promotion-scope"><option value="all">Toda a rede</option><option value="selected">Unidades selecionadas</option></select></div>
@@ -336,6 +371,51 @@ async function submitPromotion(event) {
   } catch (error) {
     alert(error.message);
   }
+}
+
+async function submitPriceTable(event) {
+  event.preventDefault();
+  const scope = byId("price-table-scope").value;
+  const region = byId("price-table-region").value.trim();
+  const body = {
+    scope: scope === "selected" ? "selected" : "all",
+    tenantCodes: byId("price-table-units").value.split(",").map((item) => item.trim()).filter(Boolean),
+    product: byId("price-table-product").value,
+    price: Number(byId("price-table-price").value || 0),
+    from: new Date().toISOString().slice(0, 10),
+    to: "",
+    note: `Tabela de preco Central ${scope}${region ? ` - ${region}` : ""}. ${byId("price-table-note").value}`
+  };
+  try {
+    const result = await api("/api/network/promotions", { method: "POST", body: JSON.stringify(body) });
+    alert(`Tabela aplicada pela Central em ${amount(result.appliedUnits || 0)} unidade(s).`);
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+function generateShipmentQr(event) {
+  event.preventDefault();
+  const result = byId("shipment-qr-result");
+  let items = [];
+  try {
+    items = JSON.parse(byId("shipment-items").value || "[]");
+  } catch {
+    alert("Itens invalidos. Use JSON com productId/barcode e qty.");
+    return;
+  }
+  if (!Array.isArray(items) || !items.length) return alert("Informe ao menos um item.");
+  const payload = {
+    type: "tortela-central-shipment",
+    shipmentId: `REM-${Date.now()}`,
+    tenantCode: byId("shipment-tenant").value.trim(),
+    issuedAt: new Date().toISOString(),
+    items
+  };
+  const text = JSON.stringify(payload);
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(text)}`;
+  result.innerHTML = `<div class="network-qr-box"><img src="${qrUrl}" alt="QR remessa Central" /><textarea readonly rows="5">${escapeHtml(text)}</textarea></div>`;
 }
 
 function renderFinance() {
@@ -524,10 +604,31 @@ function bindRender() {
   }));
   const promotionForm = byId("promotion-form");
   if (promotionForm) promotionForm.addEventListener("submit", submitPromotion);
+  const priceTableForm = byId("price-table-form");
+  if (priceTableForm) priceTableForm.addEventListener("submit", submitPriceTable);
+  const shipmentQrForm = byId("shipment-qr-form");
+  if (shipmentQrForm) shipmentQrForm.addEventListener("submit", generateShipmentQr);
+  document.querySelectorAll("[data-approve-request]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.approveRequest, "approved")));
+  document.querySelectorAll("[data-reject-request]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.rejectRequest, "rejected")));
   const whatsappSettingsForm = byId("whatsapp-settings-form");
   if (whatsappSettingsForm) whatsappSettingsForm.addEventListener("submit", saveWhatsappSettings);
   const generateRoyalties = byId("generate-royalties");
   if (generateRoyalties) generateRoyalties.addEventListener("click", generateRoyaltiesForMonth);
+}
+
+async function decideApproval(key, decision) {
+  const [tenantCode, requestId] = String(key || "").split(":");
+  const note = prompt(decision === "approved" ? "Observacao da autorizacao:" : "Motivo da negativa:") || "";
+  try {
+    await api("/api/network/approvals/decide", {
+      method: "POST",
+      body: JSON.stringify({ tenantCode, requestId: Number(requestId), decision, note })
+    });
+    alert(decision === "approved" ? "Solicitacao autorizada e aplicada." : "Solicitacao negada.");
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 async function saveWhatsappSettings(event) {

@@ -1464,6 +1464,21 @@ th {
   color: #17243d;
 }
 
+.network-qr-box {
+  align-items: start;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto 1fr;
+  margin-top: 16px;
+}
+
+.network-qr-box img {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+}
+
 .public-register-shell {
   align-items: stretch;
   background:

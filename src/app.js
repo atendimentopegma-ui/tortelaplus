@@ -119,6 +119,7 @@ const seed = {
   heldSales: [],
   pdvTables: [],
   automaticOrders: [],
+  approvalRequests: [],
   networkPromotions: [],
   franchisePayments: [],
   fiscalQueue: [
@@ -317,6 +318,7 @@ let currentModule = "dashboard";
 let currentTab = "dados";
 let reportPeriod = { from: `${today().slice(0, 7)}-01`, to: today() };
 let saleItems = [];
+let saleClubCpf = "";
 let orderItems = [];
 let lastPdvSaleId = 0;
 let purchaseItems = [];
@@ -458,6 +460,7 @@ function withDefaults(data) {
   merged.heldSales = data.heldSales || [];
   merged.pdvTables = data.pdvTables || [];
   merged.automaticOrders = data.automaticOrders || [];
+  merged.approvalRequests = data.approvalRequests || [];
   merged.networkPromotions = data.networkPromotions || [];
   merged.franchisePayments = data.franchisePayments || [];
   merged.purchases = (data.purchases || []).map((row) => ({ status: "Confirmada", ...row }));
@@ -1048,6 +1051,8 @@ function renderDashboard() {
   const payables = state.payables.filter((item) => !item.paid && !item.cancelled).reduce((sum, item) => sum + financeBalance(item), 0);
   const receivables = state.receivables.filter((item) => !item.paid && !item.cancelled).reduce((sum, item) => sum + financeBalance(item), 0);
   const sales = state.sales.reduce((sum, sale) => sum + sale.total, 0);
+  const closedSales = state.sales.filter((sale) => !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status));
+  const averageTicket = closedSales.length ? sales / closedSales.length : 0;
   const overduePayables = state.payables.filter((item) => !item.paid && !item.cancelled && item.due < today());
   const overdueReceivables = state.receivables.filter((item) => !item.paid && !item.cancelled && item.due < today());
   const expiringLots = (state.stockLots || []).filter((lot) => Number(lot.qty || 0) > 0 && lot.expiry && daysUntil(lot.expiry) <= 30);
@@ -1062,9 +1067,9 @@ function renderDashboard() {
         </div>
         <div class="panel-body grid four">
           <div class="kpi"><small>Faturamento</small><strong>${money(sales)}</strong></div>
+          <div class="kpi"><small>Ticket medio</small><strong>${money(averageTicket)}</strong></div>
           <div class="kpi"><small>A receber</small><strong>${money(receivables)}</strong></div>
           <div class="kpi"><small>A pagar</small><strong>${money(payables)}</strong></div>
-          <div class="kpi"><small>Itens abaixo do minimo</small><strong>${lowStock.length}</strong></div>
         </div>
       </section>
       <section class="panel">
@@ -1233,7 +1238,7 @@ function findPersonByName(name) {
 }
 
 function renderProducts() {
-  const tabs = ["dados", "impostos", "composicao", "grade", "promocao", "balanca", "tabelas"];
+  const tabs = ["dados", "impostos", "composicao", "grade", "balanca", "tabelas"];
   if (!tabs.includes(currentTab)) currentTab = "dados";
   const formHtml = productForm();
   const bodyHtml = currentTab === "dados"
@@ -1268,7 +1273,6 @@ function tabLabel(tab) {
     impostos: "Impostos",
     composicao: "Composicao",
     grade: "Grade/Lote",
-    promocao: "Promocao",
     balanca: "Balanca",
     tabelas: "Tabela de precos"
   }[tab];
@@ -1622,6 +1626,7 @@ function renderStock() {
         </div>
         <div class="form-card">
           <h3>Ajuste de estoque</h3>
+          <p class="muted">Ajustes manuais exigem autorizacao da Central. Entradas por QR da Central podem ser aplicadas automaticamente.</p>
           <div class="field"><label>Produto</label><select id="stock-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
           <div class="grid two">
             <div class="field"><label>Tipo</label><select id="stock-type"><option value="Entrada">Entrada</option><option value="Saida">Saida</option><option value="Ajuste">Ajuste</option><option value="Perda">Perda</option></select></div>
@@ -1635,6 +1640,12 @@ function renderStock() {
             <div class="field"><label>Numeros de serie</label><textarea id="stock-serials" placeholder="Um por linha"></textarea></div>
           </div>
           <button class="btn primary" id="save-stock-move" type="button">Gravar movimento</button>
+        </div>
+        <div class="form-card">
+          <h3>Recebimento por QR da Central</h3>
+          <p class="muted">Leia ou cole o conteudo do QR enviado pela Central Tortela para dar entrada automatica nos produtos.</p>
+          <div class="field"><label>QR / codigo da remessa</label><textarea id="central-shipment-qr" rows="5" placeholder='{"type":"tortela-central-shipment","items":[{"productId":5014,"qty":10}]}'></textarea></div>
+          <button class="btn primary" id="receive-central-qr" type="button">Dar entrada por QR</button>
         </div>
         <div class="form-card">
           <h3>Inventario</h3>
@@ -2483,6 +2494,7 @@ function renderPdv() {
       <section class="pdv-main">
         <div class="pdv-main-title"><strong>${staleRegister ? "CAIXA ANTERIOR PENDENTE DE FECHAMENTO" : "CAIXA ABERTO"}</strong><button class="btn" id="leave-pdv">Retaguarda</button></div>
         <div class="sale-inputs">
+          <div class="field"><label>CPF Clube Tortela</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Obrigatorio antes da venda" /></div>
           <div class="field"><label>F12 Codigo | Codigo de barras | Descricao</label><input id="sale-search" placeholder="Digite e pressione Enter" /></div>
           <div class="field"><label>Qtd.</label><input id="sale-qty" type="number" value="1" /></div>
           <div class="field"><label>Preco</label><input id="sale-price" type="number" step="0.01" value="0" /></div>
@@ -2656,6 +2668,8 @@ function bindCurrentModule() {
   if (saveStockMove) saveStockMove.addEventListener("click", saveStockMoveRecord);
   const saveInventory = byId("save-inventory");
   if (saveInventory) saveInventory.addEventListener("click", saveInventoryRecord);
+  const receiveCentralQr = byId("receive-central-qr");
+  if (receiveCentralQr) receiveCentralQr.addEventListener("click", receiveCentralShipmentQr);
   const inventoryBarcode = byId("inventory-barcode");
   if (inventoryBarcode) inventoryBarcode.addEventListener("keydown", inventoryBarcodeRead);
   const saveTransfer = byId("save-transfer");
@@ -3469,6 +3483,32 @@ function togglePersonRecord(id) {
   renderShell();
 }
 
+function createCentralApprovalRequest(type, title, detail, payload) {
+  state.approvalRequests = Array.isArray(state.approvalRequests) ? state.approvalRequests : [];
+  const justification = prompt(`${title}\nInforme a justificativa para a Central autorizar:`) || "";
+  if (!justification.trim()) {
+    alert("A solicitacao precisa de justificativa para ser enviada a Central.");
+    return null;
+  }
+  const request = {
+    id: nextId(state.approvalRequests),
+    type,
+    title,
+    detail,
+    payload,
+    justification: justification.trim(),
+    status: "Pendente",
+    requestedBy: state.settings.user,
+    requestedAt: new Date().toISOString(),
+    decidedBy: "",
+    decidedAt: "",
+    decisionNote: ""
+  };
+  state.approvalRequests.unshift(request);
+  audit("Solicitacao enviada para Central", `${title}: ${detail}`);
+  return request;
+}
+
 function saveProductRecord() {
   captureProductDraft();
   const description = byId("product-description").value.trim();
@@ -3481,6 +3521,18 @@ function saveProductRecord() {
   if (barcode && state.products.some((product) => product.id !== editingProductId && product.barcode === barcode)) return alert("Ja existe um produto com este codigo de barras.");
   if (cost < 0 || price < 0) return alert("Custo e preco nao podem ser negativos.");
   if (type !== "Servico" && ncm.length !== 8) return alert("Informe um NCM valido com 8 digitos.");
+  const previousProduct = editingProductId ? state.products.find((product) => product.id === editingProductId) : null;
+  const priceChanged = previousProduct && Math.abs(Number(previousProduct.price || 0) - price) > 0.009;
+  if (priceChanged) {
+    const request = createCentralApprovalRequest(
+      "price_change",
+      "Alteracao de preco de produto",
+      `${description}: ${money(previousProduct.price)} para ${money(price)}`,
+      { productId: previousProduct.id, product: description, oldPrice: Number(previousProduct.price || 0), newPrice: price }
+    );
+    if (!request) return;
+    alert("Solicitacao enviada para a Central. O preco so sera alterado apos autorizacao.");
+  }
   const composition = pendingComposition.map((component) => ({ ...component }));
   if (composition.length && composition.some((component) => !state.products.some((product) => product.id === component.productId))) return alert("A composicao possui componente inexistente.");
   const compositionCost = composition.reduce((sum, component) => {
@@ -3517,7 +3569,7 @@ function saveProductRecord() {
     medicine: Boolean(pendingProductDraft.medicine),
     activePrinciple: pendingProductDraft.activePrinciple || "",
     cost: composition.length && cost <= 0 ? compositionCost : cost,
-    price,
+    price: priceChanged ? Number(previousProduct.price || 0) : price,
     stock: Number(byId("product-stock").value || 0),
     minStock: Number(byId("product-min").value || 0),
     ncm: type === "Servico" ? "" : ncm,
@@ -3857,6 +3909,24 @@ function saveStockMoveRecord() {
   const qty = Number(byId("stock-qty").value || 0);
   const type = byId("stock-type").value;
   if (!product || qty <= 0) return;
+  const details = {
+    lot: byId("stock-lot").value.trim(),
+    expiry: byId("stock-expiry").value,
+    location: byId("stock-location").value.trim(),
+    serials: parseSerials(byId("stock-serials").value)
+  };
+  const direction = type === "Entrada" || type === "Ajuste" ? qty : -qty;
+  const request = createCentralApprovalRequest(
+    "stock_adjustment",
+    "Ajuste manual de estoque",
+    `${type} ${qty} ${product.unit} - ${product.description}`,
+    { productId: product.id, product: product.description, qty, direction, type, history: byId("stock-history").value, details }
+  );
+  if (!request) return;
+  alert("Solicitacao enviada para a Central. O estoque so sera ajustado apos autorizacao.");
+  save();
+  renderShell();
+  return;
   if (type === "Entrada" || type === "Ajuste") product.stock += qty;
   else {
     if (product.stock < qty) {
@@ -3865,13 +3935,6 @@ function saveStockMoveRecord() {
     }
     product.stock -= qty;
   }
-  const direction = type === "Entrada" || type === "Ajuste" ? qty : -qty;
-  const details = {
-    lot: byId("stock-lot").value.trim(),
-    expiry: byId("stock-expiry").value,
-    location: byId("stock-location").value.trim(),
-    serials: parseSerials(byId("stock-serials").value)
-  };
   if (product.controlsSerial && !validateSerialQuantity(product, qty, details.serials)) return;
   audit("Estoque movimentado", `${type} ${qty} ${product.description}`);
   addStockMovement(product, type, direction, byId("stock-history").value, details);
@@ -3889,6 +3952,17 @@ function saveInventoryRecord() {
   if (!product || counted < 0) return;
   const lot = byId("inventory-lot").value.trim();
   const serial = byId("inventory-serial").value.trim();
+  const request = createCentralApprovalRequest(
+    "stock_inventory",
+    "Inventario/Ajuste de saldo",
+    `${product.description}: saldo contado ${counted}`,
+    { productId: product.id, product: product.description, counted, lot, serial }
+  );
+  if (!request) return;
+  alert("Solicitacao enviada para a Central. O inventario so sera aplicado apos autorizacao.");
+  save();
+  renderShell();
+  return;
   let previous = Number(product.stock || 0);
   let difference = counted - previous;
   if (lot) {
@@ -3914,6 +3988,38 @@ function saveInventoryRecord() {
   addStockMovement(product, "Inventario", difference, byId("inventory-reason").value.trim());
   audit("Inventario aplicado", `${product.description}: ${previous} para ${counted}`);
   save();
+  renderShell();
+}
+
+function receiveCentralShipmentQr() {
+  if (!requirePermission("stock_adjust")) return;
+  const raw = byId("central-shipment-qr")?.value.trim();
+  if (!raw) return alert("Leia ou cole o QR da remessa da Central.");
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return alert("QR invalido. O conteudo precisa ser JSON da remessa da Central.");
+  }
+  if (payload.type !== "tortela-central-shipment" || !Array.isArray(payload.items) || !payload.items.length) {
+    return alert("QR nao corresponde a uma remessa da Central Tortela.");
+  }
+  const applied = [];
+  for (const item of payload.items) {
+    const product = state.products.find((row) => Number(row.id) === Number(item.productId) || (item.barcode && row.barcode === item.barcode));
+    const qty = Number(item.qty || item.quantity || 0);
+    if (!product || qty <= 0) continue;
+    product.stock = Number(product.stock || 0) + qty;
+    const details = { lot: item.lot || payload.lot || "", expiry: item.expiry || payload.expiry || "", location: "Recebimento Central", serials: Array.isArray(item.serials) ? item.serials : [] };
+    addStockMovement(product, "Entrada Central QR", qty, `Remessa Central ${payload.shipmentId || payload.id || ""}`.trim(), details);
+    if (details.lot) upsertStockLot(product, details.lot, details.expiry, qty);
+    registerStockSerials(product, details.serials, details.lot, `Remessa Central ${payload.shipmentId || payload.id || ""}`.trim());
+    applied.push(`${product.description}: ${qty} ${product.unit}`);
+  }
+  if (!applied.length) return alert("Nenhum item do QR foi localizado nos produtos da unidade.");
+  audit("Entrada por QR da Central", applied.join("; "));
+  save();
+  alert(`Entrada concluida:\n${applied.join("\n")}`);
   renderShell();
 }
 
@@ -5792,6 +5898,12 @@ async function addSaleItem() {
     alert("Feche o caixa do dia anterior antes de registrar novas vendas.");
     return;
   }
+  saleClubCpf = digits(byId("pdv-club-cpf")?.value);
+  if (saleClubCpf.length !== 11) {
+    alert("Informe o CPF do Clube Tortela antes de iniciar a venda.");
+    byId("pdv-club-cpf")?.focus();
+    return;
+  }
   const query = byId("sale-search").value.trim().toLowerCase();
   const product = state.products.find((item) =>
     String(item.id) === query || item.barcode === query || item.description.toLowerCase().includes(query)
@@ -5836,6 +5948,12 @@ async function finishSaleRecord() {
     alert("Inclua ao menos um item.");
     return;
   }
+  saleClubCpf = digits(byId("pdv-club-cpf")?.value);
+  if (saleClubCpf.length !== 11) {
+    alert("Informe o CPF do Clube Tortela antes de finalizar a venda.");
+    byId("pdv-club-cpf")?.focus();
+    return;
+  }
   if (isCashRegisterStale()) {
     alert("Feche o caixa do dia anterior antes de registrar novas vendas.");
     return;
@@ -5865,6 +5983,8 @@ async function finishSaleRecord() {
     id: nextId(state.sales),
     date: today(),
     customer: byId("sale-customer")?.value || "Consumidor Final",
+    customerDocument: saleClubCpf,
+    clubCpf: saleClubCpf,
     seller: state.settings.user,
     type: "PDV",
     operation: byId("pdv-operation")?.value || "Balcao",
@@ -5918,6 +6038,8 @@ async function finishSaleRecord() {
     nature: "Venda de mercadoria",
     status: navigator.onLine ? "Aguardando transmissao" : "Fila offline",
     customer: sale.customer,
+    customerDocument: sale.customerDocument,
+    customerDocument: sale.customerDocument,
     saleId: sale.id,
     issuedAt: new Date().toISOString(),
     items: structuredClone(sale.items),
@@ -5935,6 +6057,7 @@ async function finishSaleRecord() {
   fiscalRow.xml = fiscalXml(fiscalRow);
   state.fiscalQueue.push(fiscalRow);
   saleItems = [];
+  saleClubCpf = "";
   authorizedDiscountValue = 0;
   save();
   await createConfiguredSaleCharges(sale);
@@ -5975,11 +6098,15 @@ function printLastPdvSale() {
     alert("Ainda nao ha venda PDV para imprimir.");
     return;
   }
+  const fiscal = state.fiscalQueue.find((row) => row.saleId === sale.id && row.model === "NFC-e" && row.status === "Autorizada");
   const content = [
     state.settings.company,
+    fiscal ? "CUPOM FISCAL ELETRONICO - NFC-e" : "SIMPLES RECIBO - NAO E DOCUMENTO FISCAL",
     `Venda: ${sale.id} Data: ${sale.date}`,
     `Cliente: ${sale.customer}`,
+    `CPF Clube Tortela: ${sale.clubCpf || sale.customerDocument || "-"}`,
     `Operador: ${sale.seller}`,
+    fiscal ? `Chave NFC-e: ${fiscal.key || "-"}` : "NFC-e nao autorizada para este comprovante",
     "",
     ...sale.items.map((item) => `${item.qty} ${item.unit} ${item.description} ${money(item.qty * item.price)}`),
     "",

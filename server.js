@@ -212,6 +212,7 @@ const initialTenantState = {
   heldSales: [],
   pdvTables: [],
   automaticOrders: [],
+  approvalRequests: [],
   networkPromotions: [],
   franchisePayments: [],
   fiscalQueue: [{ id: 1, model: "NFC-e", status: "Pendente", customer: "Consumidor Final", total: 0, key: "", protocol: "" }],
@@ -2141,6 +2142,7 @@ async function handleApi(req, res, urlPath) {
     const salesDetails = [];
     const lowStockItems = [];
     const automaticOrders = [];
+    const approvalRequests = [];
     const whatsappGroupLeads = [];
     const finance = [];
     const royalties = [];
@@ -2231,6 +2233,7 @@ async function handleApi(req, res, urlPath) {
       const products = (tenantState.products || []).filter((product) => product.active !== false);
       const lowStock = products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0));
       const salesTotal = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const averageTicket = sales.length ? moneyRound(salesTotal / sales.length) : 0;
       const fiscalAuthorized = fiscalRows.filter((row) => row.status === "Autorizada").length;
       const fiscalPending = fiscalRows.filter((row) => !["Autorizada", "Cancelada"].includes(row.status)).length;
       const payables = (tenantState.payables || []).filter((row) => !row.paid && !row.cancelled);
@@ -2267,6 +2270,7 @@ async function handleApi(req, res, urlPath) {
         activeTerminals: (tenant.activeSessions || []).length,
         salesTotal,
         salesCount: sales.length,
+        averageTicket,
         fiscalAuthorized,
         fiscalPending,
         customers: customers.length,
@@ -2316,6 +2320,7 @@ async function handleApi(req, res, urlPath) {
         productUnit: product.unit
       }));
       orders.forEach((order) => automaticOrders.push({ ...order, unit: tenant.tradeName, tenantCode: tenant.tenantCode }));
+      (tenantState.approvalRequests || []).forEach((request) => approvalRequests.push({ ...request, unit: tenant.tradeName, tenantCode: tenant.tenantCode }));
       tenantPromotions.forEach((promotion) => promotions.push({ product: promotion.product || "Campanha geral", unit: tenant.tradeName, value: Number(promotion.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: promotion.from, to: promotion.to, scope: promotion.scope || "Unidade" }));
       products.filter((product) => activePromotion(product.promotion)).forEach((product) => promotions.push({ product: product.description, unit: tenant.tradeName, value: Number(effectiveProductPrice(product, 1)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: product.promotion.from, to: product.promotion.to, scope: "Produto" }));
       finance.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, payableOpen, receivableOpen, purchasesTotal, franchiseOpen, franchisePaid });
@@ -2382,6 +2387,7 @@ async function handleApi(req, res, urlPath) {
       salesDetails: salesDetails.sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 80),
       lowStockItems: lowStockItems.slice(0, 80),
       automaticOrders: automaticOrders.sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date))).slice(0, 80),
+      approvalRequests: approvalRequests.sort((a, b) => String(b.requestedAt || "").localeCompare(String(a.requestedAt || ""))).slice(0, 200),
       promotions: promotions.slice(0, 80),
       whatsapp: {
         accountName: provider.whatsappSettings?.accountName || "",
@@ -2448,6 +2454,60 @@ async function handleApi(req, res, urlPath) {
     }
     appendProviderAudit("Promocao disparada pela Central Tortela", `${targets.length} unidades`, access.username, requestIp(req));
     sendJson(res, 200, { ok: true, campaignId, appliedUnits: targets.length });
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/network/approvals/decide") {
+    const access = providerAccess(req);
+    if (!access) return sendJson(res, 401, { ok: false, error: "Sessao administrativa da rede obrigatoria." });
+    const body = await readBody(req);
+    const tenantCode = normalizeTenantCode(body.tenantCode || "");
+    const requestId = Number(body.requestId || 0);
+    const decision = body.decision === "approved" ? "Aprovado" : "Rejeitado";
+    const provider = readProvider();
+    const tenant = findTenant(provider, tenantCode);
+    if (!tenant) return sendJson(res, 404, { ok: false, error: "Unidade nao encontrada." });
+    const tenantState = readTenantState(tenantCode);
+    const request = (tenantState.approvalRequests || []).find((row) => Number(row.id) === requestId);
+    if (!request) return sendJson(res, 404, { ok: false, error: "Solicitacao nao encontrada." });
+    if (request.status !== "Pendente") return sendJson(res, 409, { ok: false, error: "Solicitacao ja decidida." });
+    request.status = decision;
+    request.decidedBy = access.username;
+    request.decidedAt = new Date().toISOString();
+    request.decisionNote = String(body.note || "").trim();
+    if (decision === "Aprovado") {
+      if (request.type === "price_change") {
+        const product = (tenantState.products || []).find((row) => Number(row.id) === Number(request.payload?.productId));
+        if (product) product.price = Number(request.payload.newPrice || product.price || 0);
+      }
+      if (request.type === "stock_adjustment") {
+        const product = (tenantState.products || []).find((row) => Number(row.id) === Number(request.payload?.productId));
+        const direction = Number(request.payload?.direction || 0);
+        if (product && direction) {
+          product.stock = Number(product.stock || 0) + direction;
+          tenantState.stockMovements = Array.isArray(tenantState.stockMovements) ? tenantState.stockMovements : [];
+          tenantState.stockMovements.push({
+            id: Math.max(0, ...tenantState.stockMovements.map((row) => Number(row.id) || 0)) + 1,
+            date: today(),
+            productId: product.id,
+            product: product.description,
+            type: request.payload.type || "Ajuste autorizado",
+            qty: direction,
+            balance: product.stock,
+            history: `${request.payload.history || ""} - autorizado pela Central`,
+            location: request.payload.details?.location || "",
+            lot: request.payload.details?.lot || ""
+          });
+        }
+      }
+      if (request.type === "stock_inventory") {
+        const product = (tenantState.products || []).find((row) => Number(row.id) === Number(request.payload?.productId));
+        if (product) product.stock = Number(request.payload.counted || 0);
+      }
+    }
+    writeTenantState(tenantCode, tenantState);
+    appendTenantAudit(tenantCode, `Solicitacao ${decision.toLowerCase()} pela Central`, `${request.title} ${request.detail}`, access.username);
+    sendJson(res, 200, { ok: true, status: decision });
     return;
   }
 
