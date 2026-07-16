@@ -12,6 +12,7 @@ const {
   parseAcbrResponse,
   importNfeXml
 } = require("./src/server/fiscal-documents");
+const { buildDeploymentReadiness, buildSecurityHeaders } = require("./src/server/deployment-readiness");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
@@ -24,6 +25,7 @@ const providerFile = path.join(dataDir, "provider-state.json");
 const providerAdminToken = process.env.PEGMA_PROVIDER_TOKEN || "";
 const fiscalSecretKey = process.env.PEGMA_SECRET_KEY || "";
 const databaseMode = process.env.DATABASE_URL ? "postgresql-schema-per-tenant" : "local-json-contingency";
+const securityHeaders = buildSecurityHeaders(process.env);
 const appSurface = String(process.env.PEGMA_SURFACE || "all").toLowerCase();
 const acbrHost = process.env.PEGMA_ACBR_HOST || "";
 const acbrPort = Number(process.env.PEGMA_ACBR_PORT || 3436);
@@ -819,7 +821,7 @@ function send(res, status, body, type = "text/plain; charset=utf-8") {
     "X-Frame-Options": "SAMEORIGIN",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-    "Access-Control-Allow-Origin": "*",
+    ...securityHeaders,
     "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Provider-Token, X-Pegma-Permission",
     "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS"
   });
@@ -1800,7 +1802,23 @@ async function handleApi(req, res, urlPath) {
 
   if (req.method === "GET" && urlPath === "/api/health") {
     const database = postgresStore ? await postgresStore.health().catch((error) => ({ error: error.message })) : null;
-    sendJson(res, 200, { ok: true, product: "Tortela Plus", mode: "rede-franquias", databaseMode, dataDir, isolation: postgresStore ? "postgresql-schema-per-tenant" : "tenant-files", database });
+    const deployment = buildDeploymentReadiness(process.env, { databaseMode });
+    sendJson(res, 200, {
+      ok: true,
+      product: "Tortela Plus",
+      mode: "rede-franquias",
+      databaseMode,
+      dataDir,
+      isolation: postgresStore ? "postgresql-schema-per-tenant" : "tenant-files",
+      database,
+      deployment
+    });
+    return;
+  }
+
+  if (req.method === "GET" && urlPath === "/api/deployment/readiness") {
+    const deployment = buildDeploymentReadiness(process.env, { databaseMode });
+    sendJson(res, deployment.ready ? 200 : 428, deployment);
     return;
   }
 

@@ -52,6 +52,8 @@ Se o PowerShell bloquear `npm`, use `node server.js` diretamente.
 
 Esta versao usa HTML, CSS e JavaScript no navegador e backend Node.js. O backend ja possui autenticacao, isolamento por cliente e suporte a PostgreSQL; sem `DATABASE_URL`, os arquivos JSON sao usados apenas como contingencia local de desenvolvimento.
 
+Para publicar em provedor pago, use o checklist em `docs/deploy-provedor-pago.md` e valide `npm run deploy:check` antes de apontar dominio definitivo.
+
 ## Motor fiscal isolado
 
 Ao iniciar `node server.js`, o Tortela Plus inicia sob demanda sua propria copia do bridge ACBrLib:
