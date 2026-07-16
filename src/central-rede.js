@@ -88,6 +88,8 @@ function normalizeSummary(payload = {}) {
     productionCapacity: [],
     customerConsumption: [],
     inactiveCustomers: [],
+    whatsapp: {},
+    whatsappGroupLeads: [],
     ...payload,
     totals: { ...(payload.totals || {}) },
     periods: { hour: 0, day: 0, week: 0, fortnight: 0, month: 0, ...(payload.periods || {}) }
@@ -382,13 +384,37 @@ function renderRoyalties() {
 function renderCustomers() {
   const consumptionRows = summary.customerConsumption || [];
   const inactiveRows = summary.inactiveCustomers || [];
+  const whatsapp = summary.whatsapp || {};
+  const whatsappLeads = summary.whatsappGroupLeads || [];
   return `<div class="network-module compact">
     ${moduleTitle("Clientes da rede", "Consumo por unidade, retorno de compra e lista de clientes sem compra ha 30 dias ou mais.")}
     <div class="network-grid three">
       ${kpi("Clientes com compra", amount(consumptionRows.length))}
       ${kpi("Sem comprar 30+ dias", amount(inactiveRows.length))}
-      ${kpi("Ticket acumulado", money(consumptionRows.reduce((sum, row) => sum + Number(row.total || 0), 0)))}
+      ${kpi("Autorizados no grupo", amount(whatsappLeads.length))}
     </div>
+    <section class="network-card">
+      <h2>Conta WhatsApp da Central</h2>
+      <form class="network-form" id="whatsapp-settings-form">
+        <div class="field"><label>Nome da conta</label><input id="whatsapp-account-name" value="${escapeAttr(whatsapp.accountName || "Central Tortela")}" /></div>
+        <div class="field"><label>Numero WhatsApp oficial</label><input id="whatsapp-phone" value="${escapeAttr(whatsapp.phone || "")}" placeholder="55 11 99999-9999" /></div>
+        <div class="field"><label>Link do grupo Tortela</label><input id="whatsapp-group-url" value="${escapeAttr(whatsapp.groupInviteUrl || "")}" placeholder="https://chat.whatsapp.com/..." /></div>
+        <div class="field"><label>URL API/integradora</label><input id="whatsapp-api-url" value="${escapeAttr(whatsapp.apiUrl || "")}" placeholder="https://api.whatsapp..." /></div>
+        <div class="field"><label>Token API</label><input id="whatsapp-api-token" type="password" placeholder="${whatsapp.apiTokenConfigured ? "Token configurado" : "Informe quando contratar a API"}" /></div>
+        <button class="btn primary" type="submit">Salvar WhatsApp</button>
+      </form>
+    </section>
+    <section class="network-card">
+      <h2>Autorizados para grupo da Tortela</h2>
+      ${table(["Cliente", "WhatsApp", "Nascimento", "Unidade", "Cidade", "Autorizado em"], whatsappLeads.map((row) => [
+        escapeHtml(row.customer || "-"),
+        escapeHtml(row.phone || "-"),
+        escapeHtml(row.birthDate || "-"),
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        escapeHtml(row.city || "-"),
+        escapeHtml(String(row.authorizedAt || "").slice(0, 10) || "-")
+      ]), "Nenhum cliente autorizou inclusao no grupo ainda.")}
+    </section>
     <section class="network-card">
       <h2>Consumo entre unidades</h2>
       ${table(["Cliente", "Documento", "Unidades", "Compras", "Total", "Ultima compra", "Mais consumidos"], consumptionRows.map((row) => [
@@ -483,8 +509,30 @@ function bindRender() {
   }));
   const promotionForm = byId("promotion-form");
   if (promotionForm) promotionForm.addEventListener("submit", submitPromotion);
+  const whatsappSettingsForm = byId("whatsapp-settings-form");
+  if (whatsappSettingsForm) whatsappSettingsForm.addEventListener("submit", saveWhatsappSettings);
   const generateRoyalties = byId("generate-royalties");
   if (generateRoyalties) generateRoyalties.addEventListener("click", generateRoyaltiesForMonth);
+}
+
+async function saveWhatsappSettings(event) {
+  event.preventDefault();
+  try {
+    await api("/api/network/whatsapp/settings", {
+      method: "POST",
+      body: JSON.stringify({
+        accountName: byId("whatsapp-account-name").value,
+        phone: byId("whatsapp-phone").value,
+        groupInviteUrl: byId("whatsapp-group-url").value,
+        apiUrl: byId("whatsapp-api-url").value,
+        apiToken: byId("whatsapp-api-token").value
+      })
+    });
+    alert("WhatsApp da Central salvo.");
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 async function generateRoyaltiesForMonth() {

@@ -79,6 +79,7 @@ function render() {
             <div class="field uf-field"><label>UF</label><input id="uf" maxlength="2" required autocomplete="address-level1" /></div>
           </div>
           <div id="nearest-store" class="public-nearest" hidden></div>
+          <label class="check-row public-consent public-whatsapp-consent"><input id="whatsapp-group-authorized" type="checkbox" /> Autorizo que coloque meu numero de celular no grupo da Tortela.</label>
           <label class="check-row public-consent"><input id="consent" type="checkbox" required /> Autorizo o uso dos meus dados para cadastro, atendimento de pedidos, comunicacoes operacionais e ofertas da rede Tortela.</label>
           <button class="btn primary public-submit" type="submit">Concluir cadastro</button>
           <div id="message" class="public-message" hidden></div>
@@ -165,6 +166,7 @@ async function submit(event) {
         document: byId("document").value,
         birthDate: byId("birth-date").value,
         phone: byId("phone").value,
+        whatsappGroupAuthorized: byId("whatsapp-group-authorized").checked,
         cep: byId("cep").value,
         address: byId("address").value,
         number: byId("number").value,

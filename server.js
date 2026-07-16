@@ -78,6 +78,13 @@ const initialProvider = {
     campaignFee: 0,
     minimumMonthlyFee: 299.9
   },
+  whatsappSettings: {
+    accountName: "Central Tortela",
+    phone: "",
+    groupInviteUrl: "",
+    apiUrl: "",
+    apiTokenConfigured: false
+  },
   providerAdmins: [
     {
       id: 1,
@@ -1840,6 +1847,7 @@ async function handleApi(req, res, urlPath) {
     const phone = String(body.phone || "").replace(/\D/g, "");
     const cep = String(body.cep || "").replace(/\D/g, "");
     const birthDate = String(body.birthDate || "").trim();
+    const whatsappGroupAuthorized = body.whatsappGroupAuthorized === true;
     const requestedTenantCode = publicCustomerMatch ? decodeURIComponent(publicCustomerMatch[1]) : body.tenantCode || onlineStoreCatalog({ cep }).nearest?.tenantCode || "";
     const tenant = findTenant(readProvider(), requestedTenantCode);
     if (!tenant || !["Ativo", "Homologacao"].includes(tenant.status)) {
@@ -1878,6 +1886,13 @@ async function handleApi(req, res, urlPath) {
       preferredTenantCode: tenant.tenantCode,
       preferredTenantName: tenant.tradeName,
       nearestStoreSelectedAt: new Date().toISOString(),
+      whatsappGroupAuthorized,
+      whatsappGroupConsent: {
+        authorized: whatsappGroupAuthorized,
+        answeredAt: new Date().toISOString(),
+        version: "2026-07-16",
+        purpose: "Inclusao do celular no grupo da Tortela no WhatsApp."
+      },
       source: "Cadastro online Tortela",
       registeredAt: new Date().toISOString(),
       lgpdConsent: {
@@ -2030,6 +2045,7 @@ async function handleApi(req, res, urlPath) {
     const salesDetails = [];
     const lowStockItems = [];
     const automaticOrders = [];
+    const whatsappGroupLeads = [];
     const finance = [];
     const royalties = [];
     const permissions = [];
@@ -2104,6 +2120,18 @@ async function handleApi(req, res, urlPath) {
       const sales = (tenantState.sales || []).filter((sale) => !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status));
       const fiscalRows = tenantState.fiscalQueue || [];
       const customers = (tenantState.people || []).filter((person) => person.type === "Cliente" && person.name !== "Consumidor Final" && person.active !== false);
+      customers
+        .filter((person) => person.whatsappGroupAuthorized === true)
+        .forEach((person) => whatsappGroupLeads.push({
+          tenantCode: tenant.tenantCode,
+          unit: tenant.tradeName,
+          customer: person.name,
+          phone: person.whatsapp || person.phone || "",
+          birthDate: person.birthDate || "",
+          city: person.city || "",
+          registeredAt: person.registeredAt || "",
+          authorizedAt: person.whatsappGroupConsent?.answeredAt || person.nearestStoreSelectedAt || person.registeredAt || ""
+        }));
       const products = (tenantState.products || []).filter((product) => product.active !== false);
       const lowStock = products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0));
       const salesTotal = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
@@ -2259,6 +2287,14 @@ async function handleApi(req, res, urlPath) {
       lowStockItems: lowStockItems.slice(0, 80),
       automaticOrders: automaticOrders.sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date))).slice(0, 80),
       promotions: promotions.slice(0, 80),
+      whatsapp: {
+        accountName: provider.whatsappSettings?.accountName || "",
+        phone: provider.whatsappSettings?.phone || "",
+        groupInviteUrl: provider.whatsappSettings?.groupInviteUrl || "",
+        apiUrl: provider.whatsappSettings?.apiUrl || "",
+        apiTokenConfigured: Boolean(provider.whatsappSettings?.apiTokenConfigured)
+      },
+      whatsappGroupLeads: whatsappGroupLeads.sort((a, b) => String(b.authorizedAt).localeCompare(String(a.authorizedAt))).slice(0, 200),
       finance,
       royalties,
       permissions,
@@ -2313,6 +2349,29 @@ async function handleApi(req, res, urlPath) {
     }
     appendProviderAudit("Promocao disparada pela Central Tortela", `${targets.length} unidades`, access.username, requestIp(req));
     sendJson(res, 200, { ok: true, campaignId, appliedUnits: targets.length });
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/network/whatsapp/settings") {
+    const access = providerAccess(req);
+    if (!access) {
+      sendJson(res, 401, { ok: false, error: "Sessao administrativa da rede obrigatoria." });
+      return;
+    }
+    const body = await readBody(req);
+    const provider = readProvider();
+    provider.whatsappSettings = {
+      ...(provider.whatsappSettings || {}),
+      accountName: String(body.accountName || "").trim(),
+      phone: String(body.phone || "").trim(),
+      groupInviteUrl: String(body.groupInviteUrl || "").trim(),
+      apiUrl: String(body.apiUrl || "").trim(),
+      apiTokenConfigured: Boolean(body.apiToken) || Boolean(provider.whatsappSettings?.apiTokenConfigured),
+      ...(body.apiToken ? { apiTokenHash: hashPassword(String(body.apiToken)) } : {})
+    };
+    writeProvider(provider);
+    appendProviderAudit("WhatsApp da Central atualizado", provider.whatsappSettings.phone || provider.whatsappSettings.accountName || "sem numero", access.username, requestIp(req));
+    sendJson(res, 200, { ok: true, whatsapp: { ...provider.whatsappSettings, apiTokenHash: undefined } });
     return;
   }
 
