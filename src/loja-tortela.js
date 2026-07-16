@@ -6,7 +6,7 @@ const byId = (id) => document.getElementById(id);
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const publicUnitName = (unit) => {
   const name = String(unit?.tradeName || "").trim();
-  return !name || /cliente\s*exemplo/i.test(name) ? "Loja Tortela selecionada" : name;
+  return !name || /cliente\s*exemplo/i.test(name) ? "Loja Tortela mais proxima" : name;
 };
 const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
@@ -30,6 +30,20 @@ function fieldValue(id, fallback = "") {
   return byId(id)?.value || fallback;
 }
 
+function productCategory(product) {
+  const text = `${product.description || ""} ${product.unit || ""}`.toLowerCase();
+  if (text.includes("bebida") || text.includes("suco") || text.includes("refri") || text.includes("milk")) return "Bebidas";
+  if (text.includes("kit") || text.includes("combo") || text.includes("famil")) return "Combos";
+  if (text.includes("bolo") || text.includes("fatia")) return "Bolos";
+  if (text.includes("torta") || text.includes("palito")) return "Tortas no palito";
+  return "Mais pedidos";
+}
+
+function categories() {
+  const names = ["Todos", ...new Set(catalog.products.map(productCategory))];
+  return names.filter(Boolean);
+}
+
 function render() {
   const total = cart.reduce((sum, item) => sum + item.qty * item.price, 0);
   const itemCount = cart.reduce((sum, item) => sum + item.qty, 0);
@@ -50,89 +64,82 @@ function render() {
 
   byId("store-app").innerHTML = `
     <header class="store-header">
-      <div class="store-brand">
-        <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-        <div>
-          <strong>Tortela</strong>
-          <small>${catalog.nearest ? escapeHtml(publicUnitName(catalog.nearest)) : "Pedido online"}</small>
+      <div class="store-topbar">
+        <div class="store-brand">
+          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
         </div>
-      </div>
-      <div class="store-header-actions">
+        <button class="store-location" id="store-focus-cep">
+          <span>Entregar em</span>
+          <strong>${currentCep ? escapeHtml(currentCep) : "Informe seu CEP"}</strong>
+        </button>
+        <div class="store-searchbar">
+          <span>Buscar</span>
+          <input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="O que voce quer comer hoje?" />
+        </div>
         <button class="store-chip" id="store-jump-cart">${itemCount} item(ns) - ${money(total)}</button>
       </div>
     </header>
-    <main>
-      <section class="store-hero">
-        <div class="store-hero-copy">
-          <img class="store-hero-logo" src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-          <span class="store-kicker">pedido online tortela</span>
-          <h1>Tortas no palito, bebidas e kits para pedir agora.</h1>
-          <p>Escolha os sabores, informe o CEP e o pedido segue para a loja Tortela mais indicada para preparar, conferir e entregar.</p>
-          <div class="store-hero-actions">
-            <button class="btn primary store-jump" id="store-jump-products">Ver cardapio</button>
-            <span>PIX, debito e credito</span>
-          </div>
-          <div class="store-metrics">
-            <span><strong>${catalog.products.length}</strong> itens disponiveis</span>
-            <span><strong>${catalog.nearest ? "1" : "CEP"}</strong> loja indicada</span>
-            <span><strong>4</strong> etapas ate o pedido</span>
-          </div>
+
+    <main class="store-main">
+      <section class="store-delivery-panel">
+        <div>
+          <span class="store-kicker">Tortela delivery</span>
+          <h1>Escolha sua Tortela e finalize como em um app de delivery.</h1>
+          <p>${catalog.nearest ? `${escapeHtml(publicUnitName(catalog.nearest))} recebe o pedido, baixa o estoque e acompanha a entrega.` : "Informe o CEP para localizar a loja Tortela mais proxima."}</p>
         </div>
-        <div class="store-hero-card">
-          <div class="store-showcase">
-            <div class="store-showcase-stick">Tortela</div>
-            <div class="store-showcase-stick alt">No palito</div>
-            <div class="store-showcase-cup">Milk shake</div>
-          </div>
-          <div class="store-hero-card-copy">
-            <strong>${catalog.nearest ? escapeHtml(publicUnitName(catalog.nearest)) : "Informe seu CEP"}</strong>
-            <span>${catalog.nearest ? "Esta unidade recebe o pedido e baixa o estoque automaticamente." : "Localizamos a loja mais proxima para atender melhor."}</span>
-          </div>
+        <div class="store-delivery-actions">
+          <div class="field"><label>CEP de entrega</label><input id="store-cep" inputmode="numeric" value="${escapeHtml(currentCep)}" placeholder="Digite seu CEP" /></div>
+          <button class="btn primary" id="store-refresh">Encontrar loja</button>
         </div>
       </section>
 
-      <section class="store-shell" id="store-products-area">
-        <section class="store-tools">
-          <div class="field"><label>CEP de entrega</label><input id="store-cep" inputmode="numeric" value="${escapeHtml(currentCep)}" placeholder="Digite seu CEP" /></div>
-          <div class="field"><label>Buscar no cardapio</label><input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="Torta, cobertura, bebida" /></div>
-          <button class="btn primary" id="store-refresh">Encontrar loja</button>
-        </section>
+      <nav class="store-categories" aria-label="Categorias do cardapio">
+        ${categories().map((category, index) => `<button class="${index === 0 ? "active" : ""}" data-store-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join("")}
+      </nav>
 
-        <section class="store-layout">
+      <section class="store-layout">
+        <section class="store-menu" id="store-products-area">
+          <div class="store-section-title">
+            <div>
+              <span>Cardapio Tortela</span>
+              <h2>Mais pedidos da loja</h2>
+            </div>
+            <small>${catalog.products.length} item(ns) disponiveis</small>
+          </div>
           <div class="store-products">
             ${catalog.products.map(productCard).join("") || `<div class="store-empty">Nenhum produto disponivel para venda online.</div>`}
           </div>
-
-          <aside class="store-cart" id="store-cart">
-            <div class="store-cart-title">
-              <span>Seu pedido</span>
-              <strong>${money(total)}</strong>
-            </div>
-            ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<p class="muted">Inclua produtos para fechar o pedido.</p>`}
-            <div class="store-total"><span>Total do pedido</span><strong>${money(total)}</strong></div>
-            <div class="store-checkout-steps">
-              <span class="active">1 Carrinho</span>
-              <span>2 Dados</span>
-              <span>3 Pagamento</span>
-            </div>
-            <div class="grid two">
-              <div class="field"><label>Nome</label><input id="customer-name" value="${escapeHtml(formValues.name)}" /></div>
-              <div class="field"><label>Telefone</label><input id="customer-phone" value="${escapeHtml(formValues.phone)}" /></div>
-              <div class="field"><label>Endereco</label><input id="customer-address" value="${escapeHtml(formValues.address)}" /></div>
-              <div class="field"><label>Numero</label><input id="customer-number" value="${escapeHtml(formValues.number)}" /></div>
-              <div class="field"><label>Bairro</label><input id="customer-district" value="${escapeHtml(formValues.district)}" /></div>
-              <div class="field"><label>Cidade</label><input id="customer-city" value="${escapeHtml(formValues.city)}" /></div>
-              <div class="field"><label>UF</label><input id="customer-uf" maxlength="2" value="${escapeHtml(formValues.uf)}" /></div>
-              <div class="field"><label>Entrega</label><select id="delivery-mode"><option ${formValues.delivery === "Entrega" ? "selected" : ""}>Entrega</option><option ${formValues.delivery === "Retirada" ? "selected" : ""}>Retirada</option></select></div>
-            </div>
-            <div class="store-payment">
-              ${paymentOption("PIX", "PIX", "Aprovacao rapida", formValues.payment)}
-              ${paymentOption("Debito", "Debito", "Cartao na entrega", formValues.payment)}
-              ${paymentOption("Credito", "Credito", "Cartao na entrega", formValues.payment)}
-            </div>
-            <button class="btn primary full" id="send-online-order" ${cart.length ? "" : "disabled"}>Finalizar pedido</button>
-          </aside>
         </section>
+
+        <aside class="store-cart" id="store-cart">
+          <div class="store-cart-title">
+            <span>Sacola</span>
+            <strong>${money(total)}</strong>
+          </div>
+          ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<p class="muted">Sua sacola esta vazia.</p>`}
+          <div class="store-total"><span>Total</span><strong>${money(total)}</strong></div>
+          <div class="store-checkout-steps">
+            <span class="active">Sacola</span>
+            <span>Entrega</span>
+            <span>Pagamento</span>
+          </div>
+          <div class="grid two">
+            <div class="field"><label>Nome</label><input id="customer-name" value="${escapeHtml(formValues.name)}" /></div>
+            <div class="field"><label>Telefone</label><input id="customer-phone" value="${escapeHtml(formValues.phone)}" /></div>
+            <div class="field"><label>Endereco</label><input id="customer-address" value="${escapeHtml(formValues.address)}" /></div>
+            <div class="field"><label>Numero</label><input id="customer-number" value="${escapeHtml(formValues.number)}" /></div>
+            <div class="field"><label>Bairro</label><input id="customer-district" value="${escapeHtml(formValues.district)}" /></div>
+            <div class="field"><label>Cidade</label><input id="customer-city" value="${escapeHtml(formValues.city)}" /></div>
+            <div class="field"><label>UF</label><input id="customer-uf" maxlength="2" value="${escapeHtml(formValues.uf)}" /></div>
+            <div class="field"><label>Como receber</label><select id="delivery-mode"><option ${formValues.delivery === "Entrega" ? "selected" : ""}>Entrega</option><option ${formValues.delivery === "Retirada" ? "selected" : ""}>Retirada</option></select></div>
+          </div>
+          <div class="store-payment">
+            ${paymentOption("PIX", "PIX", "Mais rapido", formValues.payment)}
+            ${paymentOption("Debito", "Debito", "Na entrega", formValues.payment)}
+            ${paymentOption("Credito", "Credito", "Na entrega", formValues.payment)}
+          </div>
+          <button class="btn primary full" id="send-online-order" ${cart.length ? "" : "disabled"}>Finalizar pedido</button>
+        </aside>
       </section>
     </main>`;
   bind();
@@ -162,20 +169,25 @@ function productCard(product) {
   const img = product.photo
     ? `<img src="${product.photo}" alt="${escapeHtml(product.description)}" />`
     : `<div class="store-product-placeholder">Tortela</div>`;
-  return `<article class="store-product">
-    <div class="store-product-media">${img}</div>
+  return `<article class="store-product" data-category="${escapeHtml(productCategory(product))}">
     <div class="store-product-body">
-      <small>${escapeHtml(product.unit)} - ${escapeHtml(product.unitMeasure || "UN")}</small>
+      <small>${escapeHtml(productCategory(product))}</small>
       <h2>${escapeHtml(product.description)}</h2>
-      <div class="store-price"><strong>${money(product.price)}</strong><span>Pronto para pedir</span></div>
+      <p>Preparado pela unidade Tortela selecionada para entrega ou retirada.</p>
       ${product.hasCoverage ? `<div class="field compact"><label>Cobertura</label><select data-coverage="${product.id}">${(product.coverageOptions || []).map((option) => `<option>${escapeHtml(option)}</option>`).join("")}</select></div>` : ""}
-      <button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}">Incluir no carrinho</button>
+      <div class="store-price"><strong>${money(product.price)}</strong><button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}">Adicionar</button></div>
     </div>
+    <div class="store-product-media">${img}</div>
   </article>`;
 }
 
 function bind() {
   byId("store-refresh")?.addEventListener("click", loadCatalog);
+  byId("store-search")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") loadCatalog();
+  });
+  byId("store-focus-cep")?.addEventListener("click", () => byId("store-cep")?.focus());
+  document.querySelectorAll("[data-store-category]").forEach((button) => button.addEventListener("click", () => filterCategory(button.dataset.storeCategory)));
   document.querySelectorAll("[data-add-product]").forEach((button) => button.addEventListener("click", () => {
     const product = catalog.products.find((item) => Number(item.id) === Number(button.dataset.addProduct) && item.tenantCode === button.dataset.tenant);
     if (!product) return;
@@ -203,8 +215,14 @@ function bind() {
   }));
   document.querySelectorAll('input[name="payment-method"]').forEach((input) => input.addEventListener("change", render));
   byId("send-online-order")?.addEventListener("click", sendOrder);
-  byId("store-jump-products")?.addEventListener("click", () => byId("store-products-area")?.scrollIntoView({ behavior: "smooth" }));
   byId("store-jump-cart")?.addEventListener("click", () => byId("store-cart")?.scrollIntoView({ behavior: "smooth" }));
+}
+
+function filterCategory(category) {
+  document.querySelectorAll("[data-store-category]").forEach((button) => button.classList.toggle("active", button.dataset.storeCategory === category));
+  document.querySelectorAll(".store-product").forEach((card) => {
+    card.hidden = category !== "Todos" && card.dataset.category !== category;
+  });
 }
 
 async function loadCatalog() {
@@ -248,5 +266,5 @@ async function sendOrder() {
 }
 
 loadCatalog().catch((error) => {
-  byId("store-app").innerHTML = `<main class="store-shell"><div class="store-empty">${escapeHtml(error.message)}</div></main>`;
+  byId("store-app").innerHTML = `<main class="store-main"><div class="store-empty">${escapeHtml(error.message)}</div></main>`;
 });
