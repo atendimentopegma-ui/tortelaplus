@@ -117,6 +117,7 @@ const seed = {
   },
   cashClosures: [],
   heldSales: [],
+  pdvTables: [],
   automaticOrders: [],
   networkPromotions: [],
   franchisePayments: [],
@@ -421,6 +422,7 @@ function withDefaults(data) {
   merged.cashRegister = { ...structuredClone(seed.cashRegister), ...(data.cashRegister || {}) };
   merged.cashClosures = data.cashClosures || [];
   merged.heldSales = data.heldSales || [];
+  merged.pdvTables = data.pdvTables || [];
   merged.automaticOrders = data.automaticOrders || [];
   merged.networkPromotions = data.networkPromotions || [];
   merged.franchisePayments = data.franchisePayments || [];
@@ -491,7 +493,7 @@ function save() {
 
 function mergeConcurrentState(remote, local) {
   const merged = { ...remote, settings: { ...(remote.settings || {}), ...(local.settings || {}) } };
-  const collections = ["people", "products", "stockMovements", "productionOrders", "purchases", "sales", "payables", "receivables", "cash", "cashClosures", "heldSales", "automaticOrders", "networkPromotions", "franchisePayments", "fiscalQueue", "fiscalRules", "users", "auditLogs", "financeReconciliations", "chartOfAccounts"];
+  const collections = ["people", "products", "stockMovements", "productionOrders", "purchases", "sales", "payables", "receivables", "cash", "cashClosures", "heldSales", "pdvTables", "automaticOrders", "networkPromotions", "franchisePayments", "fiscalQueue", "fiscalRules", "users", "auditLogs", "financeReconciliations", "chartOfAccounts"];
   collections.forEach((name) => {
     const byKey = new Map();
     [...(remote[name] || []), ...(local[name] || [])].forEach((row, index) => {
@@ -1808,11 +1810,13 @@ function financeTab() {
         <div class="field"><label>Plano de contas</label><select id="finance-account">${accountOptions}</select></div>
         <div class="field"><label>Parcelas</label><input id="finance-installments" type="number" min="1" value="1" /></div>
         <div class="field"><label>Intervalo entre parcelas</label><input id="finance-interval" type="number" min="1" value="30" /></div>
+        ${currentTab === "receber" ? `<div class="field"><label>Carteira boleto</label><input id="finance-wallet" value="109" /></div><div class="field"><label>Nosso numero</label><input id="finance-our-number" /></div>` : ""}
       </div>
-      <div class="table-wrap"><table><thead><tr><th>Codigo</th><th>Nome</th><th>Conta</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Saldo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${rows.map((row) => {
+      ${currentTab === "receber" ? `<div class="actions"><button class="btn" id="generate-remittance" type="button">Gerar remessa</button><label class="btn" for="import-return-file">Importar retorno</label><input id="import-return-file" type="file" accept=".ret,.txt,.csv,text/plain" hidden /><button class="btn" id="print-issued-bills" type="button">Boletos emitidos</button></div>` : ""}
+      <div class="table-wrap"><table><thead><tr><th>Codigo</th><th>Nome</th><th>Conta</th><th>Vencimento</th><th>Valor</th><th>Pago</th><th>Saldo</th><th>Boleto</th><th>Status</th><th>Acao</th></tr></thead><tbody>${rows.map((row) => {
         const balance = financeBalance(row);
         const status = row.cancelled ? "Cancelado" : row.paid ? "Pago" : row.due < today() ? "Atrasado" : Number(row.paidValue || 0) > 0 ? "Parcial" : "Aberto";
-        return `<tr><td>${row.id}</td><td>${row.supplier || row.customer || ""}</td><td>${row.accountCode || "-"}</td><td>${row.due}</td><td>${money(row.value)}</td><td>${money(row.paidValue || 0)}</td><td>${money(balance)}</td><td><span class="badge ${row.cancelled ? "danger" : row.paid ? "ok" : "warn"}">${status}</span></td><td>${row.paid || row.cancelled ? "-" : `<button class="btn" data-pay="${row.id}">Baixar</button>`}</td></tr>`;
+        return `<tr><td>${row.id}</td><td>${row.supplier || row.customer || ""}</td><td>${row.accountCode || "-"}</td><td>${row.due}</td><td>${money(row.value)}</td><td>${money(row.paidValue || 0)}</td><td>${money(balance)}</td><td>${row.ourNumber || row.boletoStatus || "-"}</td><td><span class="badge ${row.cancelled ? "danger" : row.paid ? "ok" : "warn"}">${status}</span></td><td>${row.paid || row.cancelled ? "-" : `<button class="btn" data-pay="${row.id}">Baixar</button>`}</td></tr>`;
       }).join("")}</tbody></table></div>
     </div>
   `;
@@ -1830,7 +1834,7 @@ function renderFiscal() {
   const currentModel = currentTab === "nfe" ? "NF-e" : "NFC-e";
   return `
     <section class="panel">
-      <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
+      <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><button class="btn" id="fiscal-export-batch">Lote XML</button><button class="btn" id="fiscal-pdf-batch">Lote PDF</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
       <div class="module-tabs">${availableTabs.map((tab) => `<button class="${currentTab === tab ? "active" : ""}" data-tab="${tab}">${tab.toUpperCase()}</button>`).join("")}</div>
       <div class="panel-body grid">
         <div class="fiscal-note">
@@ -1920,7 +1924,11 @@ function renderReports() {
     ["Rastreabilidade", "Lotes, validade, saldo e produtos rastreados."],
     ["Depositos", "Saldos e transferencias entre locais de estoque."],
     ["Devolucoes", "Devolucoes parciais, totais, trocas e creditos."],
-    ["Conciliacao", "Movimentos bancarios importados por OFX e conciliacao."]
+    ["Conciliacao", "Movimentos bancarios importados por OFX e conciliacao."],
+    ["Curva ABC", "Produtos por representatividade de venda no periodo."],
+    ["Lucratividade", "Margem por produto vendido usando custo cadastrado."],
+    ["Clientes", "Consumo por cliente, recorrencia e inatividade."],
+    ["Mesas e Delivery", "Vendas por mesa, delivery, retirada e balcao."]
   ];
   return `
     <section class="panel">
@@ -1954,7 +1962,7 @@ function renderReports() {
 }
 
 function reportTitle() {
-  return ["Produtos", "Estoque", "Vendas", "Financeiro", "Fiscal", "Compras", "Producao", "Caixa", "Ticket Medio", "Operacao", "Rastreabilidade", "Depositos", "Devolucoes", "Conciliacao"].includes(currentTab) ? `Relatorio - ${currentTab}` : "Resumo operacional";
+  return ["Produtos", "Estoque", "Vendas", "Financeiro", "Fiscal", "Compras", "Producao", "Caixa", "Ticket Medio", "Operacao", "Rastreabilidade", "Depositos", "Devolucoes", "Conciliacao", "Curva ABC", "Lucratividade", "Clientes", "Mesas e Delivery"].includes(currentTab) ? `Relatorio - ${currentTab}` : "Resumo operacional";
 }
 
 function reportRows(rows, dateField = "date") {
@@ -1962,6 +1970,20 @@ function reportRows(rows, dateField = "date") {
     const value = String(row[dateField] || row.date || row.due || row.issuedAt || "").slice(0, 10);
     return !value || ((!reportPeriod.from || value >= reportPeriod.from) && (!reportPeriod.to || value <= reportPeriod.to));
   });
+}
+
+function productSalesTotals() {
+  const map = new Map();
+  reportRows(state.sales, "date").forEach((sale) => {
+    (sale.items || []).forEach((item) => {
+      const key = item.id || item.productId || item.description;
+      const row = map.get(key) || { productId: item.id || item.productId, product: item.description || `Produto ${key}`, qty: 0, total: 0 };
+      row.qty += Number(item.qty || 0);
+      row.total += Number(item.qty || 0) * Number(item.price || 0);
+      map.set(key, row);
+    });
+  });
+  return [...map.values()].sort((a, b) => b.total - a.total);
 }
 
 function reportTable() {
@@ -2072,6 +2094,46 @@ function reportTable() {
   }
   if (currentTab === "Conciliacao") {
     return table(["Data", "Documento", "Historico", "Valor", "Status"], (state.bankTransactions || []).map((row) => [row.date, row.fitId || "-", row.memo, money(row.amount), row.reconciled ? "Conciliado" : "Pendente"]));
+  }
+  if (currentTab === "Curva ABC") {
+    const totals = productSalesTotals();
+    const grand = totals.reduce((sum, row) => sum + row.total, 0);
+    let accumulated = 0;
+    return table(["Classe", "Produto", "Qtd", "Total", "%", "Acumulado"], totals.map((row) => {
+      accumulated += row.total;
+      const percent = grand ? row.total / grand * 100 : 0;
+      const acc = grand ? accumulated / grand * 100 : 0;
+      const klass = acc <= 80 ? "A" : acc <= 95 ? "B" : "C";
+      return [klass, row.product, formatQty(row.qty), money(row.total), pct(percent), pct(acc)];
+    }));
+  }
+  if (currentTab === "Lucratividade") {
+    return table(["Produto", "Qtd", "Venda", "Custo", "Lucro", "Margem"], productSalesTotals().map((row) => {
+      const product = state.products.find((item) => item.id === row.productId) || {};
+      const cost = Number(product.cost || 0) * row.qty;
+      const profit = row.total - cost;
+      return [row.product, formatQty(row.qty), money(row.total), money(cost), money(profit), pct(row.total ? profit / row.total * 100 : 0)];
+    }));
+  }
+  if (currentTab === "Clientes") {
+    const todayDate = new Date(`${today()}T00:00:00`);
+    const byCustomer = reportRows(state.sales, "date").reduce((acc, sale) => {
+      const key = sale.customer || "Consumidor Final";
+      acc[key] = acc[key] || { customer: key, count: 0, total: 0, last: "" };
+      acc[key].count += 1;
+      acc[key].total += Number(sale.total || 0);
+      if (!acc[key].last || sale.date > acc[key].last) acc[key].last = sale.date;
+      return acc;
+    }, {});
+    return table(["Cliente", "Compras", "Total", "Ultima compra", "Dias sem comprar", "Acao"], Object.values(byCustomer).map((row) => {
+      const diff = row.last ? Math.floor((todayDate - new Date(`${row.last}T00:00:00`)) / 86400000) : 0;
+      return [row.customer, row.count, money(row.total), row.last || "-", diff, diff >= 30 ? "Enviar WhatsApp promocional" : "Acompanhar"];
+    }));
+  }
+  if (currentTab === "Mesas e Delivery") {
+    return table(["Venda", "Data", "Cliente", "Operacao", "Mesa", "Entregador", "Telefone", "Total"], reportRows(state.sales, "date").filter((sale) => sale.type === "PDV").map((sale) => [
+      sale.id, sale.date, sale.customer, sale.operation || "Balcao", sale.table || "-", sale.deliveryDriver || "-", sale.deliveryPhone || "-", money(sale.total)
+    ]));
   }
   return table(["Area", "Situacao"], [
     ["Produtos", `${state.products.length} cadastrados`],
@@ -2339,6 +2401,11 @@ function renderPdv() {
             <div class="field"><label>Cliente</label><select id="sale-customer"><option>Consumidor Final</option>${state.people.filter((person) => person.type === "Cliente" && person.active !== false).map((person) => `<option>${person.name}</option>`).join("")}</select></div>
             <div class="field"><label>Vendedor</label><input readonly value="${state.settings.user}" /></div>
             <div class="field"><label>Vendas em espera</label><input readonly value="${(state.heldSales || []).length}" /></div>
+            <div class="field"><label>Operacao</label><select id="pdv-operation"><option>Balcao</option><option>Mesa</option><option>Delivery</option><option>Retirada</option></select></div>
+            <div class="field"><label>Mesa/comanda</label><input id="pdv-table" placeholder="Ex.: Mesa 04" /></div>
+            <div class="field"><label>Entregador</label><input id="pdv-delivery-driver" placeholder="Nome do entregador" /></div>
+            <div class="field"><label>Telefone entrega</label><input id="pdv-delivery-phone" /></div>
+            <div class="field pdv-wide"><label>Endereco entrega</label><input id="pdv-delivery-address" /></div>
             <div class="field"><label>Desconto</label><input id="pdv-discount" type="number" step="0.01" value="0" /></div>
             <div class="field"><label>Acrescimo</label><input id="pdv-addition" type="number" step="0.01" value="0" /></div>
             <div class="field"><label>Credito de troca</label><input readonly value="${money(pendingExchangeCredit)}" /></div>
@@ -2359,6 +2426,10 @@ function renderPdv() {
             <button class="btn" id="cash-supply">Entrada de troco / Suprimento</button>
             <button class="btn" id="print-cash-summary">Resumo do caixa</button>
             <button class="btn" id="connect-pdv-device">Conectar dispositivo</button>
+            <button class="btn" id="pdv-tef-admin">TEF adm.</button>
+            <button class="btn" id="pdv-open-drawer">Abrir gaveta</button>
+            <button class="btn" id="pdv-print-kitchen">Imprimir cozinha</button>
+            <button class="btn" id="pdv-transfer-table">Transferir mesa</button>
             <button class="btn danger" id="close-cash-register">Fechar caixa</button>
           </div>
         </div>
@@ -2549,6 +2620,12 @@ function bindCurrentModule() {
   if (saveReconciliation) saveReconciliation.addEventListener("click", saveFinanceReconciliation);
   const importOfx = byId("import-ofx");
   if (importOfx) importOfx.addEventListener("change", importOfxFile);
+  const generateRemittance = byId("generate-remittance");
+  if (generateRemittance) generateRemittance.addEventListener("click", generateBoletoRemittance);
+  const importReturnFile = byId("import-return-file");
+  if (importReturnFile) importReturnFile.addEventListener("change", importBoletoReturn);
+  const printIssuedBillsButton = byId("print-issued-bills");
+  if (printIssuedBillsButton) printIssuedBillsButton.addEventListener("click", printIssuedBills);
   const saveAccount = byId("save-account");
   if (saveAccount) saveAccount.addEventListener("click", saveChartAccount);
   const cancelAccountEdit = byId("cancel-account-edit");
@@ -2637,6 +2714,10 @@ function bindCurrentModule() {
   if (fiscalInutilize) fiscalInutilize.addEventListener("click", inutilizeFiscalRange);
   const retryFiscalQueue = byId("retry-fiscal-queue");
   if (retryFiscalQueue) retryFiscalQueue.addEventListener("click", retryPendingFiscalQueue);
+  const fiscalExportBatch = byId("fiscal-export-batch");
+  if (fiscalExportBatch) fiscalExportBatch.addEventListener("click", exportFiscalXmlBatch);
+  const fiscalPdfBatch = byId("fiscal-pdf-batch");
+  if (fiscalPdfBatch) fiscalPdfBatch.addEventListener("click", exportFiscalPdfBatch);
 
   const exportReport = byId("export-report");
   if (exportReport) exportReport.addEventListener("click", exportReportCsv);
@@ -2813,6 +2894,14 @@ function bindCurrentModule() {
   if (printLastSale) printLastSale.addEventListener("click", printLastPdvSale);
   const connectPdvDevice = byId("connect-pdv-device");
   if (connectPdvDevice) connectPdvDevice.addEventListener("click", connectPdvPeripheral);
+  const pdvTefAdmin = byId("pdv-tef-admin");
+  if (pdvTefAdmin) pdvTefAdmin.addEventListener("click", runTefAdmin);
+  const pdvOpenDrawer = byId("pdv-open-drawer");
+  if (pdvOpenDrawer) pdvOpenDrawer.addEventListener("click", openCashDrawer);
+  const pdvPrintKitchen = byId("pdv-print-kitchen");
+  if (pdvPrintKitchen) pdvPrintKitchen.addEventListener("click", printKitchenOrder);
+  const pdvTransferTable = byId("pdv-transfer-table");
+  if (pdvTransferTable) pdvTransferTable.addEventListener("click", transferPdvTable);
 
   document.querySelectorAll("[data-remove-sale-item]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -3077,6 +3166,70 @@ function recoverHeldSale() {
   audit("Venda recuperada", `Espera ${held.id}`);
   save();
   renderShell();
+}
+
+function updatePdvTableFromSale(sale) {
+  if (sale.operation !== "Mesa" || !sale.table) return;
+  state.pdvTables = state.pdvTables || [];
+  const table = state.pdvTables.find((row) => row.name === sale.table) || { id: nextId(state.pdvTables), name: sale.table };
+  Object.assign(table, {
+    status: "Fechada",
+    lastSaleId: sale.id,
+    customer: sale.customer,
+    total: sale.total,
+    closedAt: new Date().toISOString()
+  });
+  if (!state.pdvTables.some((row) => row.id === table.id)) state.pdvTables.push(table);
+}
+
+function printKitchenOrder() {
+  if (!saleItems.length) return alert("Inclua itens para imprimir o pedido da cozinha.");
+  const kitchenItems = saleItems.filter((item) => state.products.find((product) => product.id === item.id)?.kitchenRequest || state.products.find((product) => product.id === item.id)?.manufactured);
+  const items = kitchenItems.length ? kitchenItems : saleItems;
+  const content = [
+    state.settings.company,
+    "PEDIDO COZINHA",
+    `Data: ${new Date().toLocaleString("pt-BR")}`,
+    `Operacao: ${byId("pdv-operation")?.value || "Balcao"}  Mesa: ${byId("pdv-table")?.value || "-"}`,
+    `Cliente: ${byId("sale-customer")?.value || "Consumidor Final"}`,
+    "",
+    ...items.map((item) => `${item.qty} ${item.unit || "UN"} - ${item.description}`),
+    "",
+    "Conferencia: __________________________"
+  ].join("\n");
+  if (pdvPeripheralPort?.writable) writePdvPeripheral(content).catch(() => downloadText(`pedido-cozinha-${Date.now()}.txt`, content));
+  else downloadText(`pedido-cozinha-${today()}.txt`, content);
+  audit("Pedido cozinha impresso", `${items.length} itens`);
+  save();
+}
+
+function transferPdvTable() {
+  const from = byId("pdv-table")?.value.trim();
+  if (!from) return alert("Informe a mesa/comanda atual.");
+  const to = prompt("Transferir para qual mesa/comanda?");
+  if (!to) return;
+  byId("pdv-table").value = to.trim();
+  state.pdvTables = state.pdvTables || [];
+  const table = state.pdvTables.find((row) => row.name === from) || { id: nextId(state.pdvTables), name: from };
+  Object.assign(table, { status: "Transferida", transferredTo: to.trim(), transferredAt: new Date().toISOString(), operator: state.settings.user });
+  if (!state.pdvTables.some((row) => row.id === table.id)) state.pdvTables.push(table);
+  audit("Mesa transferida", `${from} -> ${to.trim()}`);
+  save();
+  renderShell();
+}
+
+function runTefAdmin() {
+  audit("TEF administrativo acessado", state.cashRegister?.terminal || "SERIE 1");
+  alert("TEF administrativo registrado. Configure o provedor TEF em Configuracoes para acionar a rotina externa.");
+  save();
+}
+
+function openCashDrawer() {
+  const command = "\x1B\x70\x00\x19\xFA";
+  if (pdvPeripheralPort?.writable) writePdvPeripheral(command).catch(() => undefined);
+  audit("Gaveta acionada", state.cashRegister?.terminal || "SERIE 1");
+  alert("Comando de abertura da gaveta enviado/registrado.");
+  save();
 }
 
 function bindCepAutocomplete(inputId, callback) {
@@ -4150,7 +4303,12 @@ function saveFinanceRecord() {
     };
     item.accountCode = byId("finance-account")?.value || (currentTab === "pagar" ? "4.1.01" : "3.1.01");
     if (currentTab === "pagar") item.supplier = byId("finance-name").value;
-    else item.customer = byId("finance-name").value;
+    else {
+      item.customer = byId("finance-name").value;
+      item.wallet = byId("finance-wallet")?.value || "";
+      item.ourNumber = byId("finance-our-number")?.value || `${today().replace(/\D/g, "")}${String(item.id).padStart(5, "0")}`;
+      item.boletoStatus = "A emitir";
+    }
     target.push(item);
   }
   audit(currentTab === "pagar" ? "Conta a pagar lancada" : "Conta a receber lancada", `${installments} parcela(s) ${money(total)}`);
@@ -4191,6 +4349,73 @@ function payFinanceRecord(id) {
   });
   save();
   renderShell();
+}
+
+function generateBoletoRemittance() {
+  const rows = (state.receivables || []).filter((row) => !row.paid && !row.cancelled);
+  if (!rows.length) return alert("Nao ha contas a receber abertas para remessa.");
+  rows.forEach((row) => {
+    row.ourNumber = row.ourNumber || `${today().replace(/\D/g, "")}${String(row.id).padStart(5, "0")}`;
+    row.wallet = row.wallet || "109";
+    row.boletoStatus = "Remessa gerada";
+    row.remittanceAt = new Date().toISOString();
+  });
+  const content = [
+    `REMESSA TORTELA ${state.settings.company} ${today()}`,
+    "id;documento;cliente;vencimento;valor;carteira;nosso_numero",
+    ...rows.map((row) => [row.id, row.document || "", row.customer || "", row.due, Number(row.value || 0).toFixed(2), row.wallet, row.ourNumber].map(csvCell).join(";"))
+  ].join("\n");
+  downloadText(`remessa-boletos-${today()}.csv`, content);
+  audit("Remessa de boletos gerada", `${rows.length} titulo(s)`);
+  save();
+  renderShell();
+}
+
+function printIssuedBills() {
+  const rows = (state.receivables || []).filter((row) => row.ourNumber);
+  if (!rows.length) return alert("Nao ha boletos emitidos.");
+  const content = rows.map((row) => [
+    state.settings.company,
+    `BOLETO ${row.ourNumber}`,
+    `Cliente: ${row.customer || ""}`,
+    `Documento: ${row.document || row.id}`,
+    `Vencimento: ${row.due}`,
+    `Valor: ${money(row.value)}`,
+    `Status: ${row.boletoStatus || "Aberto"}`,
+    ""
+  ].join("\n")).join("\n");
+  downloadText(`boletos-emitidos-${today()}.txt`, content);
+  audit("Boletos emitidos impressos", `${rows.length} titulo(s)`);
+}
+
+function importBoletoReturn(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const lines = String(reader.result || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    let paid = 0;
+    lines.forEach((line) => {
+      const parts = line.includes(";") ? line.split(";") : line.split(/\s+/);
+      const ourNumber = parts.find((part) => /^\d{8,}$/.test(part));
+      const amountText = [...parts].reverse().find((part) => /^\d+([,.]\d{2})?$/.test(part));
+      const row = (state.receivables || []).find((item) => item.ourNumber === ourNumber || String(item.id) === parts[0]);
+      if (!row || row.paid) return;
+      const amount = Number(String(amountText || row.value).replace(",", "."));
+      row.paidValue = Math.min(Number(row.value || 0), Number(row.paidValue || 0) + amount);
+      row.balance = financeBalance(row);
+      row.paid = row.balance <= 0.009;
+      row.boletoStatus = row.paid ? "Liquidado por retorno" : "Retorno parcial";
+      row.returnAt = new Date().toISOString();
+      if (row.paid) row.paidAt = today();
+      paid += 1;
+      state.cash.push({ id: nextId(state.cash), date: today(), account: row.accountCode || "1.1.01", history: `Retorno boleto ${row.ourNumber}`, in: amount, out: 0 });
+    });
+    audit("Retorno de boletos importado", `${paid} titulo(s) baixado(s)`);
+    save();
+    renderShell();
+  };
+  reader.readAsText(file);
 }
 
 function saveFinanceReconciliation() {
@@ -5079,6 +5304,34 @@ async function exportFiscalXml(id) {
   save();
 }
 
+function exportFiscalXmlBatch() {
+  const rows = reportRows(state.fiscalQueue || [], "issuedAt").filter((row) => row.xml || row.xmlUrl || row.status === "Autorizada");
+  if (!rows.length) return alert("Nao ha XML fiscal no periodo selecionado.");
+  const content = rows.map((row) => {
+    const xmlContent = row.xml || fiscalXml(row);
+    return [`===== ${row.model} ${row.id} ${row.key || ""} =====`, row.xmlUrl ? `URL XML: ${row.xmlUrl}` : xmlContent, ""].join("\n");
+  }).join("\n");
+  downloadText(`lote-xml-fiscal-${today()}.txt`, content);
+  audit("Lote XML fiscal exportado", `${rows.length} documento(s)`);
+  save();
+}
+
+function exportFiscalPdfBatch() {
+  const rows = reportRows(state.fiscalQueue || [], "issuedAt").filter((row) => row.pdfUrl || row.status === "Autorizada");
+  if (!rows.length) return alert("Nao ha DANFE/DANFCE/PDF no periodo selecionado.");
+  const content = rows.map((row) => [
+    `${row.model} ${row.id}`,
+    `Cliente: ${row.customer}`,
+    `Chave: ${row.key || "-"}`,
+    `Protocolo: ${row.protocol || "-"}`,
+    `PDF: ${row.pdfUrl || "Gerar pelo botao DANFE/DANFCE"}`,
+    ""
+  ].join("\n")).join("\n");
+  downloadText(`lote-pdf-fiscal-${today()}.txt`, content);
+  audit("Lote PDF fiscal exportado", `${rows.length} documento(s)`);
+  save();
+}
+
 async function markFiscalContingency(id) {
   if (!requireFiscalApiConnection("Contingencia NFC-e")) return;
   const row = state.fiscalQueue.find((item) => item.id === id);
@@ -5420,6 +5673,11 @@ async function finishSaleRecord() {
     customer: byId("sale-customer")?.value || "Consumidor Final",
     seller: state.settings.user,
     type: "PDV",
+    operation: byId("pdv-operation")?.value || "Balcao",
+    table: byId("pdv-table")?.value || "",
+    deliveryDriver: byId("pdv-delivery-driver")?.value || "",
+    deliveryPhone: byId("pdv-delivery-phone")?.value || "",
+    deliveryAddress: byId("pdv-delivery-address")?.value || "",
     status: "Fechado",
     payment: paymentInfo.label,
     payments: paymentInfo.payments,
@@ -5433,6 +5691,7 @@ async function finishSaleRecord() {
     items: structuredClone(saleItems)
   };
   state.sales.push(sale);
+  updatePdvTableFromSale(sale);
   pendingExchangeCredit = Math.max(0, pendingExchangeCredit - exchangeCredit);
   lastPdvSaleId = sale.id;
   audit("Venda PDV finalizada", `${paymentInfo.label} ${money(total)}`);

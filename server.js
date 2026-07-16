@@ -198,6 +198,7 @@ const initialTenantState = {
   cash: [{ id: 1, date: "2026-06-05", account: "CAIXA", history: "Saldo inicial", in: 45296, out: 0 }],
   cashRegister: { open: true, openedAt: "2026-06-05T10:49:00.000Z", openedBy: "Operador", initialAmount: 45296, terminal: "SERIE 1" },
   heldSales: [],
+  pdvTables: [],
   automaticOrders: [],
   networkPromotions: [],
   franchisePayments: [],
@@ -476,6 +477,7 @@ function withTenantStateDefaults(state, tenantCode) {
     },
     cashRegister: { ...structuredClone(initialTenantState.cashRegister), ...(state?.cashRegister || {}) },
     heldSales: state?.heldSales || [],
+    pdvTables: state?.pdvTables || [],
     automaticOrders: state?.automaticOrders || [],
     networkPromotions: state?.networkPromotions || [],
     franchisePayments: state?.franchisePayments || []
@@ -548,7 +550,7 @@ function appendProviderAudit(action, detail, username = "central", ipAddress = "
 function periodClosed(state, incoming) {
   const closedThrough = state.settings?.closedThrough;
   if (!closedThrough) return false;
-  const collections = ["sales", "purchases", "payables", "receivables", "cash", "fiscalQueue", "automaticOrders", "networkPromotions", "franchisePayments"];
+  const collections = ["sales", "purchases", "payables", "receivables", "cash", "fiscalQueue", "pdvTables", "automaticOrders", "networkPromotions", "franchisePayments"];
   return collections.some((name) => JSON.stringify(state[name] || []) !== JSON.stringify(incoming[name] || [])
     && (incoming[name] || []).some((row) => String(row.date || row.due || row.issuedAt || "").slice(0, 10) <= closedThrough));
 }
