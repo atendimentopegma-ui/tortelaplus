@@ -1281,7 +1281,7 @@ function onlineDeliveryDecision(unit, address) {
     distanceKm: unit.distanceKm,
     message: available
       ? `Entrega disponivel pela ${unit.tradeName} - distancia estimada ${unit.distanceKm} km.`
-      : "Infelizmente neste endereco ainda nao e possivel fazer a entrega. Estamos atendendo somente enderecos em ate 10 km da loja."
+      : "Infelizmente neste endereco ainda nao e possivel fazer a entrega."
   };
 }
 
