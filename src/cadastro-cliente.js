@@ -40,26 +40,42 @@ async function boot() {
 }
 
 function renderInvalid(message) {
-  byId("app").innerHTML = `<main class="public-register-shell"><section class="public-register-card"><h1>Cadastro indisponivel</h1><p>${message}</p></section></main>`;
+  byId("app").innerHTML = `<main class="public-register-shell"><section class="public-register-card public-register-error"><h1>Cadastro indisponivel</h1><p>${escapeHtml(message)}</p></section></main>`;
 }
 
 function render() {
   byId("app").innerHTML = `
     <main class="public-register-shell">
       <section class="public-register-card">
-        <div class="public-register-brand"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /><div><strong>${escapeHtml(unit ? unit.tradeName : "Rede Tortela")}</strong><span>${unit ? "Cadastro de cliente" : "Cadastro geral com loja mais proxima"}</span></div></div>
-        <form id="customer-form">
-          <div class="grid two">
-            <div class="field"><label>Nome completo</label><input id="name" required /></div>
-            <div class="field"><label>CPF</label><input id="document" inputmode="numeric" maxlength="14" required /></div>
-            <div class="field"><label>Telefone / WhatsApp</label><input id="phone" inputmode="tel" required /></div>
-            <div class="field"><label>CEP</label><input id="cep" inputmode="numeric" maxlength="9" required placeholder="Digite o CEP" /></div>
-            <div class="field"><label>Endereco</label><input id="address" required /></div>
-            <div class="field"><label>Numero</label><input id="number" required /></div>
-            <div class="field"><label>Complemento</label><input id="complement" /></div>
+        <div class="public-register-hero">
+          <div class="public-logo-plate"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /></div>
+          <div class="public-register-copy">
+            <span>${unit ? "Unidade selecionada" : "Cadastro da rede"}</span>
+            <h1>${escapeHtml(unit ? unit.tradeName : "Encontre sua Tortela mais proxima")}</h1>
+            <p>Complete seus dados uma unica vez. O sistema localiza a loja indicada pelo seu CEP e deixa seu cadastro pronto para pedidos, entregas e ofertas da rede.</p>
+          </div>
+          <div class="public-register-steps">
+            <strong>1</strong><span>Informe seu CEP</span>
+            <strong>2</strong><span>Confira a loja sugerida</span>
+            <strong>3</strong><span>Conclua o cadastro</span>
+          </div>
+        </div>
+        <form id="customer-form" class="public-register-form">
+          <div class="public-form-head">
+            <span>${unit ? "Cadastro de cliente" : "Minha loja mais proxima"}</span>
+            <h2>Dados para atendimento</h2>
+          </div>
+          <div class="public-form-grid">
+            <div class="field wide"><label>Nome completo</label><input id="name" required autocomplete="name" /></div>
+            <div class="field"><label>CPF</label><input id="document" inputmode="numeric" maxlength="14" required autocomplete="off" /></div>
+            <div class="field"><label>Telefone / WhatsApp</label><input id="phone" inputmode="tel" required autocomplete="tel" /></div>
+            <div class="field cep-field"><label>CEP</label><input id="cep" inputmode="numeric" maxlength="9" required placeholder="Digite o CEP" autocomplete="postal-code" /></div>
+            <div class="field wide"><label>Endereco</label><input id="address" required autocomplete="street-address" /></div>
+            <div class="field"><label>Numero</label><input id="number" required autocomplete="address-line2" /></div>
+            <div class="field"><label>Complemento</label><input id="complement" autocomplete="address-line3" /></div>
             <div class="field"><label>Bairro</label><input id="district" required /></div>
-            <div class="field"><label>Cidade</label><input id="city" required /></div>
-            <div class="field"><label>UF</label><input id="uf" maxlength="2" required /></div>
+            <div class="field"><label>Cidade</label><input id="city" required autocomplete="address-level2" /></div>
+            <div class="field uf-field"><label>UF</label><input id="uf" maxlength="2" required autocomplete="address-level1" /></div>
           </div>
           <div id="nearest-store" class="public-nearest" hidden></div>
           <label class="check-row public-consent"><input id="consent" type="checkbox" required /> Autorizo o uso dos meus dados para cadastro, atendimento de pedidos, comunicacoes operacionais e ofertas da rede Tortela.</label>

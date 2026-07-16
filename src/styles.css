@@ -1465,45 +1465,176 @@ th {
 }
 
 .public-register-shell {
-  align-items: center;
-  display: flex;
-  justify-content: center;
+  align-items: stretch;
+  background:
+    linear-gradient(120deg, rgba(250, 204, 21, 0.2), rgba(255, 255, 255, 0.78) 46%, rgba(14, 116, 144, 0.12)),
+    #fffdf2;
+  display: grid;
+  justify-items: center;
   min-height: 100vh;
-  padding: 24px;
+  padding: 32px;
 }
 
 .public-register-card {
+  align-self: center;
   background: #ffffff;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(222, 180, 25, 0.45);
   border-radius: 8px;
-  box-shadow: 0 18px 50px rgba(102, 83, 0, 0.16);
-  max-width: 980px;
-  padding: 28px;
+  box-shadow: 0 28px 80px rgba(102, 83, 0, 0.2);
+  display: grid;
+  grid-template-columns: minmax(320px, 0.78fr) minmax(420px, 1fr);
+  max-width: 1180px;
+  min-height: 680px;
+  overflow: hidden;
+  padding: 0;
   width: 100%;
 }
 
-.public-register-brand {
-  align-items: center;
-  border-bottom: 2px solid #facc15;
-  display: flex;
-  gap: 22px;
-  margin-bottom: 24px;
-  padding-bottom: 18px;
+.public-register-error {
+  display: block;
+  min-height: auto;
+  padding: 32px;
 }
 
-.public-register-brand img {
-  height: 100px;
-  object-fit: contain;
-  width: 220px;
-}
-
-.public-register-brand div {
+.public-register-hero {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0)),
+    #facc15;
+  color: #17243d;
   display: grid;
-  gap: 4px;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100%;
+  padding: 42px;
 }
 
-.public-register-brand strong {
-  font-size: 26px;
+.public-logo-plate {
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 8px;
+  display: inline-grid;
+  justify-self: start;
+  padding: 18px 22px;
+}
+
+.public-logo-plate img {
+  height: 92px;
+  object-fit: contain;
+  width: 214px;
+}
+
+.public-register-copy {
+  align-self: center;
+  display: grid;
+  gap: 18px;
+}
+
+.public-register-copy span,
+.public-form-head span {
+  color: #0f7490;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.public-register-copy h1 {
+  color: #17243d;
+  font-size: 44px;
+  line-height: 1.03;
+  margin: 0;
+}
+
+.public-register-copy p {
+  color: #334155;
+  font-size: 17px;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 430px;
+}
+
+.public-register-steps {
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px 12px;
+  grid-template-columns: auto 1fr;
+  padding: 18px;
+}
+
+.public-register-steps strong {
+  align-items: center;
+  background: #17243d;
+  border-radius: 999px;
+  color: #facc15;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.public-register-steps span {
+  align-self: center;
+  font-weight: 800;
+}
+
+.public-register-form {
+  align-content: center;
+  display: grid;
+  gap: 18px;
+  padding: 42px;
+}
+
+.public-form-head {
+  display: grid;
+  gap: 6px;
+}
+
+.public-form-head h2 {
+  color: #17243d;
+  font-size: 28px;
+  margin: 0;
+}
+
+.public-form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.public-form-grid .field {
+  min-width: 0;
+}
+
+.public-form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.public-form-grid .cep-field {
+  grid-column: span 1;
+}
+
+.public-form-grid .uf-field {
+  max-width: 120px;
+}
+
+.public-register-form .field label {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.public-register-form .field input {
+  background: #fffdf7;
+  border: 1px solid #e8dcae;
+  border-radius: 6px;
+  min-height: 46px;
+}
+
+.public-register-form .field input:focus {
+  border-color: #0f7490;
+  box-shadow: 0 0 0 3px rgba(15, 116, 144, 0.14);
 }
 
 .field-action {
@@ -1517,14 +1648,26 @@ th {
 }
 
 .public-nearest {
-  background: #fff7cc;
-  border: 1px solid #facc15;
+  background: linear-gradient(135deg, #fff7cc, #ffffff);
+  border: 1px solid rgba(250, 204, 21, 0.85);
   border-radius: 6px;
   color: #17243d;
   display: grid;
   gap: 4px;
   margin-top: 16px;
-  padding: 12px 14px;
+  padding: 14px 16px;
+  position: relative;
+}
+
+.public-nearest::before {
+  background: #0f7490;
+  border-radius: 999px;
+  content: "";
+  height: 10px;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 10px;
 }
 
 .public-nearest span {
@@ -1533,6 +1676,7 @@ th {
 }
 
 .public-submit {
+  min-height: 50px;
   width: 100%;
 }
 
@@ -1560,6 +1704,21 @@ th {
   .network-rankings {
     grid-template-columns: 1fr;
   }
+
+  .public-register-card {
+    grid-template-columns: 1fr;
+    max-width: 820px;
+  }
+
+  .public-register-hero {
+    gap: 28px;
+    grid-template-rows: auto;
+    min-height: auto;
+  }
+
+  .public-register-copy {
+    align-self: start;
+  }
 }
 
 @media (max-width: 680px) {
@@ -1567,13 +1726,42 @@ th {
     grid-template-columns: 1fr 1fr;
   }
 
-  .public-register-brand {
-    align-items: flex-start;
-    flex-direction: column;
+  .public-register-shell {
+    padding: 14px;
   }
 
-  .public-register-brand img {
-    width: 180px;
+  .public-register-card {
+    min-height: auto;
+  }
+
+  .public-register-hero,
+  .public-register-form {
+    padding: 24px;
+  }
+
+  .public-logo-plate img {
+    height: 72px;
+    width: 168px;
+  }
+
+  .public-register-copy h1 {
+    font-size: 32px;
+  }
+
+  .public-register-copy p {
+    font-size: 15px;
+  }
+
+  .public-register-steps {
+    padding: 14px;
+  }
+
+  .public-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .public-form-grid .uf-field {
+    max-width: none;
   }
 
   .field-action {
@@ -1584,7 +1772,6 @@ th {
 /* Central Tortela - layout modular final */
 .tortela-theme .content,
 .network-shell,
-.public-register-shell,
 .tortela-login-shell {
   background: linear-gradient(135deg, #ffe16a 0%, #fff0a8 42%, #ffffff 100%);
 }
