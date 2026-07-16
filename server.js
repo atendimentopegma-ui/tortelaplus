@@ -268,6 +268,102 @@ const initialTenantState = {
   }
 };
 
+const tortelaOnlineStarterProducts = [
+  {
+    id: 7001,
+    description: "Torta no palito chocolate",
+    barcode: "7890000007001",
+    type: "Produto fabricado",
+    unit: "UN",
+    cost: 4.2,
+    price: 12.9,
+    stock: 80,
+    minStock: 20,
+    ncm: "19059090",
+    cfop: "5102",
+    cst: "102",
+    cbsClass: "000001",
+    ibsClass: "000001",
+    photo: "",
+    hasCoverage: true,
+    coverageOptions: ["Sem cobertura", "Chocolate ao leite", "Chocolate branco", "Morango"],
+    composition: [
+      { productId: 9001, qty: 0.12, useUnit: "KG" },
+      { productId: 9002, qty: 0.02, useUnit: "UN" }
+    ],
+    active: true
+  },
+  {
+    id: 7002,
+    description: "Torta no palito morango",
+    barcode: "7890000007002",
+    type: "Produto fabricado",
+    unit: "UN",
+    cost: 4.4,
+    price: 13.9,
+    stock: 70,
+    minStock: 20,
+    ncm: "19059090",
+    cfop: "5102",
+    cst: "102",
+    cbsClass: "000001",
+    ibsClass: "000001",
+    photo: "",
+    hasCoverage: true,
+    coverageOptions: ["Sem cobertura", "Morango", "Chocolate branco", "Leite ninho"],
+    composition: [
+      { productId: 9001, qty: 0.12, useUnit: "KG" },
+      { productId: 9002, qty: 0.02, useUnit: "UN" }
+    ],
+    active: true
+  },
+  {
+    id: 7003,
+    description: "Combo 4 Tortelas no palito",
+    barcode: "7890000007003",
+    type: "Produto composto",
+    unit: "UN",
+    cost: 16.4,
+    price: 47.9,
+    stock: 35,
+    minStock: 10,
+    ncm: "19059090",
+    cfop: "5102",
+    cst: "102",
+    cbsClass: "000001",
+    ibsClass: "000001",
+    photo: "",
+    hasCoverage: true,
+    coverageOptions: ["Sortidas", "Chocolate", "Morango", "Leite ninho"],
+    composition: [
+      { productId: 7001, qty: 2, useUnit: "UN" },
+      { productId: 7002, qty: 2, useUnit: "UN" }
+    ],
+    active: true
+  },
+  {
+    id: 7004,
+    description: "Milk shake Tortela",
+    barcode: "7890000007004",
+    type: "Produto fabricado",
+    unit: "UN",
+    cost: 5.8,
+    price: 17.9,
+    stock: 45,
+    minStock: 12,
+    ncm: "22029900",
+    cfop: "5102",
+    cst: "102",
+    cbsClass: "000001",
+    ibsClass: "000001",
+    photo: "",
+    hasCoverage: true,
+    coverageOptions: ["Chocolate", "Morango", "Doce de leite", "Leite ninho"],
+    composition: [],
+    active: true
+  }
+];
+
 const rolePermissions = {
   Administrador: ["dashboard", "people", "products", "stock", "purchases", "sales", "finance", "fiscal", "reports", "settings", "pdv", "stock_adjust", "purchase_cancel", "sales_cancel", "finance_settle", "fiscal_transmit", "fiscal_cancel", "restore_backup", "manage_users"],
   Gerente: ["dashboard", "people", "products", "stock", "purchases", "sales", "finance", "fiscal", "reports", "pdv", "stock_adjust", "purchase_cancel", "sales_cancel", "finance_settle", "fiscal_transmit", "fiscal_cancel"],
@@ -478,15 +574,34 @@ function writeCombinedState(state) {
   writeTenantState(tenantCode, state);
 }
 
+function ensureTortelaOnlineStarterProducts(products, tenantCode) {
+  const current = Array.isArray(products) ? products : [];
+  const isPublicStarterTenant = normalizeTenantCode(tenantCode) === "cliente-exemplo";
+  if (!isPublicStarterTenant) return current;
+  const hasTortelaItem = current.some((product) =>
+    product?.active !== false
+    && Number(product?.price || 0) > 0
+    && /tortela|torta|palito|milk shake|combo/i.test(product?.description || "")
+  );
+  if (hasTortelaItem) return current;
+  const existingIds = new Set(current.map((product) => Number(product.id)));
+  const starterProducts = tortelaOnlineStarterProducts
+    .filter((product) => !existingIds.has(Number(product.id)))
+    .map((product) => structuredClone(product));
+  return [...starterProducts, ...current];
+}
+
 function withTenantStateDefaults(state, tenantCode) {
+  const code = normalizeTenantCode(tenantCode || state?.settings?.tenantCode || initialTenantState.settings.tenantCode);
   const merged = {
     ...structuredClone(initialTenantState),
     ...(state || {}),
     users: normalizeUsers(state?.users || initialTenantState.users),
+    products: ensureTortelaOnlineStarterProducts(state?.products || initialTenantState.products, code),
     settings: {
       ...initialTenantState.settings,
       ...(state?.settings || {}),
-      tenantCode: normalizeTenantCode(tenantCode || state?.settings?.tenantCode || initialTenantState.settings.tenantCode)
+      tenantCode: code
     },
     cashRegister: { ...structuredClone(initialTenantState.cashRegister), ...(state?.cashRegister || {}) },
     heldSales: state?.heldSales || [],
