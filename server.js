@@ -577,6 +577,7 @@ function normalizeUsers(users) {
     username: user.username || user.name || "usuario",
     role: user.role || "Vendedor",
     permissions: validPermissions(user.permissions, user.role),
+    screenPermissions: user.screenPermissions || {},
     active: user.active !== false,
     passwordHash: user.passwordHash || hashPassword(user.password || "123456")
   }));
@@ -869,7 +870,8 @@ function publicUser(user) {
     username: user.username,
     role: user.role,
     active: user.active !== false,
-    permissions: validPermissions(user.permissions, user.role)
+    permissions: validPermissions(user.permissions, user.role),
+    screenPermissions: user.screenPermissions || {}
   };
 }
 
@@ -3340,6 +3342,7 @@ async function handleApi(req, res, urlPath) {
       username,
       role: rolePermissions[body.role] ? body.role : "Vendedor",
       permissions: validPermissions(body.permissions, body.role),
+      screenPermissions: body.screenPermissions && typeof body.screenPermissions === "object" ? body.screenPermissions : {},
       active: body.active !== false,
       passwordHash: hashPassword(body.password)
     };
@@ -3374,6 +3377,7 @@ async function handleApi(req, res, urlPath) {
     if (body.name !== undefined) user.name = String(body.name).trim() || user.name;
     if (body.role !== undefined && rolePermissions[body.role]) user.role = body.role;
     if (body.permissions !== undefined) user.permissions = validPermissions(body.permissions, user.role);
+    if (body.screenPermissions !== undefined && typeof body.screenPermissions === "object") user.screenPermissions = body.screenPermissions;
     if (body.active !== undefined) user.active = Boolean(body.active);
     writeTenantState(tenantCode, tenantState);
     writeProvider(provider);
@@ -3586,6 +3590,7 @@ async function handleApi(req, res, urlPath) {
       username,
       role: body.role || "Vendedor",
       permissions: validPermissions(body.permissions, body.role),
+      screenPermissions: body.screenPermissions && typeof body.screenPermissions === "object" ? body.screenPermissions : {},
       active: true,
       passwordHash: hashPassword(body.password)
     };
@@ -3620,6 +3625,7 @@ async function handleApi(req, res, urlPath) {
     if (body.name !== undefined) user.name = String(body.name).trim() || user.name;
     if (body.role !== undefined && rolePermissions[body.role]) user.role = body.role;
     if (body.permissions !== undefined) user.permissions = validPermissions(body.permissions, user.role);
+    if (body.screenPermissions !== undefined && typeof body.screenPermissions === "object") user.screenPermissions = body.screenPermissions;
     if (body.active !== undefined) user.active = Boolean(body.active);
     if (body.password !== undefined) user.passwordHash = hashPassword(body.password);
     writeTenantState(tenantCode, tenantState);

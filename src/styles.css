@@ -463,6 +463,20 @@ header.topbar .top-right .central-top-action:hover {
   background: #fff;
 }
 
+.permission-matrix table {
+  min-width: 720px;
+}
+
+.permission-matrix td:not(:first-child),
+.permission-matrix th:not(:first-child) {
+  text-align: center;
+}
+
+.permission-matrix .check-row {
+  justify-content: center;
+  padding: 6px;
+}
+
 .erp-action-bar .btn {
   min-width: 118px;
   min-height: 48px;

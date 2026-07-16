@@ -358,9 +358,43 @@ const permissionLabels = {
   fiscal_transmit: "Transmitir documento fiscal", fiscal_cancel: "Cancelar documento fiscal",
   restore_backup: "Restaurar backup", manage_users: "Gerenciar usuarios"
 };
+const personTypes = ["Cliente", "Fornecedor", "Funcionario", "Parceiro", "Entregador", "Transportadora", "Motorista", "Contador", "SPC/CCF", "Tomador", "Destinatario", "Remetente"];
+const personFilters = [...personTypes, "Aniversariantes", "Todos"];
+const screenPermissions = [
+  ["dashboard", "Painel"],
+  ["people", "Pessoas"],
+  ["products", "Produtos"],
+  ["stock", "Estoque e producao"],
+  ["purchases", "Compras"],
+  ["sales", "Vendas e orcamentos"],
+  ["onlineOrders", "Pedidos online"],
+  ["finance", "Financeiro"],
+  ["fiscal", "Fiscal"],
+  ["reports", "Relatorios"],
+  ["settings", "Configuracoes"],
+  ["pdv", "PDV"]
+];
+const crudActions = [["view", "Ver"], ["create", "Incluir"], ["edit", "Editar"], ["delete", "Excluir"]];
 
 function permissionLabel(permission) {
   return permissionLabels[permission] || permission;
+}
+
+function screenPermissionValue(user, screen, action) {
+  const matrix = user?.screenPermissions;
+  if (!matrix || !matrix[screen]) return true;
+  return matrix[screen][action] !== false;
+}
+
+function renderScreenPermissionMatrix(user = {}) {
+  return `
+    <div class="table-wrap permission-matrix">
+      <table>
+        <thead><tr><th>Tela</th>${crudActions.map(([, label]) => `<th>${label}</th>`).join("")}</tr></thead>
+        <tbody>${screenPermissions.map(([screen, label]) => `<tr><td>${label}</td>${crudActions.map(([action, actionLabel]) => `<td><label class="check-row"><input class="screen-permission" type="checkbox" data-screen="${screen}" data-action="${action}" ${screenPermissionValue(user, screen, action) ? "checked" : ""} /> ${actionLabel}</label></td>`).join("")}</tr>`).join("")}</tbody>
+      </table>
+    </div>
+  `;
 }
 let syncChain = Promise.resolve();
 
@@ -1110,7 +1144,7 @@ function ensureAutomaticStockOrder() {
 
 function renderPeople() {
   const draft = pendingPersonDraft;
-  const personTypeFilter = ["Cliente", "Fornecedor", "Funcionario", "Parceiro"].includes(currentTab) ? currentTab : "Todos";
+  const personTypeFilter = personFilters.includes(currentTab) ? currentTab : "Todos";
   return `
     <section class="panel erp-screen">
       <div class="panel-head">
@@ -1122,13 +1156,13 @@ function renderPeople() {
         <div class="erp-search-line"><input id="person-search" value="${escapeAttr(personSearch)}" placeholder="Digite nome, fantasia, CPF/CNPJ, cidade ou telefone" /><button class="btn" id="filter-people">Buscar</button></div>
       </div>
       <div class="module-tabs compact-tabs">
-        ${["Cliente", "Funcionario", "Fornecedor", "Parceiro", "Todos"].map((type) => `<button type="button" class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : "Todos"}</button>`).join("")}
+        ${personFilters.map((type) => `<button type="button" class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : type}</button>`).join("")}
       </div>
       <div class="panel-body erp-body">
         ${peopleTable()}
         <form class="form-card erp-edit-panel" id="person-form">
           <div class="grid three">
-            <div class="field"><label>Tipo</label><select id="person-type">${["Cliente", "Fornecedor", "Funcionario", "Parceiro"].map((type) => `<option ${draft.type === type ? "selected" : ""}>${type}</option>`).join("")}</select></div>
+            <div class="field"><label>Tipo</label><select id="person-type">${personTypes.map((type) => `<option ${draft.type === type ? "selected" : ""}>${type}</option>`).join("")}</select></div>
             <div class="field"><label>Nome/Razao social</label><input id="person-name" value="${escapeAttr(draft.name || "")}" required /></div>
             <div class="field"><label>Fantasia/Apelido</label><input id="person-alias" value="${escapeAttr(draft.alias || "")}" /></div>
             <div class="field"><label>CPF/CNPJ</label><input id="person-doc" value="${escapeAttr(draft.document || "")}" /></div>
@@ -1141,6 +1175,16 @@ function renderPeople() {
             <div class="field"><label>Ativo</label><select id="person-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
           </div>
           <div class="grid four">
+            <div class="field"><label>Data nascimento/aniversario</label><input id="person-birth" type="date" value="${escapeAttr(draft.birthDate || "")}" /></div>
+            <div class="field"><label>Contato responsavel</label><input id="person-contact" value="${escapeAttr(draft.contactName || "")}" /></div>
+            <div class="field"><label>CNH</label><input id="person-driver-license" value="${escapeAttr(draft.driverLicense || "")}" /></div>
+            <div class="field"><label>Placa/veiculo</label><input id="person-vehicle-plate" value="${escapeAttr(draft.vehiclePlate || "")}" /></div>
+            <div class="field"><label>RNTRC/ANTT</label><input id="person-rntrc" value="${escapeAttr(draft.rntrc || "")}" /></div>
+            <div class="field"><label>Cargo/função</label><input id="person-job-title" value="${escapeAttr(draft.jobTitle || "")}" /></div>
+            <div class="field"><label>Alerta SPC/CCF</label><select id="person-credit-alert"><option value="false">Nao</option><option value="true" ${draft.creditAlert ? "selected" : ""}>Sim</option></select></div>
+            <div class="field"><label>Tipo recebimento/frete</label><input id="person-payment-type" value="${escapeAttr(draft.paymentType || "")}" /></div>
+          </div>
+          <div class="grid four">
             <div class="field"><label>CEP</label><input id="person-cep" value="${escapeAttr(draft.cep || "")}" placeholder="01001000" /></div>
             <div class="field"><label>Endereco</label><input id="person-address" value="${escapeAttr(draft.address || "")}" /></div>
             <div class="field"><label>Numero</label><input id="person-number" value="${escapeAttr(draft.number || "")}" /></div>
@@ -1149,6 +1193,7 @@ function renderPeople() {
             <div class="field"><label>UF</label><input id="person-uf" value="${escapeAttr(draft.uf || "")}" maxlength="2" /></div>
             <div class="field"><label>Complemento</label><input id="person-complement" value="${escapeAttr(draft.complement || "")}" /></div>
           </div>
+          <div class="field"><label>Observacoes</label><textarea id="person-notes" rows="3">${escapeHtml(draft.notes || "")}</textarea></div>
           <div class="actions"><span class="helper">Cadastro aberto: ${editingPersonId ? `alterando codigo ${editingPersonId}` : "novo registro"}. O endereco e preenchido automaticamente ao concluir o CEP.</span></div>
         </form>
       </div>
@@ -1166,13 +1211,17 @@ function renderPeople() {
 
 function peopleTable() {
   const query = personSearch.trim().toLowerCase();
-  const filter = ["Cliente", "Fornecedor", "Funcionario", "Parceiro"].includes(currentTab) ? currentTab : "";
-  const rows = state.people.filter((person) => (!filter || person.type === filter) && (!query || [person.name, person.alias, person.document, person.city, person.phone].some((value) => String(value || "").toLowerCase().includes(query))));
+  const filter = personTypes.includes(currentTab) ? currentTab : "";
+  const aniversariantes = currentTab === "Aniversariantes";
+  const monthDay = today().slice(5);
+  const rows = state.people.filter((person) => (!filter || person.type === filter)
+    && (!aniversariantes || String(person.birthDate || "").slice(5) >= monthDay)
+    && (!query || [person.name, person.alias, person.document, person.city, person.phone, person.vehiclePlate, person.rntrc].some((value) => String(value || "").toLowerCase().includes(query))));
   return `
     <div class="table-wrap erp-table">
       <table>
-        <thead><tr><th>Codigo</th><th>Tipo</th><th>Nome</th><th>Fantasia</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>UF</th><th>Status</th><th>Acoes</th></tr></thead>
-        <tbody>${rows.map((person) => `<tr class="${Number(selectedPersonId) === Number(person.id) ? "selected-row" : ""}" data-select-person="${person.id}"><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td>${person.document}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td><span class="badge ${person.active === false ? "danger" : "ok"}">${person.active === false ? "Inativo" : "Ativo"}</span></td><td><button class="btn" data-edit-person="${person.id}">Editar</button> <button class="btn ${person.active === false ? "" : "danger"}" data-toggle-person="${person.id}">${person.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
+        <thead><tr><th>Codigo</th><th>Tipo</th><th>Nome</th><th>Fantasia</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>UF</th><th>Auxiliar</th><th>Status</th><th>Acoes</th></tr></thead>
+        <tbody>${rows.map((person) => `<tr class="${Number(selectedPersonId) === Number(person.id) ? "selected-row" : ""}" data-select-person="${person.id}"><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td>${person.document}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td>${person.birthDate || person.vehiclePlate || person.rntrc || (person.creditAlert ? "SPC/CCF" : "-")}</td><td><span class="badge ${person.active === false ? "danger" : person.creditAlert ? "warn" : "ok"}">${person.active === false ? "Inativo" : person.creditAlert ? "Alerta" : "Ativo"}</span></td><td><button class="btn" data-edit-person="${person.id}">Editar</button> <button class="btn ${person.active === false ? "" : "danger"}" data-toggle-person="${person.id}">${person.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
       </table>
     </div>
   `;
@@ -1824,14 +1873,14 @@ function financeTab() {
 
 function renderFiscal() {
   ensureFiscalRuleCoverage();
-  const tabs = ["nfe", "nfce", "nfse", "fila"];
+  const tabs = ["nfe", "nfce", "nfse", "cte", "cteos", "mdfe", "sat", "mfe", "sped", "sintegra", "fila"];
   if (!tabs.includes(currentTab)) currentTab = "fila";
   const availableTabs = tabs.filter((tab) => tab === "fila" || contractedFiscalModule(tab));
   if (!availableTabs.includes(currentTab)) currentTab = availableTabs[0] || "fila";
   const filteredRows = currentTab === "fila" ? state.fiscalQueue : state.fiscalQueue.filter((row) => row.model.toLowerCase().replace("-", "") === currentTab);
   const rules = state.fiscalRules || [];
   const serviceRules = rules.filter((rule) => rule.active !== false && rule.model === "NFS-e" && rule.regime === state.settings.regime);
-  const currentModel = currentTab === "nfe" ? "NF-e" : "NFC-e";
+  const currentModel = fiscalTabModel(currentTab);
   return `
     <section class="panel">
       <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><button class="btn" id="fiscal-export-batch">Lote XML</button><button class="btn" id="fiscal-pdf-batch">Lote PDF</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
@@ -1840,7 +1889,7 @@ function renderFiscal() {
         <div class="fiscal-note">
           Ambiente ${state.settings.fiscalEnvironment}. NF-e/NFC-e usam fluxo de mercadoria. NFS-e fica em tela separada porque depende de municipio, item de servico, ISS, NBS e padrao nacional/municipal vigente.
         </div>
-        ${currentTab === "nfse" ? renderNfseIssueForm(serviceRules) : `
+        ${currentTab === "nfse" ? renderNfseIssueForm(serviceRules) : advancedFiscalTabs().includes(currentTab) ? renderAdvancedFiscalForm(currentModel) : `
         <div class="form-card grid four">
           <div class="field"><label>Modelo</label><input id="fiscal-model" value="${currentModel}" readonly /></div>
           <div class="field"><label>Venda de origem</label><select id="fiscal-sale-id"><option value="">Selecione uma venda fechada</option>${state.sales.filter((sale) => ["Fechado", "Parcialmente devolvido"].includes(sale.status) && Array.isArray(sale.items) && sale.items.length).map((sale) => `<option value="${sale.id}">${sale.id} - ${escapeAttr(sale.customer)} - ${money(sale.total)}</option>`).join("")}</select></div>
@@ -1871,9 +1920,46 @@ function renderFiscal() {
 
 function contractedFiscalModule(tab) {
   const tenant = getCurrentTenant();
-  const contracted = tenant?.modules || ["NF-e", "NFC-e", "NFS-e"];
-  const map = { nfe: "NF-e", nfce: "NFC-e", nfse: "NFS-e" };
+  const contracted = tenant?.modules || ["NF-e", "NFC-e", "NFS-e", "CTe", "CTe-OS", "MDFe", "SAT", "MFe", "SPED", "Sintegra"];
+  const map = { nfe: "NF-e", nfce: "NFC-e", nfse: "NFS-e", cte: "CTe", cteos: "CTe-OS", mdfe: "MDFe", sat: "SAT", mfe: "MFe", sped: "SPED", sintegra: "Sintegra" };
   return contracted.includes(map[tab]);
+}
+
+function advancedFiscalTabs() {
+  return ["cte", "cteos", "mdfe", "sat", "mfe", "sped", "sintegra"];
+}
+
+function fiscalTabModel(tab) {
+  return ({ nfe: "NF-e", nfce: "NFC-e", nfse: "NFS-e", cte: "CTe", cteos: "CTe-OS", mdfe: "MDFe", sat: "SAT", mfe: "MFe", sped: "SPED", sintegra: "Sintegra" }[tab] || "NFC-e");
+}
+
+function renderAdvancedFiscalForm(model) {
+  const isTransport = ["CTe", "CTe-OS", "MDFe"].includes(model);
+  const isFile = ["SPED", "Sintegra"].includes(model);
+  return `
+    <div class="form-card">
+      <h3>${model}</h3>
+      <div class="grid four">
+        <div class="field"><label>Modelo</label><input id="fiscal-model" value="${model}" readonly /></div>
+        <div class="field"><label>Serie</label><input id="fiscal-serie" value="1" /></div>
+        <div class="field"><label>Natureza/Finalidade</label><input id="fiscal-nature" value="${isFile ? "Arquivo fiscal" : isTransport ? "Transporte" : "Venda fiscal"}" /></div>
+        <div class="field"><label>Cliente/Tomador</label><input id="fiscal-customer" value="Consumidor Final" /></div>
+        <div class="field"><label>Total</label><input id="fiscal-total" type="number" step="0.01" value="0" /></div>
+        <div class="field"><label>CFOP</label><input id="fiscal-cfop-advanced" value="${isTransport ? "5353" : "5102"}" /></div>
+        <div class="field"><label>Chave referenciada</label><input id="fiscal-ref-key" /></div>
+        <div class="field"><label>Periodo inicial</label><input id="fiscal-period-from" type="date" value="${reportPeriod.from || today().slice(0, 8) + "01"}" /></div>
+        <div class="field"><label>Periodo final</label><input id="fiscal-period-to" type="date" value="${reportPeriod.to || today()}" /></div>
+        <div class="field"><label>UF origem</label><input id="fiscal-origin-uf" value="${state.settings.uf || "SP"}" maxlength="2" /></div>
+        <div class="field"><label>UF destino</label><input id="fiscal-dest-uf" value="${state.settings.uf || "SP"}" maxlength="2" /></div>
+        <div class="field"><label>Placa/veiculo</label><input id="fiscal-vehicle" /></div>
+        <div class="field"><label>RNTRC</label><input id="fiscal-rntrc" /></div>
+        <div class="field"><label>Motorista</label><select id="fiscal-driver"><option value="">Nao informado</option>${state.people.filter((person) => ["Motorista", "Entregador", "Funcionario"].includes(person.type)).map((person) => `<option>${escapeHtml(person.name)}</option>`).join("")}</select></div>
+        <div class="field"><label>Transportadora</label><select id="fiscal-carrier"><option value="">Nao informado</option>${state.people.filter((person) => ["Transportadora", "Fornecedor", "Parceiro"].includes(person.type)).map((person) => `<option>${escapeHtml(person.name)}</option>`).join("")}</select></div>
+      </div>
+      <div class="field"><label>Observacoes fiscais</label><textarea id="fiscal-advanced-notes" rows="3">${isFile ? "Arquivo gerado a partir das vendas, compras, estoque e documentos fiscais do periodo." : ""}</textarea></div>
+      <div class="fiscal-note">${model} fica registrado na fila fiscal para transmissao/geracao pelo agente fiscal homologado. SPED/Sintegra geram arquivo do periodo fiscal.</div>
+    </div>
+  `;
 }
 
 function renderNfseIssueForm(serviceRules) {
@@ -2172,6 +2258,16 @@ function renderSettings() {
             <div class="field"><label>Porta ACBrMonitor</label><input id="set-acbr-port" type="number" value="${Number(state.settings.acbrPort || 3436)}" /></div>
             <div class="field"><label>URL do agente fiscal Windows</label><input id="set-acbr-api-url" value="${escapeAttr(state.settings.acbrApiUrl || "")}" placeholder="https://agente-fiscal.exemplo.com" /></div>
             <div class="field"><label>Token do agente fiscal</label><input id="set-acbr-api-token" type="password" placeholder="${state.settings.acbrApiTokenConfigured ? "Token protegido configurado" : "Informe o token seguro"}" /></div>
+            <div class="field"><label>XMLSignLib</label><input id="set-xmlsign-lib" value="${escapeAttr(state.settings.xmlSignLib || "libXml2")}" /></div>
+            <div class="field"><label>HttpLib</label><input id="set-http-lib" value="${escapeAttr(state.settings.httpLib || "WinHttp")}" /></div>
+            <div class="field"><label>CryptLib</label><input id="set-crypt-lib" value="${escapeAttr(state.settings.cryptLib || "WinCrypt")}" /></div>
+            <div class="field"><label>SSLType</label><input id="set-ssl-type" value="${escapeAttr(state.settings.sslType || "LT_TLSv1_2")}" /></div>
+            <div class="field"><label>Proxy host</label><input id="set-proxy-host" value="${escapeAttr(state.settings.proxyHost || "")}" /></div>
+            <div class="field"><label>Proxy porta</label><input id="set-proxy-port" type="number" value="${Number(state.settings.proxyPort || 0)}" /></div>
+            <div class="field"><label>Pasta XML</label><input id="set-xml-path" value="${escapeAttr(state.settings.xmlPath || "Fiscal/XML")}" /></div>
+            <div class="field"><label>Pasta PDF</label><input id="set-pdf-path" value="${escapeAttr(state.settings.pdfPath || "Fiscal/PDF")}" /></div>
+            <div class="field"><label>Pasta eventos</label><input id="set-event-path" value="${escapeAttr(state.settings.eventPath || "Fiscal/Eventos")}" /></div>
+            <div class="field"><label>Logo fiscal</label><input id="set-fiscal-logo" value="${escapeAttr(state.settings.fiscalLogo || "")}" placeholder="URL ou caminho da logo Tortela" /></div>
             <div class="field"><label>Responsavel fiscal</label><input id="set-fiscal-responsible" value="${escapeAttr(state.settings.fiscalResponsible || "")}" /></div>
             <div class="field"><label>Certificado A1</label><input id="set-certificate-name" value="${escapeAttr(state.settings.certificateName || "")}" placeholder="Nome/arquivo do certificado" /></div>
             <div class="field"><label>Senha certificado A1</label><input id="set-certificate-password" type="password" placeholder="${state.settings.certificatePasswordConfigured ? "Senha protegida configurada" : "Informar no provedor"}" /></div>
@@ -2266,6 +2362,14 @@ function renderSettings() {
           <div class="grid two">
             <div class="field"><label>Velocidade serial PDV/balanca</label><input id="set-pdv-baud-rate" type="number" value="${Number(state.settings.pdvBaudRate || 9600)}" /></div>
             <div class="field"><label>Caracteres por linha impressora</label><input id="set-printer-chars" type="number" value="${Number(state.settings.printerCharsPerLine || 48)}" /></div>
+            <div class="field"><label>Modelo balanca</label><input id="set-scale-model" value="${escapeAttr(state.settings.scaleModel || "Toledo/Filizola")}" /></div>
+            <div class="field"><label>Porta balanca</label><input id="set-scale-port" value="${escapeAttr(state.settings.scalePort || "COM1")}" /></div>
+            <div class="field"><label>Etiqueta produto</label><input id="set-label-model" value="${escapeAttr(state.settings.labelModel || "EAN13")}" /></div>
+            <div class="field"><label>Terminal padrao</label><input id="set-default-terminal" value="${escapeAttr(state.settings.defaultTerminal || "SERIE 1")}" /></div>
+            <div class="field"><label>SMTP host</label><input id="set-smtp-host" value="${escapeAttr(state.settings.smtpHost || "")}" /></div>
+            <div class="field"><label>SMTP porta</label><input id="set-smtp-port" type="number" value="${Number(state.settings.smtpPort || 587)}" /></div>
+            <div class="field"><label>Email fiscal remetente</label><input id="set-smtp-from" value="${escapeAttr(state.settings.smtpFrom || "")}" /></div>
+            <div class="field"><label>Backup automatico</label><select id="set-auto-backup"><option value="true">Sim</option><option value="false" ${state.settings.autoBackup === false ? "selected" : ""}>Nao</option></select></div>
             <div class="field"><label>Webhook geral de alertas</label><input id="set-alert-webhook" value="${escapeAttr(state.settings.alertWebhookUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>Token webhook de alertas</label><input id="set-alert-webhook-token" type="password" placeholder="${state.settings.alertWebhookTokenConfigured ? "Token protegido configurado" : "Informe se o provedor exigir"}" /></div>
             <div class="field"><label>Webhook WhatsApp</label><input id="set-whatsapp-webhook" value="${escapeAttr(state.settings.whatsappWebhookUrl || "")}" placeholder="Preencher ao escolher o provedor" /></div>
@@ -2298,6 +2402,8 @@ function renderSettings() {
             <div class="field"><label>Perfil</label><select id="user-role">${Object.keys(rolePermissions).map((role) => `<option>${role}</option>`).join("")}</select></div>
           </div>
           <div class="grid four">${rolePermissions.Administrador.map((permission) => `<label class="check-row"><input class="user-permission" type="checkbox" value="${permission}" /> ${permissionLabel(permission)}</label>`).join("")}</div>
+          <h3>Permissoes por tela</h3>
+          ${renderScreenPermissionMatrix()}
           <button class="btn primary" id="save-user" type="button">Cadastrar usuario</button>
         </div>
         <div class="form-card">
@@ -2310,8 +2416,8 @@ function renderSettings() {
         </div>
         <div class="table-wrap" style="grid-column: 1 / -1">
           <table>
-            <thead><tr><th>Usuario</th><th>Nome</th><th>Perfil</th><th>Permissoes</th><th>Status</th><th>Acoes</th></tr></thead>
-            <tbody>${users.map((user) => `<tr><td>${user.username}</td><td>${user.name}</td><td>${user.role}</td><td>${(user.permissions || rolePermissions[user.role] || []).map(permissionLabel).join(", ")}</td><td><span class="badge ${user.active === false ? "danger" : "ok"}">${user.active === false ? "Bloqueado" : "Ativo"}</span></td><td><button class="btn ${user.active === false ? "" : "danger"}" data-toggle-user="${user.id}">${user.active === false ? "Ativar" : "Bloquear"}</button></td></tr>`).join("")}</tbody>
+            <thead><tr><th>Usuario</th><th>Nome</th><th>Perfil</th><th>Permissoes</th><th>Matriz</th><th>Status</th><th>Acoes</th></tr></thead>
+            <tbody>${users.map((user) => `<tr><td>${user.username}</td><td>${user.name}</td><td>${user.role}</td><td>${(user.permissions || rolePermissions[user.role] || []).map(permissionLabel).join(", ")}</td><td>${user.screenPermissions ? "CRUD por tela" : "Padrao perfil"}</td><td><span class="badge ${user.active === false ? "danger" : "ok"}">${user.active === false ? "Bloqueado" : "Ativo"}</span></td><td><button class="btn ${user.active === false ? "" : "danger"}" data-toggle-user="${user.id}">${user.active === false ? "Ativar" : "Bloquear"}</button></td></tr>`).join("")}</tbody>
           </table>
         </div>
       </div>
@@ -3309,6 +3415,14 @@ function savePersonRecord() {
     phone: byId("person-phone").value,
     whatsapp: byId("person-whatsapp").value,
     creditLimit: Number(byId("person-credit").value || 0),
+    birthDate: byId("person-birth")?.value || "",
+    contactName: byId("person-contact")?.value || "",
+    driverLicense: byId("person-driver-license")?.value || "",
+    vehiclePlate: byId("person-vehicle-plate")?.value || "",
+    rntrc: byId("person-rntrc")?.value || "",
+    jobTitle: byId("person-job-title")?.value || "",
+    creditAlert: byId("person-credit-alert")?.value === "true",
+    paymentType: byId("person-payment-type")?.value || "",
     cep,
     address: byId("person-address").value,
     number: byId("person-number").value,
@@ -3316,6 +3430,7 @@ function savePersonRecord() {
     complement: byId("person-complement").value,
     city: byId("person-city").value,
     uf,
+    notes: byId("person-notes")?.value || "",
     active: byId("person-active").value === "true"
   };
   if (editingPersonId) Object.assign(state.people.find((person) => person.id === editingPersonId), record);
@@ -4539,6 +4654,16 @@ async function saveSettingsRecord() {
   state.settings.acbrHost = byId("set-acbr-host").value;
   state.settings.acbrPort = Number(byId("set-acbr-port").value || 3436);
   state.settings.acbrApiUrl = byId("set-acbr-api-url").value.trim().replace(/\/+$/, "");
+  state.settings.xmlSignLib = byId("set-xmlsign-lib")?.value || "libXml2";
+  state.settings.httpLib = byId("set-http-lib")?.value || "WinHttp";
+  state.settings.cryptLib = byId("set-crypt-lib")?.value || "WinCrypt";
+  state.settings.sslType = byId("set-ssl-type")?.value || "LT_TLSv1_2";
+  state.settings.proxyHost = byId("set-proxy-host")?.value || "";
+  state.settings.proxyPort = Number(byId("set-proxy-port")?.value || 0);
+  state.settings.xmlPath = byId("set-xml-path")?.value || "Fiscal/XML";
+  state.settings.pdfPath = byId("set-pdf-path")?.value || "Fiscal/PDF";
+  state.settings.eventPath = byId("set-event-path")?.value || "Fiscal/Eventos";
+  state.settings.fiscalLogo = byId("set-fiscal-logo")?.value || "";
   state.settings.fiscalResponsible = byId("set-fiscal-responsible").value;
   state.settings.certificateName = byId("set-certificate-name").value;
   state.settings.certificateExpiresAt = byId("set-certificate-expires").value;
@@ -4558,6 +4683,14 @@ async function saveSettingsRecord() {
   state.settings.district = byId("set-district").value;
   state.settings.pdvBaudRate = Number(byId("set-pdv-baud-rate").value || 9600);
   state.settings.printerCharsPerLine = Number(byId("set-printer-chars").value || 48);
+  state.settings.scaleModel = byId("set-scale-model")?.value || "";
+  state.settings.scalePort = byId("set-scale-port")?.value || "";
+  state.settings.labelModel = byId("set-label-model")?.value || "EAN13";
+  state.settings.defaultTerminal = byId("set-default-terminal")?.value || "SERIE 1";
+  state.settings.smtpHost = byId("set-smtp-host")?.value || "";
+  state.settings.smtpPort = Number(byId("set-smtp-port")?.value || 587);
+  state.settings.smtpFrom = byId("set-smtp-from")?.value || "";
+  state.settings.autoBackup = byId("set-auto-backup")?.value !== "false";
   state.settings.alertWebhookUrl = byId("set-alert-webhook").value.trim();
   state.settings.whatsappWebhookUrl = byId("set-whatsapp-webhook").value.trim();
   state.settings.emailWebhookUrl = byId("set-email-webhook").value.trim();
@@ -4768,12 +4901,20 @@ async function saveUserRecord() {
   }
   const role = byId("user-role").value;
   const selectedPermissions = [...document.querySelectorAll(".user-permission:checked")].map((input) => input.value);
+  const screenMatrix = {};
+  document.querySelectorAll(".screen-permission").forEach((input) => {
+    const screen = input.dataset.screen;
+    const action = input.dataset.action;
+    screenMatrix[screen] = screenMatrix[screen] || {};
+    screenMatrix[screen][action] = input.checked;
+  });
   const payload = {
     name: byId("user-name").value || byId("user-login").value,
     username: byId("user-login").value,
     password: byId("user-password").value,
     role,
-    permissions: selectedPermissions.length ? selectedPermissions : rolePermissions[role]
+    permissions: selectedPermissions.length ? selectedPermissions : rolePermissions[role],
+    screenPermissions: screenMatrix
   };
   if (!payload.username || !payload.password) {
     alert("Informe usuario e senha.");
@@ -4954,7 +5095,8 @@ function escapeXml(value) {
 }
 
 function createFiscalRecord() {
-  const model = currentTab === "nfe" ? "NF-e" : "NFC-e";
+  const model = fiscalTabModel(currentTab);
+  if (advancedFiscalTabs().includes(currentTab)) return createAdvancedFiscalRecord(model);
   const saleId = Number(byId("fiscal-sale-id")?.value || 0);
   const sale = (state.sales || []).find((item) => Number(item.id) === saleId);
   if (!sale || !Array.isArray(sale.items) || !sale.items.length) {
@@ -4995,6 +5137,58 @@ function createFiscalRecord() {
   audit("Documento fiscal gerado", `${model} ${row.customer} ${money(row.total)}`);
   save();
   renderShell();
+}
+
+function createAdvancedFiscalRecord(model) {
+  const customer = byId("fiscal-customer")?.value || "Consumidor Final";
+  const total = Number(byId("fiscal-total")?.value || 0);
+  const isFile = ["SPED", "Sintegra"].includes(model);
+  if (!isFile && total < 0) return alert("Informe um total valido.");
+  const row = {
+    id: nextId(state.fiscalQueue),
+    model,
+    serie: byId("fiscal-serie")?.value || "1",
+    nature: byId("fiscal-nature")?.value || (isFile ? "Arquivo fiscal" : "Transporte"),
+    status: isFile ? "Arquivo pendente" : "Pendente",
+    customer,
+    total,
+    issuedAt: new Date().toISOString(),
+    key: "",
+    protocol: "",
+    xml: "",
+    fiscalAdvanced: {
+      cfop: byId("fiscal-cfop-advanced")?.value || "",
+      referencedKey: byId("fiscal-ref-key")?.value || "",
+      periodFrom: byId("fiscal-period-from")?.value || "",
+      periodTo: byId("fiscal-period-to")?.value || "",
+      originUf: byId("fiscal-origin-uf")?.value || "",
+      destUf: byId("fiscal-dest-uf")?.value || "",
+      vehicle: byId("fiscal-vehicle")?.value || "",
+      rntrc: byId("fiscal-rntrc")?.value || "",
+      driver: byId("fiscal-driver")?.value || "",
+      carrier: byId("fiscal-carrier")?.value || "",
+      notes: byId("fiscal-advanced-notes")?.value || ""
+    }
+  };
+  row.xml = advancedFiscalXml(row);
+  state.fiscalQueue.push(row);
+  audit(`${model} gerado`, `${customer} ${isFile ? `${row.fiscalAdvanced.periodFrom} a ${row.fiscalAdvanced.periodTo}` : money(total)}`);
+  save();
+  renderShell();
+}
+
+function advancedFiscalXml(row) {
+  const advanced = row.fiscalAdvanced || {};
+  return [
+    `<TortelaFiscalAvancado modelo="${escapeXml(row.model)}" ambiente="${escapeXml(state.settings.fiscalEnvironment || "Homologacao")}">`,
+    `  <Identificacao serie="${escapeXml(row.serie || "1")}" natureza="${escapeXml(row.nature || "")}" emissao="${escapeXml(row.issuedAt || "")}" />`,
+    `  <Participante nome="${escapeXml(row.customer || "")}" />`,
+    `  <Operacao cfop="${escapeXml(advanced.cfop || "")}" total="${Number(row.total || 0).toFixed(2)}" chaveReferenciada="${escapeXml(advanced.referencedKey || "")}" />`,
+    `  <Periodo inicio="${escapeXml(advanced.periodFrom || "")}" fim="${escapeXml(advanced.periodTo || "")}" />`,
+    `  <Transporte ufOrigem="${escapeXml(advanced.originUf || "")}" ufDestino="${escapeXml(advanced.destUf || "")}" veiculo="${escapeXml(advanced.vehicle || "")}" rntrc="${escapeXml(advanced.rntrc || "")}" motorista="${escapeXml(advanced.driver || "")}" transportadora="${escapeXml(advanced.carrier || "")}" />`,
+    `  <Observacoes>${escapeXml(advanced.notes || "")}</Observacoes>`,
+    `</TortelaFiscalAvancado>`
+  ].join("\n");
 }
 
 function createNfseRecord() {
