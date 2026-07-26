@@ -1230,6 +1230,224 @@ header.topbar .top-right .central-top-action:hover {
   }
 }
 
+/* Ajuste final: o totem deve ser uma experiencia vertical, mesmo aberto em monitor horizontal. */
+.tortela-kiosk-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 14% 18%, rgba(250, 204, 21, 0.16), transparent 24%),
+    radial-gradient(circle at 84% 82%, rgba(250, 204, 21, 0.14), transparent 28%),
+    #06101f;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.tortela-kiosk-page #kiosk-app {
+  width: min(100vw, calc(100vh * 0.5625));
+  height: min(100vh, calc(100vw * 1.7778));
+  max-width: 720px;
+  max-height: 1280px;
+  background: #07182d;
+  overflow: hidden;
+  box-shadow: 0 0 0 10px #111827, 0 30px 90px rgba(0, 0, 0, 0.55);
+}
+
+.tortela-kiosk-page .kiosk-stage,
+.tortela-kiosk-page .kiosk-app {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+.tortela-kiosk-page .kiosk-mcd-welcome {
+  padding: 18px;
+}
+
+.tortela-kiosk-page .kiosk-mcd-panel {
+  width: 100%;
+  min-height: 100%;
+  border-radius: 30px;
+  padding: 26px;
+  grid-template-rows: auto minmax(190px, 1fr) auto auto auto;
+}
+
+.tortela-kiosk-page .kiosk-mcd-title {
+  align-self: center;
+}
+
+.tortela-kiosk-page .kiosk-mcd-title h1 {
+  font-size: 54px;
+}
+
+.tortela-kiosk-page .kiosk-mcd-choice-grid,
+.tortela-kiosk-page .kiosk-choice-grid,
+.tortela-kiosk-page .kiosk-pay-grid,
+.tortela-kiosk-page .kiosk-upsell-grid,
+.tortela-kiosk-page .kiosk-action-row,
+.tortela-kiosk-page .kiosk-custom-card {
+  grid-template-columns: 1fr;
+}
+
+.tortela-kiosk-page .kiosk-mcd-choice {
+  min-height: 188px;
+}
+
+.tortela-kiosk-page .kiosk-mcd-bottom {
+  flex-wrap: wrap;
+}
+
+.tortela-kiosk-page .kiosk-help-box {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #07182d;
+  color: #fff;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.tortela-kiosk-page .kiosk-mcd-bottom .active,
+.tortela-kiosk-page .kiosk-mcd-top .active {
+  background: #ffd21f;
+  color: #07182d;
+}
+
+.tortela-kiosk-page .kiosk-mcd-welcome.accessible .kiosk-mcd-panel {
+  padding-top: 90px;
+}
+
+.tortela-kiosk-page .kiosk-mcd-welcome.accessible .kiosk-mcd-title h1 {
+  font-size: 48px;
+}
+
+.tortela-kiosk-page .kiosk-top {
+  height: 92px;
+  grid-template-columns: 128px minmax(0, 1fr) 112px;
+  gap: 8px;
+  padding: 12px;
+}
+
+.tortela-kiosk-page .kiosk-logo-button,
+.tortela-kiosk-page .kiosk-cart-pill {
+  min-height: 62px;
+}
+
+.tortela-kiosk-page .kiosk-logo-button img {
+  max-width: 104px;
+}
+
+.tortela-kiosk-page .kiosk-progress {
+  gap: 4px;
+}
+
+.tortela-kiosk-page .kiosk-progress span {
+  min-height: 36px;
+  font-size: 11px;
+}
+
+.tortela-kiosk-page .kiosk-menu-layout {
+  height: calc(100% - 92px);
+  grid-template-columns: 104px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 230px;
+  padding: 12px;
+  gap: 12px;
+}
+
+.tortela-kiosk-page .kiosk-sidebar {
+  grid-row: 1 / 3;
+  border-radius: 22px;
+  padding: 10px;
+}
+
+.tortela-kiosk-page .kiosk-sidebar button {
+  min-height: 58px;
+  font-size: 13px;
+}
+
+.tortela-kiosk-page .kiosk-menu-area {
+  border-radius: 22px;
+  padding: 12px;
+}
+
+.tortela-kiosk-page .kiosk-menu-banner {
+  min-height: 92px;
+  padding: 16px;
+}
+
+.tortela-kiosk-page .kiosk-menu-banner h1 {
+  font-size: 32px;
+}
+
+.tortela-kiosk-page .kiosk-menu-grid {
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.tortela-kiosk-page .kiosk-menu-product {
+  min-height: 190px;
+  grid-template-columns: 128px minmax(0, 1fr);
+  border-radius: 22px;
+}
+
+.tortela-kiosk-page .kiosk-menu-product h2 {
+  font-size: 22px;
+}
+
+.tortela-kiosk-page .kiosk-menu-product p {
+  display: none;
+}
+
+.tortela-kiosk-page .kiosk-product-photo {
+  min-height: 128px;
+}
+
+.tortela-kiosk-page .kiosk-mini-cart {
+  grid-column: 2;
+  min-height: 0;
+  border-radius: 22px;
+  padding: 14px;
+}
+
+.tortela-kiosk-page .kiosk-mini-cart .kiosk-cart-list {
+  max-height: 80px;
+}
+
+.tortela-kiosk-page .kiosk-choice-panel,
+.tortela-kiosk-page .kiosk-cart-panel,
+.tortela-kiosk-page .kiosk-payment-panel,
+.tortela-kiosk-page .kiosk-custom-card {
+  width: calc(100% - 24px);
+  margin: 12px;
+  padding: 24px;
+  max-height: calc(100% - 116px);
+  overflow: auto;
+}
+
+.tortela-kiosk-page .kiosk-choice-panel h1,
+.tortela-kiosk-page .kiosk-section-title h1,
+.tortela-kiosk-page .kiosk-custom-form h1 {
+  font-size: 38px;
+}
+
+.tortela-kiosk-page .kiosk-choice,
+.tortela-kiosk-page .kiosk-pay-grid button,
+.tortela-kiosk-page .kiosk-upsell-card {
+  min-height: 138px;
+}
+
+.tortela-kiosk-page .kiosk-custom-media,
+.tortela-kiosk-page .kiosk-custom-photo {
+  min-height: 260px;
+}
+
+.tortela-kiosk-page .kiosk-done-card {
+  width: calc(100% - 36px);
+  padding: 34px;
+}
+
+.tortela-kiosk-page .kiosk-done-card h1 {
+  font-size: 110px;
+}
+
 .tortela-kiosk-page,
 .tortela-display-page {
   min-height: 100vh;

@@ -11,6 +11,9 @@ let customerDocument = "";
 let selectedProduct = null;
 let customDraft = {};
 let lastOrder = null;
+let accessibleMode = false;
+let helpOpen = false;
+let language = "PT";
 
 const byId = (id) => document.getElementById(id);
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -39,6 +42,11 @@ function productCategory(product) {
   if (text.includes("bolo")) return "Bolos";
   if (text.includes("promoc") || text.includes("oferta")) return "Ofertas";
   return "Tortas";
+}
+
+function publicUnitName(unit) {
+  const name = String(unit?.tradeName || "").trim();
+  return !name || /cliente\s*exemplo/i.test(name) ? "Tortela" : name;
 }
 
 function categories() {
@@ -127,32 +135,33 @@ function header(current = 0) {
 
 function renderWelcome() {
   return `
-    <main class="kiosk-stage kiosk-welcome kiosk-mcd-welcome">
+    <main class="kiosk-stage kiosk-welcome kiosk-mcd-welcome ${accessibleMode ? "accessible" : ""}">
       <section class="kiosk-mcd-panel">
         <div class="kiosk-mcd-top">
           <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-          <button type="button">Ajuda</button>
+          <button type="button" data-help-toggle>${helpOpen ? "Fechar ajuda" : "Ajuda"}</button>
         </div>
         <div class="kiosk-mcd-title">
-          <span>${escapeHtml(catalog.nearest?.tradeName || "Tortela")}</span>
-          <h1>Onde voce vai saborear hoje?</h1>
+          <span>${escapeHtml(publicUnitName(catalog.nearest))}</span>
+          <h1>${language === "EN" ? "Where will you enjoy it today?" : "Onde voce vai saborear hoje?"}</h1>
         </div>
+        ${helpOpen ? `<div class="kiosk-help-box">Toque em uma das opcoes grandes para iniciar. Depois escolha os produtos, revise o carrinho e finalize o pagamento.</div>` : ""}
         <div class="kiosk-mcd-choice-grid">
           <button class="kiosk-mcd-choice" data-welcome-mode="Comer na loja">
             <span class="kiosk-mcd-icon">IN</span>
-            <strong>Comer na loja</strong>
-            <small>Pedido para consumir aqui</small>
+            <strong>${language === "EN" ? "Eat in" : "Comer na loja"}</strong>
+            <small>${language === "EN" ? "Order to enjoy here" : "Pedido para consumir aqui"}</small>
           </button>
           <button class="kiosk-mcd-choice" data-welcome-mode="Retirar para viagem">
             <span class="kiosk-mcd-icon">OUT</span>
-            <strong>Retirar / viagem</strong>
-            <small>Pedido embalado para levar</small>
+            <strong>${language === "EN" ? "Take out" : "Retirar / viagem"}</strong>
+            <small>${language === "EN" ? "Packed to go" : "Pedido embalado para levar"}</small>
           </button>
         </div>
         <div class="kiosk-mcd-bottom">
-          <button type="button">PT</button>
-          <button type="button">EN</button>
-          <button type="button">Acessibilidade</button>
+          <button type="button" class="${language === "PT" ? "active" : ""}" data-language="PT">PT</button>
+          <button type="button" class="${language === "EN" ? "active" : ""}" data-language="EN">EN</button>
+          <button type="button" class="${accessibleMode ? "active" : ""}" data-accessibility>Acessibilidade</button>
         </div>
       </section>
     </main>
@@ -403,63 +412,76 @@ function render() {
                 : screen === "review" ? renderReview()
                   : screen === "payment" ? renderPayment()
                     : renderSuccess();
-  bindEvents();
 }
 
-function bindEvents() {
-  document.querySelectorAll("[data-screen]").forEach((button) => button.addEventListener("click", () => go(button.dataset.screen)));
-  document.querySelectorAll("[data-welcome-mode]").forEach((button) => button.addEventListener("click", () => {
-    orderMode = button.dataset.welcomeMode;
-    go("loyalty");
-  }));
-  document.querySelectorAll("[data-order-mode]").forEach((button) => button.addEventListener("click", () => {
-    orderMode = button.dataset.orderMode;
-    render();
-  }));
-  byId("save-cpf")?.addEventListener("click", () => {
+document.addEventListener("click", (event) => {
+  const target = event.target.closest("button");
+  if (!target) return;
+  if (target.dataset.screen) return go(target.dataset.screen);
+  if (target.dataset.welcomeMode) {
+    orderMode = target.dataset.welcomeMode;
+    return go("loyalty");
+  }
+  if (target.dataset.orderMode) {
+    orderMode = target.dataset.orderMode;
+    return render();
+  }
+  if (target.id === "save-cpf") {
     customerDocument = byId("kiosk-cpf")?.value || "";
-    go("menu");
-  });
-  document.querySelectorAll("[data-category]").forEach((button) => button.addEventListener("click", () => {
-    activeCategory = button.dataset.category || "Todos";
-    render();
-  }));
-  document.querySelectorAll("[data-product]").forEach((button) => button.addEventListener("click", () => selectProduct(button.dataset.product)));
-  document.querySelectorAll("[data-size]").forEach((button) => button.addEventListener("click", () => {
-    customDraft.size = button.dataset.size;
-    render();
-  }));
-  document.querySelectorAll("[data-extra]").forEach((button) => button.addEventListener("click", () => {
-    const extra = button.dataset.extra;
+    return go("menu");
+  }
+  if (target.dataset.category) {
+    activeCategory = target.dataset.category || "Todos";
+    return render();
+  }
+  if (target.dataset.product) return selectProduct(target.dataset.product);
+  if (target.dataset.size) {
+    customDraft.size = target.dataset.size;
+    return render();
+  }
+  if (target.dataset.extra) {
+    const extra = target.dataset.extra;
     customDraft.extras = customDraft.extras.includes(extra) ? customDraft.extras.filter((item) => item !== extra) : [...customDraft.extras, extra];
-    render();
-  }));
-  document.querySelectorAll("[data-draft-qty]").forEach((button) => button.addEventListener("click", () => {
-    customDraft.qty = Math.max(1, Number(customDraft.qty || 1) + Number(button.dataset.draftQty || 0));
-    render();
-  }));
-  byId("add-custom")?.addEventListener("click", () => {
+    return render();
+  }
+  if (target.dataset.draftQty) {
+    customDraft.qty = Math.max(1, Number(customDraft.qty || 1) + Number(target.dataset.draftQty || 0));
+    return render();
+  }
+  if (target.id === "add-custom") {
     customDraft.coverage = byId("kiosk-coverage")?.value || customDraft.coverage || "";
     customDraft.note = byId("kiosk-note")?.value || "";
-    addCustomizedProduct();
-  });
-  document.querySelectorAll("[data-cart-qty]").forEach((button) => button.addEventListener("click", () => changeCartQty(Number(button.dataset.cartQty), Number(button.dataset.delta || 0))));
-  document.querySelectorAll("[data-remove]").forEach((button) => button.addEventListener("click", () => removeCartItem(Number(button.dataset.remove))));
-  document.querySelectorAll("[data-payment]").forEach((button) => button.addEventListener("click", () => {
-    paymentMethod = button.dataset.payment;
-    render();
-  }));
-  byId("confirm-order")?.addEventListener("click", submitOrder);
-  byId("new-order")?.addEventListener("click", () => {
+    return addCustomizedProduct();
+  }
+  if (target.dataset.cartQty) return changeCartQty(Number(target.dataset.cartQty), Number(target.dataset.delta || 0));
+  if (target.dataset.remove) return removeCartItem(Number(target.dataset.remove));
+  if (target.dataset.payment) {
+    paymentMethod = target.dataset.payment;
+    return render();
+  }
+  if (target.id === "confirm-order") return submitOrder();
+  if (target.id === "new-order") {
     cart = [];
     selectedProduct = null;
     customDraft = {};
     lastOrder = null;
     paymentMethod = "PIX";
     screen = "welcome";
-    render();
-  });
-}
+    return render();
+  }
+  if (target.dataset.language) {
+    language = target.dataset.language;
+    return render();
+  }
+  if (target.hasAttribute("data-accessibility")) {
+    accessibleMode = !accessibleMode;
+    return render();
+  }
+  if (target.hasAttribute("data-help-toggle")) {
+    helpOpen = !helpOpen;
+    return render();
+  }
+});
 
 async function submitOrder() {
   try {
