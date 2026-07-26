@@ -143,7 +143,7 @@ function renderWelcome() {
         </div>
         <div class="kiosk-mcd-title">
           <span>${escapeHtml(publicUnitName(catalog.nearest))}</span>
-          <h1>${language === "EN" ? "Where will you enjoy it today?" : "Onde voce vai saborear hoje?"}</h1>
+          <h1>${language === "EN" ? "Where will you eat today?" : "Onde voce vai comer hoje?"}</h1>
         </div>
         ${helpOpen ? `<div class="kiosk-help-box">Toque em uma das opcoes grandes para iniciar. Depois escolha os produtos, revise o carrinho e finalize o pagamento.</div>` : ""}
         <div class="kiosk-mcd-choice-grid">
