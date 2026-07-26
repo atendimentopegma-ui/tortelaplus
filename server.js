@@ -1464,6 +1464,40 @@ function applyOnlineOrderStock(tenantState, items, saleId) {
   return [];
 }
 
+function nextKioskTicketNumber(tenantState) {
+  const currentDay = today();
+  const numbers = (tenantState.sales || [])
+    .filter((sale) => sale.kioskOrder && sale.date === currentDay)
+    .map((sale) => Number(sale.kioskTicketNumber) || 0);
+  return Math.max(0, ...numbers) + 1;
+}
+
+function enqueueSaleNfce(tenantState, sale, status = "Aguardando transmissao") {
+  tenantState.fiscalQueue = Array.isArray(tenantState.fiscalQueue) ? tenantState.fiscalQueue : [];
+  const row = {
+    id: Math.max(0, ...tenantState.fiscalQueue.map((item) => Number(item.id) || 0)) + 1,
+    model: "NFC-e",
+    serie: "1",
+    nature: "Venda de mercadoria",
+    status,
+    customer: sale.customer || "Consumidor Final",
+    customerDocument: sale.customerDocument || "",
+    saleId: sale.id,
+    issuedAt: new Date().toISOString(),
+    items: structuredClone(sale.items || []),
+    payments: structuredClone(sale.payments || [{ method: sale.payment || "PIX", value: sale.total || 0 }]),
+    payment: sale.payment || "PIX",
+    discount: 0,
+    addition: 0,
+    total: sale.total || 0,
+    key: "",
+    protocol: "",
+    xml: ""
+  };
+  tenantState.fiscalQueue.push(row);
+  return row;
+}
+
 function bearerToken(req) {
   const authorization = req.headers.authorization || "";
   if (!authorization.toLowerCase().startsWith("bearer ")) return "";
@@ -2389,6 +2423,124 @@ async function handleApi(req, res, urlPath) {
     writeTenantState(tenant.tenantCode, tenantState);
     appendTenantAudit(tenant.tenantCode, "Pedido online recebido", `${customer.name} ${moneyRound(total)}`, "loja-online");
     sendJson(res, 201, { ok: true, orderId: sale.id, tenantCode: tenant.tenantCode, unit: tenant.tradeName, total, payment, paymentInfo });
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/public/kiosk/orders") {
+    const body = await readBody(req);
+    const tenantCode = normalizeTenantCode(body.tenantCode || "");
+    const tenant = findTenant(readProvider(), tenantCode);
+    if (!tenant || tenant.status !== "Ativo") {
+      sendJson(res, 404, { ok: false, error: "Loja indisponivel para o totem." });
+      return;
+    }
+    const tenantState = readTenantState(tenant.tenantCode);
+    const items = Array.isArray(body.items) ? body.items : [];
+    const normalizedItems = [];
+    for (const item of items) {
+      const product = (tenantState.products || []).find((row) => Number(row.id) === Number(item.productId) && row.active !== false);
+      const qty = Number(item.qty || 0);
+      if (!product || qty <= 0 || Number(product.price || 0) <= 0) continue;
+      const price = effectiveProductPrice(product, qty);
+      normalizedItems.push({
+        productId: product.id,
+        id: product.id,
+        description: product.description,
+        qty,
+        unit: product.unit || "UN",
+        price,
+        coverage: "",
+        note: "",
+        total: moneyRound(qty * price)
+      });
+    }
+    if (!normalizedItems.length) {
+      sendJson(res, 400, { ok: false, error: "Inclua ao menos um produto valido no pedido do totem." });
+      return;
+    }
+    const payment = ["PIX", "Debito", "Credito"].includes(body.paymentMethod) ? body.paymentMethod : "PIX";
+    const total = moneyRound(normalizedItems.reduce((sum, item) => sum + Number(item.total || 0), 0));
+    tenantState.sales = Array.isArray(tenantState.sales) ? tenantState.sales : [];
+    tenantState.receivables = Array.isArray(tenantState.receivables) ? tenantState.receivables : [];
+    const sale = {
+      id: Math.max(0, ...tenantState.sales.map((row) => Number(row.id) || 0)) + 1,
+      date: today(),
+      createdAt: new Date().toISOString(),
+      customer: "Consumidor Totem",
+      customerDocument: String(body.customerDocument || "").replace(/\D/g, ""),
+      seller: "Totem",
+      total,
+      type: "Totem",
+      status: "Preparando",
+      payment,
+      payments: [{ method: payment, value: total }],
+      paymentOnline: true,
+      paymentStatus: "Pendente",
+      paymentInfo: { method: payment, online: true, status: "Pendente" },
+      due: today(),
+      onlineOrder: true,
+      kioskOrder: true,
+      kioskTicketNumber: nextKioskTicketNumber(tenantState),
+      delivery: "Retirada",
+      deliveryStore: { tenantCode: tenant.tenantCode, tradeName: tenant.tradeName },
+      customerData: { name: "Consumidor Totem", document: String(body.customerDocument || "").replace(/\D/g, "") },
+      items: normalizedItems
+    };
+    const paymentInfo = await createOnlinePaymentCharge(tenant.tenantCode, tenantState, sale, payment);
+    if (paymentInfo.status === "Erro no gateway") {
+      sendJson(res, 503, { ok: false, error: paymentInfo.message || "Nao foi possivel gerar o pagamento online." });
+      return;
+    }
+    sale.paymentInfo = paymentInfo;
+    sale.paymentStatus = paymentInfo.status || "Pendente";
+    const shortage = applyOnlineOrderStock(tenantState, normalizedItems, sale.id);
+    if (shortage.length) {
+      sendJson(res, 409, { ok: false, error: `Estoque insuficiente na loja selecionada: ${shortage.join("; ")}` });
+      return;
+    }
+    tenantState.sales.push(sale);
+    tenantState.receivables.push({
+      id: Math.max(0, ...tenantState.receivables.map((row) => Number(row.id) || 0)) + 1,
+      customer: sale.customer,
+      due: today(),
+      value: total,
+      paidValue: 0,
+      paid: false,
+      accountCode: "3.1.01",
+      history: `Totem ${sale.kioskTicketNumber} - ${payment}`,
+      sourceSaleId: sale.id
+    });
+    const fiscalRow = enqueueSaleNfce(tenantState, sale);
+    writeTenantState(tenant.tenantCode, tenantState);
+    appendTenantAudit(tenant.tenantCode, "Pedido do totem recebido", `Senha ${sale.kioskTicketNumber} - ${moneyRound(total)}`, "totem");
+    sendJson(res, 201, { ok: true, orderId: sale.id, ticketNumber: sale.kioskTicketNumber, tenantCode: tenant.tenantCode, unit: tenant.tradeName, total, payment, paymentInfo, fiscalId: fiscalRow.id });
+    return;
+  }
+
+  if (req.method === "GET" && urlPath === "/api/public/kiosk/orders") {
+    const url = new URL(req.url, "http://localhost");
+    const tenantCode = normalizeTenantCode(url.searchParams.get("unidade") || "");
+    const tenant = findTenant(readProvider(), tenantCode);
+    if (!tenant || tenant.status !== "Ativo") {
+      sendJson(res, 404, { ok: false, error: "Loja indisponivel para o telao." });
+      return;
+    }
+    const tenantState = readTenantState(tenant.tenantCode);
+    const orders = (tenantState.sales || [])
+      .filter((sale) => sale.kioskOrder)
+      .sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)))
+      .slice(0, 40)
+      .map((sale) => ({
+        id: sale.id,
+        ticketNumber: sale.kioskTicketNumber,
+        status: sale.status || "Preparando",
+        total: sale.total || 0,
+        payment: sale.payment || "PIX",
+        paymentStatus: sale.paymentStatus || "Pendente",
+        createdAt: sale.createdAt || "",
+        items: (sale.items || []).map((item) => ({ description: item.description, qty: item.qty }))
+      }));
+    sendJson(res, 200, { ok: true, tenantCode: tenant.tenantCode, unit: tenant.tradeName, orders });
     return;
   }
 

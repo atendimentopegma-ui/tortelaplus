@@ -368,6 +368,436 @@ header.topbar .top-right .central-top-action:hover {
   padding: 16px;
 }
 
+.tortela-kiosk-page,
+.tortela-display-page {
+  min-height: 100vh;
+  background: #061a32;
+  color: #07162f;
+  overflow-x: hidden;
+}
+
+.kiosk-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(280px, 34vw) minmax(420px, 1fr) minmax(280px, 28vw);
+  gap: 22px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 18% 88%, rgba(250, 204, 21, 0.95) 0 0, transparent 22%),
+    radial-gradient(circle at 96% 6%, rgba(255, 255, 255, 0.36) 0 0, transparent 20%),
+    linear-gradient(135deg, rgba(250, 204, 21, 0.92), rgba(255, 255, 255, 0.95) 44%, rgba(8, 33, 64, 0.98));
+  position: relative;
+}
+
+.kiosk-shell::before,
+.display-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    url("../assets/tortela/totem-bg.png") top center / cover no-repeat,
+    linear-gradient(135deg, #facc15, #fff7cc);
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.kiosk-shell::after,
+.display-shell::after {
+  content: "";
+  position: fixed;
+  width: 520px;
+  height: 520px;
+  right: -140px;
+  bottom: -160px;
+  border: 2px solid rgba(250, 204, 21, 0.38);
+  border-radius: 50%;
+  box-shadow: 0 0 0 34px rgba(250, 204, 21, 0.08), 0 0 0 72px rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.kiosk-hero,
+.kiosk-menu,
+.kiosk-order,
+.kiosk-payment-card,
+.kiosk-success-card,
+.display-column {
+  position: relative;
+  z-index: 1;
+}
+
+.kiosk-hero {
+  min-height: calc(100vh - 56px);
+  border-radius: 28px;
+  padding: 34px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 246, 183, 0.86)),
+    url("../assets/tortela/totem-bg.png") top center / cover no-repeat;
+  box-shadow: 0 28px 70px rgba(6, 26, 50, 0.22);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.kiosk-brand {
+  width: 220px;
+  min-height: 116px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.44);
+  margin-bottom: auto;
+}
+
+.kiosk-brand img,
+.kiosk-success-card img,
+.display-header img {
+  max-width: 180px;
+  height: auto;
+}
+
+.kiosk-hero span,
+.display-header span {
+  color: #00749a;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.kiosk-hero h1 {
+  font-size: 46px;
+  line-height: 1.04;
+  margin: 0;
+  color: #061a32;
+}
+
+.kiosk-hero p {
+  max-width: 410px;
+  font-size: 20px;
+  color: #25364f;
+}
+
+.kiosk-menu {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 18px;
+}
+
+.kiosk-category-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.kiosk-category-row button,
+.kiosk-payment-methods button {
+  border: 0;
+  border-radius: 999px;
+  padding: 18px 24px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #061a32;
+  font-weight: 900;
+  box-shadow: 0 12px 30px rgba(6, 26, 50, 0.12);
+}
+
+.kiosk-category-row .active,
+.kiosk-payment-methods .active,
+.kiosk-primary {
+  background: linear-gradient(135deg, #facc15, #fff15f);
+  color: #061a32;
+}
+
+.kiosk-products {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 18px;
+  align-content: start;
+}
+
+.kiosk-product {
+  min-height: 212px;
+  border: 0;
+  border-radius: 26px;
+  padding: 22px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.92);
+  color: #061a32;
+  box-shadow: 0 18px 42px rgba(6, 26, 50, 0.16);
+  display: grid;
+  gap: 10px;
+  align-content: space-between;
+}
+
+.kiosk-product-icon {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: #061a32;
+  color: #facc15;
+  font-weight: 900;
+}
+
+.kiosk-product strong {
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.kiosk-product small,
+.kiosk-cart-row small {
+  color: #607089;
+  font-weight: 800;
+}
+
+.kiosk-product b {
+  font-size: 28px;
+}
+
+.kiosk-order,
+.kiosk-payment-card,
+.kiosk-success-card {
+  border-radius: 28px;
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 26px 70px rgba(6, 26, 50, 0.2);
+}
+
+.kiosk-order {
+  min-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.kiosk-order h2,
+.kiosk-payment-card h1 {
+  margin: 0;
+  font-size: 34px;
+}
+
+.kiosk-cart-list,
+.kiosk-review {
+  display: grid;
+  gap: 12px;
+}
+
+.kiosk-cart-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #fff8d6;
+}
+
+.kiosk-stepper {
+  display: grid;
+  grid-template-columns: 46px 34px 46px;
+  align-items: center;
+  text-align: center;
+  font-weight: 900;
+}
+
+.kiosk-stepper button,
+.kiosk-back {
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: #061a32;
+  color: #fff;
+  font-weight: 900;
+}
+
+.kiosk-total {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 18px;
+  border-top: 1px solid #eadca1;
+}
+
+.kiosk-total span {
+  color: #607089;
+  font-weight: 900;
+}
+
+.kiosk-total strong {
+  font-size: 34px;
+}
+
+.kiosk-primary {
+  min-height: 72px;
+  border: 0;
+  border-radius: 20px;
+  font-size: 22px;
+  font-weight: 900;
+  box-shadow: 0 16px 36px rgba(250, 204, 21, 0.28);
+}
+
+.kiosk-primary:disabled {
+  opacity: 0.48;
+}
+
+.kiosk-payment-shell {
+  grid-template-columns: minmax(320px, 760px);
+  place-content: center;
+}
+
+.kiosk-payment-card {
+  display: grid;
+  gap: 22px;
+}
+
+.kiosk-payment-methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kiosk-cpf {
+  display: grid;
+  gap: 8px;
+  color: #061a32;
+  font-weight: 900;
+}
+
+.kiosk-cpf input {
+  min-height: 60px;
+  border-radius: 16px;
+  border: 1px solid #eadca1;
+  padding: 0 18px;
+  font-size: 22px;
+}
+
+.kiosk-success {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: linear-gradient(135deg, #facc15, #fff7cc 42%, #061a32);
+}
+
+.kiosk-success-card {
+  width: min(680px, 100%);
+  text-align: center;
+  display: grid;
+  gap: 18px;
+}
+
+.kiosk-success-card h1 {
+  margin: 0;
+  font-size: 128px;
+  line-height: 0.9;
+  color: #061a32;
+}
+
+.display-shell {
+  min-height: 100vh;
+  padding: 34px;
+  background: linear-gradient(135deg, #061a32, #08294f 48%, #facc15);
+  position: relative;
+}
+
+.display-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 28px;
+  color: #fff;
+}
+
+.display-header img {
+  padding: 14px;
+  border-radius: 18px;
+  background: #fff8d6;
+}
+
+.display-header h1 {
+  margin: 0;
+  font-size: 48px;
+}
+
+.display-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.display-column {
+  min-height: calc(100vh - 180px);
+  border-radius: 28px;
+  padding: 28px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.display-column.ready {
+  background: rgba(255, 248, 214, 0.96);
+}
+
+.display-column h2 {
+  margin: 0 0 20px;
+  font-size: 46px;
+  color: #061a32;
+}
+
+.display-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 18px;
+}
+
+.display-ticket {
+  min-height: 160px;
+  border-radius: 26px;
+  padding: 18px;
+  display: grid;
+  place-items: center;
+  background: #061a32;
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 18px 40px rgba(6, 26, 50, 0.18);
+}
+
+.display-column.ready .display-ticket {
+  background: linear-gradient(135deg, #facc15, #fff15f);
+  color: #061a32;
+}
+
+.display-ticket strong {
+  font-size: 74px;
+  line-height: 0.95;
+}
+
+.display-ticket span {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+@media (max-width: 1100px) {
+  .kiosk-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .kiosk-hero,
+  .kiosk-order {
+    min-height: auto;
+  }
+
+  .kiosk-products,
+  .display-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .product-hidden-form {
   display: none;
 }
