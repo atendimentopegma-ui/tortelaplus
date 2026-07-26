@@ -4553,3 +4553,231 @@ body.tortela-kiosk-page .kiosk-done-card {
 body.tortela-kiosk-page .kiosk-done-card h1 {
   font-size: 88px;
 }
+
+/* Totem v5 - inspirado no fluxo de autoatendimento fast-food */
+body.tortela-kiosk-page #kiosk-app {
+  max-width: 640px;
+  max-height: 1138px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-welcome {
+  padding: 0;
+  background: #101923;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-panel {
+  border-radius: 0;
+  padding: 34px 30px 24px;
+  background:
+    linear-gradient(180deg, rgba(16, 25, 35, 0.92), rgba(16, 25, 35, 0.96)),
+    url("../assets/tortela/totem-bg.png") center / cover no-repeat;
+  box-shadow: none;
+  grid-template-rows: auto 1fr auto auto;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-top {
+  justify-content: center;
+  position: relative;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-top img {
+  width: 190px;
+  max-height: 112px;
+  background: #fff8bf;
+  border-radius: 22px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-top button {
+  position: absolute;
+  right: 0;
+  top: 10px;
+  min-height: 42px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+body.tortela-kiosk-page .kiosk-mcd-title {
+  color: #fff;
+  display: grid;
+  align-content: end;
+  padding-bottom: 18px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-title span {
+  color: #facc15;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-title h1 {
+  color: #fff;
+  font-size: 42px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-choice-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-choice {
+  min-height: 230px;
+  grid-template-columns: 1fr;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-choice strong {
+  font-size: 25px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-choice small {
+  font-size: 14px;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-bottom button {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+body.tortela-kiosk-page .kiosk-mcd-bottom .active {
+  background: #facc15;
+  color: #101923;
+}
+
+body.tortela-kiosk-page .kiosk-top {
+  height: 84px;
+  grid-template-columns: 92px 1fr 110px;
+  background: #ffffff;
+}
+
+body.tortela-kiosk-page .kiosk-step-title {
+  background: transparent;
+  color: #101923;
+  font-size: 22px;
+}
+
+body.tortela-kiosk-page .kiosk-menu-simple {
+  height: calc(100% - 84px);
+  padding: 12px;
+  grid-template-columns: 86px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: #f4f5f7;
+}
+
+body.tortela-kiosk-page .kiosk-menu-head {
+  grid-column: 2;
+  min-height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #101923;
+  box-shadow: inset 0 0 0 1px #e6ebf0;
+}
+
+body.tortela-kiosk-page .kiosk-menu-head span {
+  color: #047292;
+}
+
+body.tortela-kiosk-page .kiosk-menu-head h1 {
+  color: #101923;
+  font-size: 30px;
+}
+
+body.tortela-kiosk-page .kiosk-menu-head strong {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #facc15;
+  font-size: 26px;
+}
+
+body.tortela-kiosk-page .kiosk-category-strip {
+  grid-row: 1 / 4;
+  grid-column: 1;
+  display: grid;
+  grid-auto-rows: minmax(68px, auto);
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+}
+
+body.tortela-kiosk-page .kiosk-category-strip button {
+  width: 100%;
+  min-height: 68px;
+  border-radius: 18px;
+  padding: 6px;
+  white-space: normal;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+body.tortela-kiosk-page .kiosk-menu-grid {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+body.tortela-kiosk-page .kiosk-menu-product {
+  min-height: 238px;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 112px minmax(0, 1fr) 48px;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+body.tortela-kiosk-page .kiosk-product-photo {
+  width: 100%;
+  height: 112px;
+  min-height: 112px;
+  border-radius: 16px;
+}
+
+body.tortela-kiosk-page .kiosk-product-info {
+  min-height: 0;
+}
+
+body.tortela-kiosk-page .kiosk-menu-product h2 {
+  font-size: 17px;
+  line-height: 1.08;
+  margin: 3px 0;
+}
+
+body.tortela-kiosk-page .kiosk-menu-product strong {
+  font-size: 21px;
+}
+
+body.tortela-kiosk-page .kiosk-menu-product button {
+  min-height: 48px;
+  border-radius: 15px;
+  font-size: 17px;
+}
+
+body.tortela-kiosk-page .kiosk-menu-footer {
+  grid-column: 2;
+  min-height: 64px;
+  border-radius: 18px;
+}
+
+@media (max-width: 520px) {
+  body.tortela-kiosk-page .kiosk-mcd-choice-grid,
+  body.tortela-kiosk-page .kiosk-menu-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.tortela-kiosk-page .kiosk-mcd-choice {
+    min-height: 160px;
+  }
+}

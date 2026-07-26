@@ -212,7 +212,7 @@ function productCard(product) {
   return `
     <article class="kiosk-menu-product">
       ${productImage(product)}
-      <div>
+      <div class="kiosk-product-info">
         <small>${escapeHtml(productCategory(product))}</small>
         <h2>${escapeHtml(product.description)}</h2>
         <strong>${money(product.price)}</strong>
@@ -229,8 +229,8 @@ function renderMenu() {
       ${header(2)}
       <section class="kiosk-menu-simple">
         <div class="kiosk-menu-head">
-          <span>Cardapio Tortela</span>
-          <h1>${escapeHtml(activeCategory)}</h1>
+          <div><span>Cardapio Tortela</span><h1>${escapeHtml(activeCategory)}</h1></div>
+          <strong>${visible.length}</strong>
         </div>
         <nav class="kiosk-category-strip">
           ${categories().map((category) => `<button class="${activeCategory === category ? "active" : ""}" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join("")}
