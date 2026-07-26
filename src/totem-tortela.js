@@ -127,18 +127,34 @@ function header(current = 0) {
 
 function renderWelcome() {
   return `
-    <main class="kiosk-stage kiosk-welcome">
-      <section class="kiosk-welcome-card">
-        <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-        <span>Totem de autoatendimento</span>
-        <h1>Bem-vindo a Tortela</h1>
-        <p>Monte seu pedido na tela, pague com PIX ou cartao e acompanhe sua senha no telao.</p>
-        <button class="kiosk-mega-action" data-screen="orderType">Comecar pedido</button>
+    <main class="kiosk-stage kiosk-welcome kiosk-mcd-welcome">
+      <section class="kiosk-mcd-panel">
+        <div class="kiosk-mcd-top">
+          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+          <button type="button">Ajuda</button>
+        </div>
+        <div class="kiosk-mcd-title">
+          <span>${escapeHtml(catalog.nearest?.tradeName || "Tortela")}</span>
+          <h1>Onde voce vai saborear hoje?</h1>
+        </div>
+        <div class="kiosk-mcd-choice-grid">
+          <button class="kiosk-mcd-choice" data-welcome-mode="Comer na loja">
+            <span class="kiosk-mcd-icon">IN</span>
+            <strong>Comer na loja</strong>
+            <small>Pedido para consumir aqui</small>
+          </button>
+          <button class="kiosk-mcd-choice" data-welcome-mode="Retirar para viagem">
+            <span class="kiosk-mcd-icon">OUT</span>
+            <strong>Retirar / viagem</strong>
+            <small>Pedido embalado para levar</small>
+          </button>
+        </div>
+        <div class="kiosk-mcd-bottom">
+          <button type="button">PT</button>
+          <button type="button">EN</button>
+          <button type="button">Acessibilidade</button>
+        </div>
       </section>
-      <aside class="kiosk-welcome-side">
-        <strong>${escapeHtml(catalog.nearest?.tradeName || "Loja Tortela")}</strong>
-        <p>Atendimento rapido, pedido integrado ao estoque da unidade e NFC-e gerada na fila fiscal.</p>
-      </aside>
     </main>
   `;
 }
@@ -392,6 +408,10 @@ function render() {
 
 function bindEvents() {
   document.querySelectorAll("[data-screen]").forEach((button) => button.addEventListener("click", () => go(button.dataset.screen)));
+  document.querySelectorAll("[data-welcome-mode]").forEach((button) => button.addEventListener("click", () => {
+    orderMode = button.dataset.welcomeMode;
+    go("loyalty");
+  }));
   document.querySelectorAll("[data-order-mode]").forEach((button) => button.addEventListener("click", () => {
     orderMode = button.dataset.orderMode;
     render();
