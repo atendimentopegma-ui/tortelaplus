@@ -2449,8 +2449,8 @@ async function handleApi(req, res, urlPath) {
         qty,
         unit: product.unit || "UN",
         price,
-        coverage: "",
-        note: "",
+        coverage: String(item.coverage || "").trim(),
+        note: String(item.note || "").trim(),
         total: moneyRound(qty * price)
       });
     }
@@ -2481,7 +2481,7 @@ async function handleApi(req, res, urlPath) {
       onlineOrder: true,
       kioskOrder: true,
       kioskTicketNumber: nextKioskTicketNumber(tenantState),
-      delivery: "Retirada",
+      delivery: String(body.orderMode || "Retirada no balcao").trim() || "Retirada no balcao",
       deliveryStore: { tenantCode: tenant.tenantCode, tradeName: tenant.tradeName },
       customerData: { name: "Consumidor Totem", document: String(body.customerDocument || "").replace(/\D/g, "") },
       items: normalizedItems

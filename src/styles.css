@@ -368,6 +368,713 @@ header.topbar .top-right .central-top-action:hover {
   padding: 16px;
 }
 
+/* Totem Tortela - fluxo de autoatendimento */
+.tortela-kiosk-page {
+  min-height: 100vh;
+  background: #07182d;
+  color: #07182d;
+  overflow: hidden;
+}
+
+.tortela-kiosk-page button {
+  touch-action: manipulation;
+}
+
+.kiosk-stage,
+.kiosk-app {
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(250, 204, 21, 0.5), transparent 26%),
+    radial-gradient(circle at 86% 92%, rgba(255, 234, 90, 0.48), transparent 28%),
+    linear-gradient(145deg, #07182d 0%, #0c2442 44%, #ffd21f 100%);
+}
+
+.kiosk-stage::before,
+.kiosk-app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("../assets/tortela/totem-bg.png") top center / cover no-repeat;
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.kiosk-stage::after,
+.kiosk-app::after {
+  content: "";
+  position: absolute;
+  width: 720px;
+  height: 720px;
+  right: -260px;
+  bottom: -260px;
+  border: 3px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  box-shadow: 0 0 0 42px rgba(250, 204, 21, 0.15), 0 0 0 92px rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+}
+
+.kiosk-top {
+  position: relative;
+  z-index: 2;
+  height: 104px;
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 170px;
+  align-items: center;
+  gap: 22px;
+  padding: 18px 30px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 44px rgba(7, 24, 45, 0.18);
+}
+
+.kiosk-logo-button,
+.kiosk-cart-pill {
+  border: 0;
+  border-radius: 22px;
+  background: #fff7c7;
+  color: #07182d;
+  font-weight: 900;
+}
+
+.kiosk-logo-button {
+  height: 72px;
+  display: grid;
+  place-items: center;
+}
+
+.kiosk-logo-button img {
+  max-width: 146px;
+}
+
+.kiosk-cart-pill {
+  min-height: 72px;
+  font-size: 17px;
+}
+
+.kiosk-cart-pill strong {
+  font-size: 22px;
+}
+
+.kiosk-progress {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.kiosk-progress span {
+  min-height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #eef3f8;
+  color: #607087;
+  font-weight: 900;
+}
+
+.kiosk-progress .active {
+  background: linear-gradient(135deg, #ffd21f, #fff26a);
+  color: #07182d;
+}
+
+.kiosk-welcome {
+  display: grid;
+  grid-template-columns: minmax(420px, 760px) minmax(280px, 420px);
+  gap: 30px;
+  align-items: end;
+  justify-content: center;
+  padding: 72px 42px;
+}
+
+.kiosk-welcome-card,
+.kiosk-welcome-side,
+.kiosk-choice-panel,
+.kiosk-custom-card,
+.kiosk-cart-panel,
+.kiosk-payment-panel,
+.kiosk-done-card {
+  position: relative;
+  z-index: 1;
+  border-radius: 34px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 28px 80px rgba(7, 24, 45, 0.28);
+}
+
+.kiosk-welcome-card {
+  min-height: 760px;
+  padding: 54px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 249, 214, 0.98) 58%),
+    url("../assets/tortela/totem-bg.png") top center / cover no-repeat;
+}
+
+.kiosk-welcome-card img,
+.kiosk-done-card img {
+  width: 240px;
+  padding: 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.5);
+  margin-bottom: auto;
+}
+
+.kiosk-welcome-card span,
+.kiosk-choice-panel span,
+.kiosk-custom-form > span,
+.kiosk-section-title span,
+.kiosk-done-card span,
+.kiosk-menu-banner span {
+  color: #00749a;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.kiosk-welcome-card h1,
+.kiosk-choice-panel h1,
+.kiosk-custom-form h1,
+.kiosk-section-title h1,
+.kiosk-done-card h1,
+.kiosk-menu-banner h1 {
+  margin: 0;
+  color: #07182d;
+  line-height: 1.02;
+}
+
+.kiosk-welcome-card h1 {
+  font-size: 72px;
+}
+
+.kiosk-welcome-card p,
+.kiosk-welcome-side p,
+.kiosk-choice-panel p,
+.kiosk-menu-product p,
+.kiosk-done-card p {
+  color: #53647a;
+  font-size: 22px;
+  line-height: 1.42;
+}
+
+.kiosk-welcome-side {
+  padding: 34px;
+  min-height: 360px;
+  align-self: center;
+  display: grid;
+  align-content: center;
+  gap: 16px;
+  background: linear-gradient(160deg, #07182d, #10355e);
+  color: #fff;
+}
+
+.kiosk-welcome-side strong {
+  font-size: 36px;
+}
+
+.kiosk-welcome-side p {
+  color: #dce9f7;
+}
+
+.kiosk-mega-action,
+.kiosk-secondary-action {
+  min-height: 78px;
+  border: 0;
+  border-radius: 24px;
+  padding: 0 30px;
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.kiosk-mega-action {
+  background: linear-gradient(135deg, #ffd21f, #fff26a);
+  color: #07182d;
+  box-shadow: 0 18px 42px rgba(250, 204, 21, 0.32);
+}
+
+.kiosk-mega-action:disabled {
+  opacity: 0.45;
+}
+
+.kiosk-secondary-action {
+  background: #07182d;
+  color: #fff;
+}
+
+.kiosk-choice-stage,
+.kiosk-cart-stage,
+.kiosk-payment-stage,
+.kiosk-customize,
+.kiosk-done-stage {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.kiosk-choice-panel,
+.kiosk-cart-panel,
+.kiosk-payment-panel {
+  width: min(1080px, calc(100vw - 64px));
+  margin: 44px auto;
+  padding: 46px;
+  display: grid;
+  gap: 28px;
+  align-self: center;
+}
+
+.kiosk-choice-panel h1,
+.kiosk-section-title h1,
+.kiosk-custom-form h1 {
+  font-size: 52px;
+}
+
+.kiosk-choice-grid,
+.kiosk-pay-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.kiosk-choice,
+.kiosk-pay-grid button,
+.kiosk-upsell-card,
+.kiosk-toggle-row button,
+.kiosk-extra-grid button {
+  border: 0;
+  border-radius: 28px;
+  background: #f5f8fb;
+  color: #07182d;
+  min-height: 180px;
+  padding: 26px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+  box-shadow: inset 0 0 0 1px #dce7f0;
+}
+
+.kiosk-choice strong,
+.kiosk-pay-grid strong,
+.kiosk-upsell-card strong {
+  font-size: 30px;
+}
+
+.kiosk-choice small,
+.kiosk-pay-grid small,
+.kiosk-upsell-card small {
+  color: #607087;
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.kiosk-choice.active,
+.kiosk-pay-grid .active,
+.kiosk-toggle-row .active,
+.kiosk-extra-grid .active,
+.kiosk-upsell-card:active {
+  background: linear-gradient(135deg, #ffd21f, #fff26a);
+  box-shadow: inset 0 0 0 3px #07182d;
+}
+
+.kiosk-input-label {
+  display: grid;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.kiosk-input-label input,
+.kiosk-input-label select {
+  min-height: 70px;
+  border-radius: 22px;
+  border: 2px solid #dce7f0;
+  padding: 0 22px;
+  font-size: 24px;
+  background: #fff;
+}
+
+.kiosk-action-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 18px;
+}
+
+.kiosk-menu-layout {
+  position: relative;
+  z-index: 1;
+  height: calc(100vh - 104px);
+  display: grid;
+  grid-template-columns: 184px minmax(0, 1fr) 360px;
+  gap: 20px;
+  padding: 22px;
+}
+
+.kiosk-sidebar,
+.kiosk-menu-area,
+.kiosk-mini-cart {
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 22px 60px rgba(7, 24, 45, 0.2);
+}
+
+.kiosk-sidebar {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.kiosk-sidebar button {
+  min-height: 76px;
+  border: 0;
+  border-radius: 20px;
+  background: #f1f6fb;
+  color: #07182d;
+  font-weight: 950;
+  font-size: 18px;
+}
+
+.kiosk-sidebar .active {
+  background: #ffd21f;
+}
+
+.kiosk-menu-area {
+  padding: 26px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 20px;
+  overflow: hidden;
+}
+
+.kiosk-menu-banner {
+  min-height: 136px;
+  border-radius: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 26px;
+  background: linear-gradient(135deg, #07182d, #123a65);
+  color: #fff;
+}
+
+.kiosk-menu-banner h1 {
+  color: #fff;
+  font-size: 44px;
+}
+
+.kiosk-menu-banner strong {
+  color: #ffd21f;
+  font-size: 22px;
+}
+
+.kiosk-menu-grid {
+  overflow: auto;
+  padding-right: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 18px;
+  align-content: start;
+}
+
+.kiosk-menu-product {
+  min-height: 250px;
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: 16px;
+  border-radius: 28px;
+  padding: 18px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #dce7f0;
+}
+
+.kiosk-product-photo,
+.kiosk-custom-photo,
+.kiosk-upsell-photo {
+  width: 100%;
+  height: 100%;
+  min-height: 174px;
+  object-fit: cover;
+  border-radius: 22px;
+  background: #fff7c7;
+}
+
+.kiosk-photo-fallback {
+  display: grid;
+  place-items: center;
+  color: #07182d;
+  font-weight: 950;
+  background:
+    radial-gradient(circle at 72% 18%, rgba(255, 255, 255, 0.8), transparent 24%),
+    linear-gradient(135deg, #ffd21f, #fff5a2);
+}
+
+.kiosk-menu-product h2 {
+  margin: 4px 0;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.kiosk-menu-product strong {
+  display: block;
+  font-size: 28px;
+  margin-top: 8px;
+}
+
+.kiosk-menu-product button {
+  grid-column: 1 / -1;
+  min-height: 58px;
+  border: 0;
+  border-radius: 18px;
+  background: #07182d;
+  color: #fff;
+  font-weight: 950;
+  font-size: 20px;
+}
+
+.kiosk-mini-cart {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.kiosk-mini-cart h2 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.kiosk-cart-list {
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+}
+
+.kiosk-cart-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 20px;
+  background: #f7f9fc;
+  box-shadow: inset 0 0 0 1px #dce7f0;
+}
+
+.kiosk-cart-item small {
+  display: block;
+  color: #607087;
+  font-weight: 800;
+}
+
+.kiosk-cart-item b {
+  font-size: 22px;
+}
+
+.kiosk-stepper {
+  display: grid;
+  grid-template-columns: 48px 42px 48px;
+  align-items: center;
+  text-align: center;
+  font-weight: 950;
+}
+
+.kiosk-stepper.big {
+  grid-template-columns: 64px 58px 64px;
+  font-size: 24px;
+}
+
+.kiosk-stepper button,
+.kiosk-remove {
+  border: 0;
+  border-radius: 16px;
+  min-height: 46px;
+  background: #07182d;
+  color: #fff;
+  font-weight: 950;
+}
+
+.kiosk-remove {
+  grid-column: 1 / -1;
+  background: #fff0f0;
+  color: #b91c1c;
+}
+
+.kiosk-total-line {
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 18px;
+  border-top: 2px solid #edf2f7;
+  color: #607087;
+  font-weight: 950;
+}
+
+.kiosk-total-line strong {
+  color: #07182d;
+  font-size: 34px;
+}
+
+.kiosk-total-line.large strong {
+  font-size: 48px;
+}
+
+.kiosk-custom-card {
+  width: min(1180px, calc(100vw - 64px));
+  margin: 34px auto;
+  padding: 28px;
+  display: grid;
+  grid-template-columns: 42% minmax(0, 1fr);
+  gap: 28px;
+}
+
+.kiosk-custom-media {
+  min-height: 610px;
+  border-radius: 28px;
+  overflow: hidden;
+  background: #fff7c7;
+}
+
+.kiosk-custom-photo {
+  min-height: 610px;
+}
+
+.kiosk-custom-form {
+  display: grid;
+  gap: 20px;
+}
+
+.kiosk-toggle-row,
+.kiosk-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kiosk-toggle-row button,
+.kiosk-extra-grid button {
+  min-height: 96px;
+  font-size: 21px;
+  font-weight: 950;
+}
+
+.kiosk-extra-grid button small {
+  color: inherit;
+}
+
+.kiosk-custom-footer {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.kiosk-upsell-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.kiosk-upsell-card {
+  min-height: 320px;
+}
+
+.kiosk-upsell-photo {
+  min-height: 150px;
+}
+
+.kiosk-section-title {
+  display: grid;
+  gap: 8px;
+}
+
+.kiosk-review-meta,
+.kiosk-status-track {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kiosk-review-meta strong,
+.kiosk-status-track span {
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: #f7f9fc;
+  box-shadow: inset 0 0 0 1px #dce7f0;
+}
+
+.kiosk-status-track .active {
+  background: #ffd21f;
+}
+
+.kiosk-payment-panel {
+  width: min(980px, calc(100vw - 64px));
+}
+
+.kiosk-pay-grid button {
+  min-height: 210px;
+  text-align: center;
+  place-items: center;
+}
+
+.kiosk-done-stage {
+  place-items: center;
+  padding: 42px;
+}
+
+.kiosk-done-card {
+  width: min(760px, 100%);
+  padding: 52px;
+  text-align: center;
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+}
+
+.kiosk-done-card img {
+  margin: 0;
+}
+
+.kiosk-done-card h1 {
+  font-size: 132px;
+  line-height: 0.9;
+}
+
+.kiosk-empty-state {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: #f7f9fc;
+  color: #607087;
+  font-weight: 900;
+}
+
+@media (max-width: 1100px) {
+  .kiosk-top,
+  .kiosk-menu-layout,
+  .kiosk-welcome,
+  .kiosk-custom-card,
+  .kiosk-choice-grid,
+  .kiosk-pay-grid,
+  .kiosk-upsell-grid,
+  .kiosk-action-row {
+    grid-template-columns: 1fr;
+  }
+
+  .kiosk-menu-layout {
+    height: auto;
+  }
+
+  .kiosk-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tortela-kiosk-page,
 .tortela-display-page {
   min-height: 100vh;
