@@ -127,7 +127,7 @@ function header(current = 0) {
   return `
     <header class="kiosk-top">
       <button class="kiosk-logo-button" data-screen="welcome"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /></button>
-      ${progress(current)}
+      <div class="kiosk-step-title">${["Inicio", "Identificacao", "Cardapio", "Carrinho", "Pagamento"][current] || "Pedido"}</div>
       <button class="kiosk-cart-pill" data-screen="cart">${cartCount()} itens<br><strong>${money(cartTotal())}</strong></button>
     </header>
   `;
@@ -215,7 +215,6 @@ function productCard(product) {
       <div>
         <small>${escapeHtml(productCategory(product))}</small>
         <h2>${escapeHtml(product.description)}</h2>
-        <p>Produto preparado pela unidade Tortela selecionada.</p>
         <strong>${money(product.price)}</strong>
       </div>
       <button data-product="${product.id}">Adicionar</button>
@@ -228,23 +227,20 @@ function renderMenu() {
   return `
     <main class="kiosk-app">
       ${header(2)}
-      <section class="kiosk-menu-layout">
-        <nav class="kiosk-sidebar">
+      <section class="kiosk-menu-simple">
+        <div class="kiosk-menu-head">
+          <span>Cardapio Tortela</span>
+          <h1>${escapeHtml(activeCategory)}</h1>
+        </div>
+        <nav class="kiosk-category-strip">
           ${categories().map((category) => `<button class="${activeCategory === category ? "active" : ""}" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join("")}
         </nav>
-        <section class="kiosk-menu-area">
-          <div class="kiosk-menu-banner">
-            <div><span>Cardapio Tortela</span><h1>${escapeHtml(activeCategory)}</h1></div>
-            <strong>${visible.length} opcoes</strong>
-          </div>
-          <div class="kiosk-menu-grid">${visible.map(productCard).join("") || `<div class="kiosk-empty-state">Nenhum produto disponivel nesta categoria.</div>`}</div>
-        </section>
-        <aside class="kiosk-mini-cart">
-          <h2>Meu pedido</h2>
-          ${cartRows(false)}
-          <div class="kiosk-total-line"><span>Total</span><strong>${money(cartTotal())}</strong></div>
-          <button class="kiosk-mega-action" data-screen="cart" ${cart.length ? "" : "disabled"}>Ver carrinho</button>
-        </aside>
+        <div class="kiosk-menu-grid">${visible.map(productCard).join("") || `<div class="kiosk-empty-state">Nenhum produto real liberado para venda no totem.</div>`}</div>
+        <button class="kiosk-menu-footer" data-screen="cart" ${cart.length ? "" : "disabled"}>
+          <span>${cartCount()} item(ns)</span>
+          <strong>${money(cartTotal())}</strong>
+          <b>Ver pedido</b>
+        </button>
       </section>
     </main>
   `;
