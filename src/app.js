@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "navigation-route-v4";
+window.TORTELA_BUILD = "login-submit-fix-v5";
 
 let state = load();
 let apiOnline = false;
@@ -890,14 +890,14 @@ function renderLogin() {
             <label for="login-pass">Senha</label>
             <input id="login-pass" type="password" value="123456" autocomplete="current-password" />
           </div>
-          <button class="btn primary" type="submit">Entrar</button>
+          <button class="btn primary" id="login-submit" type="submit">Entrar</button>
           <p class="helper">Ambiente seguro da unidade Tortela.</p>
         </form>
       </section>
     </main>
   `);
 
-  byId("login-form").addEventListener("submit", async (event) => {
+  const enterSystem = async (event) => {
     event.preventDefault();
     state.settings.user = byId("login-user").value || "Operador";
     state.settings.company = byId("login-company").value || "Minha Empresa";
@@ -918,7 +918,10 @@ function renderLogin() {
     }
     startHeartbeat();
     renderShell();
-  });
+  };
+
+  byId("login-form").addEventListener("submit", enterSystem);
+  byId("login-submit").addEventListener("click", enterSystem);
 }
 
 function renderLicenseGate() {
@@ -6842,7 +6845,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=navigation-route-v4").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=login-submit-fix-v5").catch(() => undefined);
 }
 
 boot();
