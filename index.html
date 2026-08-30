@@ -6,6 +6,11 @@
     <meta name="theme-color" content="#facc15" />
     <title>Tortela Plus | Retaguarda e PDV</title>
     <link rel="stylesheet" href="./src/styles.css" />
+    <script>
+      if (window.location.pathname.replace(/\/$/, "") === "/cozinha") {
+        window.location.replace("./cozinha.html" + window.location.search);
+      }
+    </script>
   </head>
   <body class="tortela-theme">
     <div id="app"></div>
