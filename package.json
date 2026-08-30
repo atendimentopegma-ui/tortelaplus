@@ -12,6 +12,7 @@
     "db:verify-isolation": "node scripts/verify-tenant-isolation.js",
     "db:backup": "node scripts/backup-postgres.js",
     "deploy:check": "node scripts/deploy-check.js",
+    "verify:backoffice": "node scripts/verify-backoffice-navigation.js",
     "verify:kiosk": "node scripts/verify-kiosk-flow.js",
     "implantation:status": "node scripts/implantation-status.js",
     "fiscal:rules:import": "node scripts/import-fiscal-rules.js",
