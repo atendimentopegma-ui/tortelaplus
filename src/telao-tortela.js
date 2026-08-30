@@ -28,9 +28,9 @@ function ticket(order) {
 function orderCard(order) {
   return `
     <div class="display-ticket">
+      <span>Senha</span>
       <strong>${ticket(order)}</strong>
-      <span>${displayEscape(order.status || "Preparando")}</span>
-      <small>${displayMoney(order.total || 0)}</small>
+      <small>${displayEscape(order.status || "Preparando")}</small>
     </div>
   `;
 }
@@ -39,22 +39,36 @@ function renderDisplay(payload) {
   const orders = payload.orders || [];
   const ready = orders.filter((order) => order.status === "Pronto");
   const preparing = orders.filter((order) => !["Pronto", "Entregue", "Cancelado"].includes(order.status));
+  const now = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   document.getElementById("display-app").innerHTML = `
     <main class="display-shell">
       <header class="display-header">
-        <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-        <div>
-          <span>Pedidos do totem</span>
-          <h1>${displayEscape(payload.unit || "Tortela")}</h1>
+        <div class="display-brand">
+          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+          <div>
+            <span>Pedidos do totem</span>
+            <h1>${displayEscape(payload.unit || "Tortela")}</h1>
+          </div>
+        </div>
+        <div class="display-clock">
+          <span>Atualizado</span>
+          <strong>${now}</strong>
         </div>
       </header>
+      <section class="display-callout">
+        <div>
+          <span>Retire no balcao</span>
+          <strong>${ready[0] ? ticket(ready[0]) : "---"}</strong>
+        </div>
+        <p>${ready[0] ? "Pedido pronto para retirada." : "Acompanhe sua senha na tela."}</p>
+      </section>
       <section class="display-grid">
         <div class="display-column preparing">
-          <h2>Em preparo</h2>
+          <h2>Em preparo <span>${preparing.length}</span></h2>
           <div class="display-list">${preparing.map(orderCard).join("") || `<p>Nenhum pedido em preparo.</p>`}</div>
         </div>
         <div class="display-column ready">
-          <h2>Pronto</h2>
+          <h2>Prontos <span>${ready.length}</span></h2>
           <div class="display-list">${ready.map(orderCard).join("") || `<p>Aguardando pedidos prontos.</p>`}</div>
         </div>
       </section>
@@ -67,7 +81,7 @@ async function refreshDisplay() {
     renderDisplay(await loadDisplayOrders());
   } catch (error) {
     const localFileHint = location.protocol === "file:" ? "Abra pelo servidor local do sistema, nao direto pelo arquivo." : error.message;
-    document.getElementById("display-app").innerHTML = `<main class="display-shell"><div class="display-column"><h1>Telao indisponivel</h1><p>${displayEscape(localFileHint)}</p></div></main>`;
+    document.getElementById("display-app").innerHTML = `<main class="display-shell"><section class="display-error"><h1>Telao indisponivel</h1><p>${displayEscape(localFileHint)}</p></section></main>`;
   }
 }
 

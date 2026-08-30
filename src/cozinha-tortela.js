@@ -35,18 +35,19 @@ function minutesSince(dateValue) {
 
 function orderActions(order) {
   if (order.status === "Pronto") {
-    return `<button class="kitchen-action done" data-status-order="${order.id}" data-status="Entregue">Entregue</button>`;
+    return `<button class="kitchen-action done" data-status-order="${order.id}" data-status="Entregue">Entregar pedido</button>`;
   }
   if (order.status === "Entregue" || order.status === "Cancelado") {
     return `<span class="kitchen-finished">Finalizado</span>`;
   }
   return `
-    <button class="kitchen-action ready" data-status-order="${order.id}" data-status="Pronto">Pedido pronto</button>
-    <button class="kitchen-action" data-status-order="${order.id}" data-status="Preparando">Em preparo</button>
+    <button class="kitchen-action ready" data-status-order="${order.id}" data-status="Pronto">Marcar pronto</button>
+    <button class="kitchen-action hold" data-status-order="${order.id}" data-status="Preparando">Em preparo</button>
   `;
 }
 
 function orderCard(order) {
+  const status = order.status || "Preparando";
   const items = (order.items || []).map((item) => `
     <li>
       <strong>${Number(item.qty || 0).toLocaleString("pt-BR")}x</strong>
@@ -54,17 +55,21 @@ function orderCard(order) {
     </li>
   `).join("");
   return `
-    <article class="kitchen-order ${order.status === "Pronto" ? "is-ready" : ""}">
+    <article class="kitchen-order ${status === "Pronto" ? "is-ready" : ""}">
       <header>
         <div>
           <span>Senha</span>
           <strong>${ticket(order)}</strong>
         </div>
-        <b>${kitchenEscape(order.status || "Preparando")}</b>
+        <b>${kitchenEscape(status)}</b>
       </header>
       <ul>${items}</ul>
+      <div class="kitchen-meta">
+        <span>${minutesSince(order.createdAt)}</span>
+        <span>${kitchenMoney(order.total || 0)}</span>
+        <span>${kitchenEscape(order.payment || "PIX")} · ${kitchenEscape(order.paymentStatus || "Pendente")}</span>
+      </div>
       <footer>
-        <small>${minutesSince(order.createdAt)} · ${kitchenMoney(order.total || 0)} · ${kitchenEscape(order.payment || "PIX")}</small>
         <div>${orderActions(order)}</div>
       </footer>
     </article>
@@ -75,17 +80,28 @@ function renderKitchen(payload) {
   const orders = (payload.orders || []).filter((order) => !["Entregue", "Cancelado"].includes(order.status));
   const ready = orders.filter((order) => order.status === "Pronto");
   const preparing = orders.filter((order) => order.status !== "Pronto");
+  const now = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   kitchenApp.innerHTML = `
     <main class="kitchen-shell">
       <header class="kitchen-header">
-        <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-        <div>
-          <span>Cozinha do totem</span>
-          <h1>${kitchenEscape(payload.unit || "Tortela")}</h1>
+        <div class="kitchen-brand">
+          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+          <div>
+            <span>Cozinha do totem</span>
+            <h1>${kitchenEscape(payload.unit || "Tortela")}</h1>
+          </div>
+        </div>
+        <div class="kitchen-clock">
+          <span>Atualizado</span>
+          <strong>${now}</strong>
         </div>
         <button id="kitchen-refresh">Atualizar</button>
       </header>
-      <section class="kitchen-summary">
+      <section class="kitchen-hero">
+        <div>
+          <span>Cozinha do totem</span>
+          <h2>Prepare, marque pronto e entregue pela senha.</h2>
+        </div>
         <div><small>Em preparo</small><strong>${preparing.length}</strong></div>
         <div><small>Prontos</small><strong>${ready.length}</strong></div>
         <div><small>Total aberto</small><strong>${orders.length}</strong></div>

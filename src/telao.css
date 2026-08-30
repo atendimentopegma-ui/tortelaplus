@@ -1,0 +1,230 @@
+html,
+body.tortela-display-page {
+  min-height: 100%;
+  margin: 0;
+  background: #101827;
+  color: #fffaf0;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.display-shell {
+  min-height: 100vh;
+  padding: 30px;
+  box-sizing: border-box;
+  background:
+    linear-gradient(115deg, rgba(8, 113, 135, 0.32), transparent 42%),
+    radial-gradient(circle at 82% 20%, rgba(242, 198, 0, 0.22), transparent 28%),
+    linear-gradient(180deg, #101827, #172033);
+}
+
+.display-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 18px 22px;
+  border: 1px solid rgba(255, 250, 240, 0.16);
+  border-radius: 26px;
+  background: rgba(255, 250, 240, 0.08);
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.26);
+}
+
+.display-brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.display-brand img {
+  width: 150px;
+  height: 76px;
+  object-fit: contain;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: #fff7c7;
+}
+
+.display-brand span,
+.display-clock span,
+.display-callout span {
+  color: #f2c600;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.display-brand h1 {
+  margin: 4px 0 0;
+  color: #fffaf0;
+  font-size: 38px;
+  line-height: 1;
+}
+
+.display-clock {
+  min-width: 150px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: rgba(255, 250, 240, 0.1);
+  text-align: center;
+}
+
+.display-clock strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.display-callout {
+  display: grid;
+  grid-template-columns: minmax(260px, 430px) 1fr;
+  gap: 24px;
+  align-items: center;
+  margin: 24px 0;
+  padding: 26px;
+  border-radius: 28px;
+  background: #fffaf0;
+  color: #101827;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+}
+
+.display-callout div {
+  padding: 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffe06a, #f2c600);
+  text-align: center;
+}
+
+.display-callout strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 100px;
+  line-height: 0.92;
+}
+
+.display-callout p {
+  margin: 0;
+  color: #263244;
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1.08;
+}
+
+.display-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 22px;
+}
+
+.display-column {
+  min-height: 46vh;
+  padding: 20px;
+  border: 1px solid rgba(255, 250, 240, 0.15);
+  border-radius: 28px;
+  background: rgba(255, 250, 240, 0.08);
+}
+
+.display-column h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 18px;
+  color: #fffaf0;
+  font-size: 34px;
+  line-height: 1;
+}
+
+.display-column h2 span {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: #f2c600;
+  color: #101827;
+  font-size: 24px;
+}
+
+.display-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.display-list p,
+.display-error {
+  padding: 32px;
+  border-radius: 24px;
+  background: rgba(255, 250, 240, 0.1);
+  color: #dce2ea;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.display-ticket {
+  display: grid;
+  gap: 6px;
+  place-items: center;
+  min-height: 170px;
+  padding: 18px;
+  border-radius: 24px;
+  background: #fffaf0;
+  color: #101827;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.2);
+}
+
+.ready .display-ticket {
+  background: linear-gradient(180deg, #fff4b8, #f2c600);
+}
+
+.display-ticket span {
+  color: #087187;
+  font-size: 15px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.display-ticket strong {
+  font-size: 74px;
+  line-height: 0.9;
+}
+
+.display-ticket small {
+  color: #475569;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.display-error {
+  max-width: 920px;
+  margin: 18vh auto 0;
+}
+
+.display-error h1 {
+  margin: 0 0 12px;
+  color: #fffaf0;
+  font-size: 52px;
+}
+
+@media (max-width: 900px) {
+  .display-header,
+  .display-brand {
+    align-items: flex-start;
+  }
+
+  .display-header,
+  .display-callout,
+  .display-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .display-header {
+    display: grid;
+  }
+
+  .display-callout p {
+    font-size: 30px;
+  }
+}
