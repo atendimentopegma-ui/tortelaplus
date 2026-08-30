@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "fiscal-tabs-route-v3";
+window.TORTELA_BUILD = "navigation-route-v4";
 
 let state = load();
 let apiOnline = false;
@@ -1030,7 +1030,7 @@ function renderShell() {
         ${currentMode === "pdv" ? renderPdv() : `
           <div class="layout">
             <aside class="sidebar">
-              ${modules.map(([key, label, short]) => `<button class="nav-btn ${currentModule === key ? "active" : ""}" data-module="${key}">${icon(short)} ${label}</button>`).join("")}
+              ${modules.map(([key, label, short]) => `<a class="nav-btn ${currentModule === key ? "active" : ""}" data-module="${key}" href="#module=${key}">${icon(short)} ${label}</a>`).join("")}
             </aside>
             <section>${renderModule()}</section>
           </div>
@@ -1042,6 +1042,8 @@ function renderShell() {
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       currentMode = button.dataset.mode;
+      if (currentMode === "pdv") setInternalRoute({ mode: "pdv", module: "", tab: "", fiscal: "", stock: "", people: "", settings: "" });
+      else setInternalRoute({ mode: "", module: currentModule });
       renderShell();
     });
   });
@@ -1050,7 +1052,7 @@ function renderShell() {
     button.addEventListener("click", () => {
       currentModule = button.dataset.module;
       currentTab = "dados";
-      setInternalRoute({ module: currentModule, fiscal: currentModule === "fiscal" ? currentFiscalTab : "", stock: currentModule === "stock" ? currentStockTab : "", people: currentModule === "people" ? currentPeopleTab : "" });
+      setInternalRoute({ mode: "", module: currentModule, fiscal: currentModule === "fiscal" ? currentFiscalTab : "", stock: currentModule === "stock" ? currentStockTab : "", people: currentModule === "people" ? currentPeopleTab : "" });
       renderShell();
     });
   });
@@ -1198,7 +1200,7 @@ function renderPeople() {
         <div class="erp-search-line"><input id="person-search" value="${escapeAttr(personSearch)}" placeholder="Digite nome, fantasia, CPF/CNPJ, cidade ou telefone" /><button class="btn" id="filter-people">Buscar</button></div>
       </div>
       <div class="module-tabs compact-tabs">
-        ${personFilters.map((type) => `<button type="button" class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : type}</button>`).join("")}
+        ${personFilters.map((type) => `<a class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}" href="#module=people&people=${encodeURIComponent(type)}" role="button">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : type}</a>`).join("")}
       </div>
       <div class="panel-body erp-body">
         ${peopleTable()}
@@ -1288,7 +1290,7 @@ function renderProducts() {
         <label>Localizar</label>
         <div class="erp-search-line"><input id="product-search" value="${escapeAttr(productSearch)}" placeholder="Digite descricao, codigo de barras, marca, grupo ou NCM" /><button class="btn" id="filter-products">Buscar</button></div>
       </div>
-      <div class="module-tabs">${tabs.map((tab) => `<button type="button" class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" aria-pressed="${currentTab === tab ? "true" : "false"}">${tabLabel(tab)}</button>`).join("")}</div>
+      <div class="module-tabs">${tabs.map((tab) => `<a class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" href="#module=products&tab=${tab}" role="button" aria-current="${currentTab === tab ? "page" : "false"}">${tabLabel(tab)}</a>`).join("")}</div>
       <div class="panel-body erp-body">
         ${bodyHtml}
       </div>
@@ -1781,7 +1783,7 @@ function renderStock() {
   return `
     <section class="panel">
       <div class="panel-head"><h2>Estoque e producao</h2></div>
-      <div class="module-tabs">${stockTabs.map(([key, label]) => `<button type="button" class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}">${label}</button>`).join("")}</div>
+      <div class="module-tabs">${stockTabs.map(([key, label]) => `<a class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}" href="#module=stock&stock=${key}" role="button">${label}</a>`).join("")}</div>
       <div class="panel-body grid">
         ${panels[currentStockTab]}
       </div>
@@ -1975,7 +1977,7 @@ function renderFinance() {
   return `
     <section class="panel">
       <div class="panel-head"><h2>Financeiro</h2><button class="btn primary" id="save-finance">Novo lancamento</button></div>
-      <div class="module-tabs">${tabs.map((tab) => `<button class="${currentTab === tab ? "active" : ""}" data-tab="${tab}">${tab === "receber" ? "Contas a receber" : tab === "pagar" ? "Contas a pagar" : tab === "caixa" ? "Livro caixa" : "Plano de contas"}</button>`).join("")}</div>
+      <div class="module-tabs">${tabs.map((tab) => `<a class="${currentTab === tab ? "active" : ""}" data-tab="${tab}" href="#module=finance&tab=${tab}" role="button">${tab === "receber" ? "Contas a receber" : tab === "pagar" ? "Contas a pagar" : tab === "caixa" ? "Livro caixa" : "Plano de contas"}</a>`).join("")}</div>
       <div class="panel-body">${financeTab()}</div>
     </section>
   `;
@@ -2249,6 +2251,10 @@ function readInternalRoute() {
 
 function applyInternalRoute() {
   const route = readInternalRoute();
+  if (route.mode === "pdv") {
+    currentMode = "pdv";
+    return;
+  }
   if (route.module && Object.prototype.hasOwnProperty.call({
     dashboard: 1,
     people: 1,
@@ -2265,9 +2271,11 @@ function applyInternalRoute() {
     currentMode = "backoffice";
     currentModule = route.module;
   }
+  if (route.tab) currentTab = route.tab;
   if (route.fiscal) currentFiscalTab = route.fiscal;
   if (route.stock) currentStockTab = route.stock;
   if (route.people) currentPeopleTab = route.people;
+  if (route.settings) currentSettingsTab = route.settings;
 }
 
 function setInternalRoute(values) {
@@ -2472,7 +2480,7 @@ function renderSettings() {
     <section class="panel">
       <div class="panel-head"><h2>Configuracoes</h2><button class="btn primary" id="save-settings">Salvar configuracoes</button></div>
       <div class="settings-tabs" role="tablist" aria-label="Assuntos das configuracoes">
-        ${settingsTabs.map(([key, label]) => `<button class="${currentSettingsTab === key ? "active" : ""}" data-settings-tab="${key}" type="button" role="tab" aria-selected="${currentSettingsTab === key}">${label}</button>`).join("")}
+        ${settingsTabs.map(([key, label]) => `<a class="${currentSettingsTab === key ? "active" : ""}" data-settings-tab="${key}" href="#module=settings&settings=${key}" role="tab" aria-selected="${currentSettingsTab === key}">${label}</a>`).join("")}
       </div>
       <div class="panel-body settings-body">
         <form class="form-card ${settingsPaneClass("geral")}" id="settings-form" data-settings-pane="geral">
@@ -2807,6 +2815,7 @@ function bindCurrentModule() {
     button.addEventListener("click", () => {
       captureProductDraft();
       currentTab = button.dataset.productTab;
+      setInternalRoute({ module: "products", tab: currentTab });
       renderShell();
     });
   });
@@ -2815,6 +2824,7 @@ function bindCurrentModule() {
     button.addEventListener("click", () => {
       captureProductDraft();
       currentTab = button.dataset.tab;
+      setInternalRoute({ module: currentModule, tab: currentTab });
       renderShell();
     });
   });
@@ -3023,6 +3033,7 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-settings-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       currentSettingsTab = button.dataset.settingsTab || "geral";
+      setInternalRoute({ module: "settings", settings: currentSettingsTab });
       document.querySelectorAll("[data-settings-tab]").forEach((tab) => {
         const active = tab.dataset.settingsTab === currentSettingsTab;
         tab.classList.toggle("active", active);
@@ -6739,6 +6750,27 @@ window.addEventListener("hashchange", () => {
 });
 
 document.addEventListener("click", (event) => {
+  const modeButton = event.target.closest("[data-mode]");
+  if (modeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentMode = modeButton.dataset.mode || "backoffice";
+    if (currentMode === "pdv") setInternalRoute({ mode: "pdv", module: "", tab: "", fiscal: "", stock: "", people: "", settings: "" });
+    else setInternalRoute({ mode: "", module: currentModule });
+    renderShell();
+    return;
+  }
+  const moduleButton = event.target.closest("[data-module]");
+  if (moduleButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentMode = "backoffice";
+    currentModule = moduleButton.dataset.module || "dashboard";
+    currentTab = "dados";
+    setInternalRoute({ mode: "", module: currentModule, tab: "", fiscal: currentModule === "fiscal" ? currentFiscalTab : "", stock: currentModule === "stock" ? currentStockTab : "", people: currentModule === "people" ? currentPeopleTab : "", settings: currentModule === "settings" ? currentSettingsTab : "" });
+    renderShell();
+    return;
+  }
   const fiscalTab = event.target.closest("[data-fiscal-tab]");
   if (fiscalTab) {
     event.preventDefault();
@@ -6772,6 +6804,16 @@ document.addEventListener("click", (event) => {
     event.stopPropagation();
     captureProductDraft();
     currentTab = productTab.dataset.productTab || "dados";
+    setInternalRoute({ module: "products", tab: currentTab });
+    renderShell();
+    return;
+  }
+  const settingsTab = event.target.closest("[data-settings-tab]");
+  if (settingsTab) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentSettingsTab = settingsTab.dataset.settingsTab || "geral";
+    setInternalRoute({ module: "settings", settings: currentSettingsTab });
     renderShell();
     return;
   }
@@ -6781,6 +6823,7 @@ document.addEventListener("click", (event) => {
     event.stopPropagation();
     captureProductDraft();
     currentTab = genericTab.dataset.tab || "dados";
+    setInternalRoute({ module: currentModule, tab: currentTab });
     renderShell();
   }
 }, true);
@@ -6799,7 +6842,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=fiscal-tabs-route-v3").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=navigation-route-v4").catch(() => undefined);
 }
 
 boot();

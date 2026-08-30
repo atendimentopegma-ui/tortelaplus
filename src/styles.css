@@ -335,6 +335,7 @@ header.topbar .top-right .central-top-action:hover {
   display: flex;
   gap: 10px;
   align-items: center;
+  text-decoration: none;
 }
 
 .nav-btn.active,
@@ -2735,7 +2736,8 @@ header.topbar .top-right .central-top-action:hover {
   background: #fffdf5;
 }
 
-.settings-tabs button {
+.settings-tabs button,
+.settings-tabs a {
   min-height: 42px;
   padding: 0 16px;
   border: 1px solid #ead9a8;
@@ -2745,9 +2747,13 @@ header.topbar .top-right .central-top-action:hover {
   font-size: 14px;
   font-weight: 900;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
-.settings-tabs button.active {
+.settings-tabs button.active,
+.settings-tabs a.active {
   border-color: #d8bd62;
   border-bottom-color: #fff;
   background: #fff;
