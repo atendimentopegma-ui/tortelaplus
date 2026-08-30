@@ -1,5 +1,6 @@
 const displayParams = new URLSearchParams(location.search);
 const displayTenantCode = displayParams.get("unidade") || "cliente-exemplo";
+const displayTerminalToken = displayParams.get("terminalToken") || "";
 
 const displayMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const displayEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
@@ -11,7 +12,9 @@ const displayEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) =
 }[char]));
 
 async function loadDisplayOrders() {
-  const response = await fetch(`/api/public/kiosk/orders?unidade=${encodeURIComponent(displayTenantCode)}`);
+  const query = new URLSearchParams({ unidade: displayTenantCode });
+  if (displayTerminalToken) query.set("terminalToken", displayTerminalToken);
+  const response = await fetch(`/api/public/kiosk/orders?${query.toString()}`);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
   return payload;

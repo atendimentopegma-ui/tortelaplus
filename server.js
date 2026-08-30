@@ -273,7 +273,8 @@ const initialTenantState = {
     paymentAuthHeader: "Authorization",
     paymentAuthScheme: "Bearer",
     paymentCallbackUrl: "",
-    paymentApiTokenConfigured: false
+    paymentApiTokenConfigured: false,
+    publicTerminalToken: ""
   }
 };
 
@@ -602,6 +603,7 @@ function ensureTortelaOnlineStarterProducts(products, tenantCode) {
 
 function withTenantStateDefaults(state, tenantCode) {
   const code = normalizeTenantCode(tenantCode || state?.settings?.tenantCode || initialTenantState.settings.tenantCode);
+  const publicTerminalToken = state?.settings?.publicTerminalToken || defaultPublicTerminalToken(code);
   const merged = {
     ...structuredClone(initialTenantState),
     ...(state || {}),
@@ -610,7 +612,8 @@ function withTenantStateDefaults(state, tenantCode) {
     settings: {
       ...initialTenantState.settings,
       ...(state?.settings || {}),
-      tenantCode: code
+      tenantCode: code,
+      publicTerminalToken
     },
     cashRegister: { ...structuredClone(initialTenantState.cashRegister), ...(state?.cashRegister || {}) },
     heldSales: state?.heldSales || [],
@@ -754,6 +757,11 @@ function simpleHash(text) {
     hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
   }
   return Math.abs(hash >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(0, 7);
+}
+
+function defaultPublicTerminalToken(tenantCode) {
+  const secret = process.env.PEGMA_PUBLIC_LINK_SECRET || process.env.PEGMA_SECRET_KEY || "tortela-local-dev-secret";
+  return crypto.createHash("sha256").update(`${normalizeTenantCode(tenantCode)}|${secret}|totem`).digest("base64url").slice(0, 24);
 }
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
@@ -1080,6 +1088,13 @@ function readBody(req) {
 
 function findTenant(provider, tenantCode) {
   return provider.clients.find((client) => client.tenantCode === normalizeTenantCode(tenantCode));
+}
+
+function publicTerminalAllowed(tenantState, token) {
+  const expected = String(tenantState?.settings?.publicTerminalToken || "").trim();
+  const received = String(token || "").trim();
+  if (!expected || !received || expected.length !== received.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 
 function findUser(tenantState, username) {
@@ -2435,6 +2450,10 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
+    if (!publicTerminalAllowed(tenantState, body.terminalToken)) {
+      sendJson(res, 403, { ok: false, error: "Token do totem invalido para esta unidade." });
+      return;
+    }
     const items = Array.isArray(body.items) ? body.items : [];
     const normalizedItems = [];
     for (const item of items) {
@@ -2526,6 +2545,10 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
+    if (!publicTerminalAllowed(tenantState, url.searchParams.get("terminalToken"))) {
+      sendJson(res, 403, { ok: false, error: "Token do totem invalido para esta unidade." });
+      return;
+    }
     const orders = (tenantState.sales || [])
       .filter((sale) => sale.kioskOrder)
       .sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)))
@@ -2553,6 +2576,10 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
+    if (!publicTerminalAllowed(tenantState, body.terminalToken)) {
+      sendJson(res, 403, { ok: false, error: "Token do totem invalido para esta unidade." });
+      return;
+    }
     const sale = (tenantState.sales || []).find((row) => Number(row.id) === Number(body.orderId) && row.kioskOrder);
     if (!sale) {
       sendJson(res, 404, { ok: false, error: "Pedido do totem nao encontrado nesta unidade." });

@@ -1,5 +1,6 @@
 const params = new URLSearchParams(location.search);
 const tenantCode = params.get("unidade") || "cliente-exemplo";
+const terminalToken = params.get("terminalToken") || "";
 
 const state = {
   catalog: { products: [], nearest: null },
@@ -444,6 +445,7 @@ async function submitOrder() {
       method: "POST",
       body: JSON.stringify({
         tenantCode,
+        terminalToken,
         paymentMethod: state.paymentMethod,
         customerDocument: state.customerDocument,
         orderMode: state.orderMode || "Retirar para viagem",
@@ -468,7 +470,9 @@ async function submitOrder() {
 
 async function loadCatalog() {
   try {
-    state.catalog = await api(`/api/public/store/catalog?unidade=${encodeURIComponent(tenantCode)}`);
+    const query = new URLSearchParams({ unidade: tenantCode });
+    if (terminalToken) query.set("terminalToken", terminalToken);
+    state.catalog = await api(`/api/public/store/catalog?${query.toString()}`);
     render();
   } catch (error) {
     renderError(error.message);

@@ -1,5 +1,6 @@
 const kitchenParams = new URLSearchParams(location.search);
 const kitchenTenantCode = kitchenParams.get("unidade") || "cliente-exemplo";
+const kitchenTerminalToken = kitchenParams.get("terminalToken") || "";
 const kitchenApp = document.getElementById("kitchen-app");
 
 const kitchenMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -104,7 +105,9 @@ function renderKitchen(payload) {
 
 async function loadKitchen() {
   try {
-    const payload = await kitchenApi(`/api/public/kiosk/orders?unidade=${encodeURIComponent(kitchenTenantCode)}`);
+    const query = new URLSearchParams({ unidade: kitchenTenantCode });
+    if (kitchenTerminalToken) query.set("terminalToken", kitchenTerminalToken);
+    const payload = await kitchenApi(`/api/public/kiosk/orders?${query.toString()}`);
     renderKitchen(payload);
   } catch (error) {
     kitchenApp.innerHTML = `<main class="kitchen-shell"><section class="kitchen-error"><h1>Cozinha indisponivel</h1><p>${kitchenEscape(error.message)}</p><button id="kitchen-refresh">Tentar novamente</button></section></main>`;
@@ -114,7 +117,7 @@ async function loadKitchen() {
 async function updateKitchenOrder(orderId, status) {
   await kitchenApi("/api/public/kiosk/orders/status", {
     method: "POST",
-    body: JSON.stringify({ tenantCode: kitchenTenantCode, orderId, status })
+    body: JSON.stringify({ tenantCode: kitchenTenantCode, terminalToken: kitchenTerminalToken, orderId, status })
   });
   await loadKitchen();
 }

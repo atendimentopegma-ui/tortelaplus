@@ -310,6 +310,7 @@ const seed = {
     paymentAuthScheme: "Bearer",
     paymentCallbackUrl: "",
     paymentApiTokenConfigured: false,
+    publicTerminalToken: "",
     deliveryRadiusKm: 10
   }
 };
@@ -737,6 +738,12 @@ function counterPassword(tenant, challenge, days = tenant.renewalDays) {
   const raw = `${tenant.tenantCode}|${tenant.licensePassword}|${challenge}|${days}`;
   const code = simpleHash(raw);
   return `${code.slice(0, 3)}-${code.slice(3)}`;
+}
+
+function publicUnitLink(page) {
+  const params = new URLSearchParams({ unidade: state.settings.tenantCode });
+  if (state.settings.publicTerminalToken) params.set("terminalToken", state.settings.publicTerminalToken);
+  return `./${page}?${params.toString()}`;
 }
 
 function licenseStatus(tenant = getCurrentTenant()) {
@@ -1772,9 +1779,9 @@ function renderOnlineOrders() {
         <h2>Pedidos online / Totem</h2>
         <div class="actions">
           <a class="btn" href="./loja.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir loja online</a>
-          <a class="btn" href="./totem.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir totem</a>
-          <a class="btn" href="./cozinha?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir cozinha</a>
-          <a class="btn" href="./telao.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir telao</a>
+          <a class="btn" href="${publicUnitLink("totem.html")}" target="_blank" rel="noopener">Abrir totem</a>
+          <a class="btn" href="${publicUnitLink("cozinha")}" target="_blank" rel="noopener">Abrir cozinha</a>
+          <a class="btn" href="${publicUnitLink("telao.html")}" target="_blank" rel="noopener">Abrir telao</a>
         </div>
       </div>
       <div class="panel-body grid">
