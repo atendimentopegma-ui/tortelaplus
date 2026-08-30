@@ -6679,6 +6679,51 @@ window.addEventListener("online", () => {
   if (localStorage.getItem("tortelaplus-pending-sync") === "1") save();
   processPendingFiscalQueue();
 });
+
+document.addEventListener("click", (event) => {
+  const fiscalTab = event.target.closest("[data-fiscal-tab]");
+  if (fiscalTab) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentFiscalTab = fiscalTab.dataset.fiscalTab || "fila";
+    renderShell();
+    return;
+  }
+  const stockTab = event.target.closest("[data-stock-tab]");
+  if (stockTab) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentStockTab = stockTab.dataset.stockTab || "producao";
+    renderShell();
+    return;
+  }
+  const personFilter = event.target.closest("[data-person-filter]");
+  if (personFilter) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentPeopleTab = personFilter.dataset.personFilter || "Todos";
+    renderShell();
+    return;
+  }
+  const productTab = event.target.closest("[data-product-tab]");
+  if (productTab) {
+    event.preventDefault();
+    event.stopPropagation();
+    captureProductDraft();
+    currentTab = productTab.dataset.productTab || "dados";
+    renderShell();
+    return;
+  }
+  const genericTab = event.target.closest("[data-tab]");
+  if (genericTab) {
+    event.preventDefault();
+    event.stopPropagation();
+    captureProductDraft();
+    currentTab = genericTab.dataset.tab || "dados";
+    renderShell();
+  }
+}, true);
+
 window.addEventListener("offline", renderShell);
 window.addEventListener("beforeunload", endSession);
 setInterval(processPendingFiscalQueue, 60000);
