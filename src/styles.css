@@ -2909,16 +2909,22 @@ th {
   padding: 8px 12px 0;
 }
 
-.module-tabs button {
+.module-tabs button,
+.module-tabs a {
   border: 0;
   border-bottom: 3px solid transparent;
   background: transparent;
   padding: 10px 8px;
   font-weight: 800;
   color: var(--muted);
+  text-decoration: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
 }
 
-.module-tabs button.active {
+.module-tabs button.active,
+.module-tabs a.active {
   color: var(--brand);
   border-color: var(--brand);
 }

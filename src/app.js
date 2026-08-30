@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "fiscal-cache-fix-v2";
+window.TORTELA_BUILD = "fiscal-tabs-route-v3";
 
 let state = load();
 let apiOnline = false;
@@ -995,6 +995,7 @@ function renderLicenseGate() {
 }
 
 function renderShell() {
+  applyInternalRoute();
   ensureAllowedModule();
   ensureAutomaticStockOrder();
   const tenant = getCurrentTenant();
@@ -1049,6 +1050,7 @@ function renderShell() {
     button.addEventListener("click", () => {
       currentModule = button.dataset.module;
       currentTab = "dados";
+      setInternalRoute({ module: currentModule, fiscal: currentModule === "fiscal" ? currentFiscalTab : "", stock: currentModule === "stock" ? currentStockTab : "", people: currentModule === "people" ? currentPeopleTab : "" });
       renderShell();
     });
   });
@@ -2057,7 +2059,7 @@ function renderFiscal() {
   return `
     <section class="panel">
       <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><button class="btn" id="fiscal-export-batch">Lote XML</button><button class="btn" id="fiscal-pdf-batch">Lote PDF</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentFiscalTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
-      <div class="module-tabs">${availableTabs.map((tab) => `<button class="${currentFiscalTab === tab ? "active" : ""}" data-fiscal-tab="${tab}" onclick="selectFiscalTab('${tab}')" type="button">${tab.toUpperCase()}</button>`).join("")}</div>
+      <div class="module-tabs">${availableTabs.map((tab) => `<a class="${currentFiscalTab === tab ? "active" : ""}" data-fiscal-tab="${tab}" href="#module=fiscal&fiscal=${tab}" role="button" aria-current="${currentFiscalTab === tab ? "page" : "false"}">${tab.toUpperCase()}</a>`).join("")}</div>
       <div class="panel-body grid">
         <div class="fiscal-note">
           Ambiente ${state.settings.fiscalEnvironment}. NF-e/NFC-e usam fluxo de mercadoria. NFS-e fica em tela separada porque depende de municipio, item de servico, ISS, NBS e padrao nacional/municipal vigente.
@@ -2108,6 +2110,7 @@ function fiscalTabModel(tab) {
 
 function selectFiscalTab(tab) {
   currentFiscalTab = tab || "fila";
+  setInternalRoute({ module: "fiscal", fiscal: currentFiscalTab });
   renderShell();
 }
 
@@ -2236,6 +2239,45 @@ function reportRows(rows, dateField = "date") {
     const value = String(row[dateField] || row.date || row.due || row.issuedAt || "").slice(0, 10);
     return !value || ((!reportPeriod.from || value >= reportPeriod.from) && (!reportPeriod.to || value <= reportPeriod.to));
   });
+}
+
+function readInternalRoute() {
+  const rawHash = window.location.hash.replace(/^#/, "");
+  if (!rawHash) return {};
+  return Object.fromEntries(new URLSearchParams(rawHash));
+}
+
+function applyInternalRoute() {
+  const route = readInternalRoute();
+  if (route.module && Object.prototype.hasOwnProperty.call({
+    dashboard: 1,
+    people: 1,
+    products: 1,
+    stock: 1,
+    purchases: 1,
+    sales: 1,
+    online: 1,
+    finance: 1,
+    fiscal: 1,
+    reports: 1,
+    settings: 1
+  }, route.module)) {
+    currentMode = "backoffice";
+    currentModule = route.module;
+  }
+  if (route.fiscal) currentFiscalTab = route.fiscal;
+  if (route.stock) currentStockTab = route.stock;
+  if (route.people) currentPeopleTab = route.people;
+}
+
+function setInternalRoute(values) {
+  const route = new URLSearchParams(readInternalRoute());
+  Object.entries(values).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") route.delete(key);
+    else route.set(key, value);
+  });
+  const nextHash = `#${route.toString()}`;
+  if (window.location.hash !== nextHash) window.location.hash = nextHash;
 }
 
 function productSalesTotals() {
@@ -2809,6 +2851,7 @@ function bindCurrentModule() {
   });
   document.querySelectorAll("[data-person-filter]").forEach((button) => button.addEventListener("click", () => {
     currentPeopleTab = button.dataset.personFilter || "Todos";
+    setInternalRoute({ module: "people", people: currentPeopleTab });
     renderShell();
   }));
   document.querySelectorAll("[data-select-person]").forEach((row) => row.addEventListener("click", (event) => {
@@ -2846,6 +2889,7 @@ function bindCurrentModule() {
 
   document.querySelectorAll("[data-stock-tab]").forEach((button) => button.addEventListener("click", () => {
     currentStockTab = button.dataset.stockTab || "producao";
+    setInternalRoute({ module: "stock", stock: currentStockTab });
     renderShell();
   }));
 
@@ -3029,6 +3073,7 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-fiscal-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       currentFiscalTab = button.dataset.fiscalTab || "fila";
+      setInternalRoute({ module: "fiscal", fiscal: currentFiscalTab });
       renderShell();
     });
   });
@@ -6689,12 +6734,17 @@ window.addEventListener("online", () => {
   processPendingFiscalQueue();
 });
 
+window.addEventListener("hashchange", () => {
+  if (sessionId) renderShell();
+});
+
 document.addEventListener("click", (event) => {
   const fiscalTab = event.target.closest("[data-fiscal-tab]");
   if (fiscalTab) {
     event.preventDefault();
     event.stopPropagation();
     currentFiscalTab = fiscalTab.dataset.fiscalTab || "fila";
+    setInternalRoute({ module: "fiscal", fiscal: currentFiscalTab });
     renderShell();
     return;
   }
@@ -6703,6 +6753,7 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     currentStockTab = stockTab.dataset.stockTab || "producao";
+    setInternalRoute({ module: "stock", stock: currentStockTab });
     renderShell();
     return;
   }
@@ -6711,6 +6762,7 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     currentPeopleTab = personFilter.dataset.personFilter || "Todos";
+    setInternalRoute({ module: "people", people: currentPeopleTab });
     renderShell();
     return;
   }
@@ -6737,8 +6789,17 @@ window.addEventListener("offline", renderShell);
 window.addEventListener("beforeunload", endSession);
 setInterval(processPendingFiscalQueue, 60000);
 
+if ("caches" in window) {
+  caches.keys()
+    .then((keys) => Promise.all(keys.filter((key) => key.startsWith("tortelaplus-operacao-")).map((key) => caches.delete(key))))
+    .catch(() => undefined);
+}
+
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js?v=cache-fix-v2").catch(() => undefined);
+  navigator.serviceWorker.getRegistrations?.()
+    .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
+    .catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=fiscal-tabs-route-v3").catch(() => undefined);
 }
 
 boot();
