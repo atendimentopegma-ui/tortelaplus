@@ -4436,6 +4436,10 @@ function serveFile(req, res, urlPath) {
     send(res, 200, fs.readFileSync(path.join(root, "api-cadastro", "index.html")), types[".html"]);
     return;
   }
+  if (urlPath === "/cozinha" || urlPath === "/cozinha/") {
+    send(res, 200, fs.readFileSync(path.join(root, "cozinha.html")), types[".html"]);
+    return;
+  }
   const defaultPage = appSurface === "network" ? "/central-rede.html" : appSurface === "central" ? "/central-saas.html" : "/index.html";
   const safePath = path.normalize(urlPath === "/" ? defaultPage : urlPath).replace(/^(\.\.[/\\])+/, "");
   const file = path.join(root, safePath);
@@ -4447,6 +4451,10 @@ function serveFile(req, res, urlPath) {
 
   fs.readFile(file, (error, data) => {
     if (error) {
+      if (path.extname(safePath)) {
+        send(res, 404, "Arquivo nao encontrado");
+        return;
+      }
       fs.readFile(path.join(root, "index.html"), (fallbackError, fallback) => {
         if (fallbackError) send(res, 404, "Arquivo nao encontrado");
         else send(res, 200, fallback, types[".html"]);
