@@ -93,6 +93,7 @@ O agente deve ficar protegido por HTTPS/VPN. Ele utiliza somente a copia ACBr de
 
 - Sem `DATABASE_URL`, o servidor usa os arquivos locais somente como contingencia de desenvolvimento.
 - Com `DATABASE_URL`, a Central fica no schema `public` e cada unidade recebe um schema PostgreSQL exclusivo `tenant_<codigo>`.
+- Em provedor pago, configure `PEGMA_PUBLIC_LINK_SECRET` para gerar tokens exclusivos de totem, cozinha e telao por unidade.
 - Para os primeiros testes online, o PostgreSQL gratuito recomendado e o Neon Free: https://neon.com/pricing
 - A migracao inicial dos JSON existentes pode ser executada com `npm run db:migrate`.
 - A migracao inclui os arquivos XML, PDF, imagens e anexos armazenados por cliente.

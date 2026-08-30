@@ -24,6 +24,7 @@ PEGMA_ALLOWED_ORIGINS=https://app.seudominio.com.br,https://central.seudominio.c
 PEGMA_CENTRAL_USER=admin
 PEGMA_CENTRAL_PASSWORD=<senha forte com 32+ caracteres>
 PEGMA_SECRET_KEY=<chave forte com 32+ caracteres>
+PEGMA_PUBLIC_LINK_SECRET=<chave forte com 32+ caracteres para totem/cozinha/telao>
 PEGMA_PROVIDER_TOKEN=<token forte com 32+ caracteres>
 PEGMA_BACKUP_DIR=<pasta persistente ou storage externo>
 ```
@@ -77,6 +78,7 @@ npm run db:verify-isolation
 - Isolamento por schema PostgreSQL por franquia para reduzir risco de mistura de dados.
 - Segredos fora do codigo por variaveis de ambiente.
 - `PEGMA_SECRET_KEY` para criptografar senha de certificado e CSC fiscal.
+- `PEGMA_PUBLIC_LINK_SECRET` para gerar tokens de unidade nos links de totem, cozinha e telao.
 - Headers de seguranca: `nosniff`, `SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy` e origem HTTP controlada.
 - Cadastro publico exige consentimento do cliente antes de gravar dados.
 - Auditoria operacional e backups para rastreabilidade.

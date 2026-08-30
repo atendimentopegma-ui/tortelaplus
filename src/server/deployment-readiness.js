@@ -65,6 +65,12 @@ function buildDeploymentReadiness(env = process.env, runtime = {}) {
     "Configure PEGMA_PROVIDER_TOKEN com token longo para automacoes administrativas."
   );
   add(
+    "public-link-secret",
+    "Segredo dos links de totem/cozinha/telao",
+    looksStrongSecret(env.PEGMA_PUBLIC_LINK_SECRET),
+    "Configure PEGMA_PUBLIC_LINK_SECRET com chave forte para gerar tokens de unidade nao previsiveis."
+  );
+  add(
     "allowed-origins",
     "Origens HTTP permitidas",
     origins.length > 0,
