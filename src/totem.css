@@ -771,3 +771,208 @@ body.tortela-kiosk-page button {
     min-height: 112px;
   }
 }
+
+/* Tema limpo v9: amarelo como destaque, base clara e comandos com grafite suave. */
+body.tortela-kiosk-page {
+  background: linear-gradient(90deg, #f4efe4 0%, #fffdfa 50%, #f1e8d7 100%);
+}
+
+body.tortela-kiosk-page #kiosk-app {
+  background: #f8f5ee;
+  box-shadow: 0 0 0 14px rgba(17, 24, 39, 0.94);
+}
+
+.tk-shell,
+.tk-welcome,
+.tk-success {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(247, 242, 231, 0.97)),
+    url("../assets/tortela/totem-bg.png") center / cover no-repeat;
+}
+
+.tk-shell::before,
+.tk-welcome::before,
+.tk-success::before {
+  background:
+    linear-gradient(90deg, rgba(250, 204, 21, 0.08) 0 1px, transparent 1px 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(245, 239, 226, 0.74));
+  background-size: 44px 44px, auto;
+}
+
+.tk-welcome-panel,
+.tk-panel,
+.tk-menu-board,
+.tk-categories,
+.tk-success-card {
+  border: 1px solid rgba(209, 180, 88, 0.28);
+  box-shadow: 0 18px 44px rgba(17, 24, 39, 0.1);
+}
+
+.tk-welcome-panel {
+  border-radius: 34px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.tk-welcome-panel img {
+  width: 210px;
+  height: 96px;
+}
+
+.tk-welcome-panel h1 {
+  font-size: 48px;
+  line-height: 1.02;
+}
+
+.tk-welcome-panel p,
+.tk-panel p,
+.tk-success-card p {
+  color: #526070;
+}
+
+.tk-welcome-panel span,
+.tk-eyebrow,
+.tk-success-card span,
+.tk-menu-title .tk-eyebrow {
+  color: #04748b;
+}
+
+.tk-header {
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom: 1px solid rgba(209, 180, 88, 0.28);
+}
+
+.tk-logo,
+.tk-cart-button {
+  border-radius: 22px;
+  background: #fff8d7;
+  color: #111827;
+}
+
+.tk-progress .is-active,
+.tk-categories .is-active,
+.tk-option-row .is-active,
+.tk-extra-grid .is-active,
+.tk-payment-grid .is-active {
+  background: #f2c600;
+  border-color: #f2c600;
+}
+
+.tk-progress .is-active::after,
+.tk-stepper button {
+  background: #273244;
+}
+
+.tk-primary,
+.tk-welcome-footer button {
+  background: linear-gradient(180deg, #ffe06a, #f4c400);
+  color: #111827;
+  box-shadow: 0 12px 24px rgba(120, 89, 0, 0.16);
+}
+
+.tk-mode-grid button,
+.tk-payment-grid button,
+.tk-option-row button,
+.tk-extra-grid button,
+.tk-secondary,
+.tk-field input,
+.tk-field select {
+  border: 1px solid #dfd2b3;
+  box-shadow: 0 10px 22px rgba(17, 24, 39, 0.06);
+}
+
+.tk-menu {
+  grid-template-columns: 98px 1fr;
+  gap: 10px;
+  padding: 16px 12px 108px;
+}
+
+.tk-categories {
+  gap: 12px;
+  padding: 9px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: none;
+}
+
+.tk-categories button {
+  min-height: 70px;
+  border-radius: 18px;
+  background: #f4f1e8;
+  color: #202938;
+}
+
+.tk-menu-board {
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.tk-menu-title {
+  padding: 22px 18px 16px;
+  background: #fff;
+  color: #081a36;
+  border-bottom: 1px solid #eadfbe;
+}
+
+.tk-menu-title h1 {
+  color: #081a36;
+}
+
+.tk-menu-title strong {
+  color: #b89400;
+}
+
+.tk-products {
+  background: linear-gradient(180deg, #fffdf7, #faf7ef);
+}
+
+.tk-product-card {
+  border: 1px solid #e8ddc0;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(17, 24, 39, 0.07);
+}
+
+.tk-product-photo,
+.tk-product-fallback {
+  border-radius: 18px;
+}
+
+.tk-product-fallback {
+  background: linear-gradient(135deg, #fff8d2, #f3c900);
+}
+
+.tk-product-card strong,
+.tk-custom-info > strong,
+.tk-cart-row > strong,
+.tk-total strong,
+.tk-success-card strong {
+  color: #04748b;
+}
+
+.tk-product-card button {
+  border-radius: 16px;
+  background: linear-gradient(180deg, #273244, #161f2e);
+}
+
+.tk-bottom-cart {
+  bottom: 20px;
+  border: 1px solid rgba(209, 180, 88, 0.34);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  box-shadow: 0 14px 32px rgba(17, 24, 39, 0.12);
+}
+
+.tk-bottom-cart strong {
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #f2c600;
+}
+
+.tk-cart-row,
+.tk-review b,
+.tk-empty {
+  background: #faf7ef;
+}
