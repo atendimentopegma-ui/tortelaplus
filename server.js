@@ -809,6 +809,11 @@ function normalizeTenantCode(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function pathInside(parent, target) {
+  const relative = path.relative(path.resolve(parent), path.resolve(target));
+  return Boolean(relative) && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
 function extensionFromMime(mimeType) {
   return {
     "image/png": ".png",
@@ -834,7 +839,9 @@ function saveTenantFile({ tenantCode, category, filename, mimeType, content, pre
   const base = normalizePathSegment(path.basename(filename || "arquivo", path.extname(filename || "")));
   const safeOriginalName = path.basename(filename || `${base}${ext}`).replace(/[^a-zA-Z0-9._-]/g, "-");
   const finalName = preserveFilename ? safeOriginalName : `${Date.now()}-${crypto.randomBytes(4).toString("hex")}-${base}${ext}`;
-  const filePath = path.join(tenantStorageDir(tenantCode, category), finalName);
+  const directory = tenantStorageDir(tenantCode, category);
+  const filePath = path.join(directory, finalName);
+  if (!pathInside(directory, filePath)) throw new Error("Caminho de arquivo invalido para a unidade.");
   fs.writeFileSync(filePath, parsed.buffer);
   if (postgresStore) {
     postgresStore.queue(() => postgresStore.writeFile(
@@ -1584,6 +1591,24 @@ function deny(res, access) {
   sendJson(res, access.error.status, { ok: false, error: access.error.message });
 }
 
+function tenantAccessOrProvider(req, provider, tenantCode, requiredPermission = "") {
+  const providerSession = providerAccess(req);
+  if (providerSession) {
+    const tenant = findTenant(provider, tenantCode);
+    if (!tenant) return { error: { status: 404, message: "Cliente nao encontrado" } };
+    return { tenant, session: { user: providerSession.username, role: providerSession.role || "Administrador", provider: true } };
+  }
+  return sessionAccess(req, provider, tenantCode, requiredPermission);
+}
+
+function assertTenantPayload(tenantCode, payload) {
+  const code = normalizeTenantCode(tenantCode);
+  const payloadCode = normalizeTenantCode(payload?.settings?.tenantCode || "");
+  if (payloadCode && payloadCode !== code) {
+    throw new Error(`Dados de ${payloadCode} nao podem ser gravados na unidade ${code}.`);
+  }
+}
+
 function tenantSnapshot(tenantCode) {
   const state = readTenantState(tenantCode);
   return tenantSnapshotDocument(tenantCode, state, "manual");
@@ -2209,6 +2234,7 @@ async function handleApi(req, res, urlPath) {
     send(res, 204, "");
     return;
   }
+  const requestUrl = new URL(req.url, "http://localhost");
 
   if (req.method === "GET" && urlPath === "/api/health") {
     const database = postgresStore ? await postgresStore.health().catch((error) => ({ error: error.message })) : null;
@@ -3388,6 +3414,12 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 423, { ok: false, error: `Periodo fechado ate ${currentState.settings.closedThrough}. Reabra o periodo antes de alterar movimentos anteriores.` });
       return;
     }
+    try {
+      assertTenantPayload(tenantCode, body.state || body);
+    } catch (error) {
+      sendJson(res, 400, { ok: false, error: error.message });
+      return;
+    }
     writeTenantState(tenantCode, body.state || body);
     writeProvider(provider);
     sendJson(res, 200, { ok: true, tenantCode, revision: readTenantState(tenantCode)._meta?.revision || 0 });
@@ -4164,20 +4196,41 @@ async function handleApi(req, res, urlPath) {
   }
 
   if (req.method === "GET" && urlPath === "/api/state") {
-    if (!providerAccessAllowed(req)) {
-      sendJson(res, 401, { ok: false, error: "Sessao administrativa obrigatoria" });
+    const tenantCode = normalizeTenantCode(requestUrl.searchParams.get("tenantCode") || "");
+    if (!tenantCode) {
+      sendJson(res, 400, { ok: false, error: "Informe tenantCode para ler estado isolado da unidade." });
       return;
     }
-    sendJson(res, 200, readCombinedState());
+    const provider = readProvider();
+    const access = tenantAccessOrProvider(req, provider, tenantCode);
+    if (access.error) {
+      deny(res, access);
+      return;
+    }
+    sendJson(res, 200, readCombinedState(tenantCode));
     return;
   }
 
   if (req.method === "POST" && urlPath === "/api/state") {
-    if (!providerAccessAllowed(req)) {
-      sendJson(res, 401, { ok: false, error: "Sessao administrativa obrigatoria" });
+    const body = await readBody(req);
+    const tenantCode = normalizeTenantCode(body.tenantCode || body.state?.settings?.tenantCode || "");
+    if (!tenantCode) {
+      sendJson(res, 400, { ok: false, error: "Informe tenantCode para gravar estado isolado da unidade." });
       return;
     }
-    writeCombinedState(await readBody(req));
+    const provider = readProvider();
+    const access = tenantAccessOrProvider(req, provider, tenantCode, "settings");
+    if (access.error) {
+      deny(res, access);
+      return;
+    }
+    try {
+      assertTenantPayload(tenantCode, body.state || body);
+    } catch (error) {
+      sendJson(res, 400, { ok: false, error: error.message });
+      return;
+    }
+    writeTenantState(tenantCode, body.state || body);
     sendJson(res, 200, { ok: true });
     return;
   }
@@ -4452,7 +4505,7 @@ async function handleApi(req, res, urlPath) {
 
 function serveFile(req, res, urlPath) {
   if (urlPath.startsWith("/storage/")) {
-    serveStorageFile(res, urlPath);
+    serveStorageFile(req, res, urlPath);
     return;
   }
   if (urlPath === "/central-saas.html") {
@@ -4471,7 +4524,7 @@ function serveFile(req, res, urlPath) {
   const safePath = path.normalize(urlPath === "/" ? defaultPage : urlPath).replace(/^(\.\.[/\\])+/, "");
   const file = path.join(root, safePath);
 
-  if (!file.startsWith(root)) {
+  if (!pathInside(root, file) && path.resolve(file) !== path.resolve(root)) {
     send(res, 403, "Acesso negado");
     return;
   }
@@ -4492,15 +4545,32 @@ function serveFile(req, res, urlPath) {
   });
 }
 
-function serveStorageFile(res, urlPath) {
+function publicStorageCategory(category) {
+  return ["produtos", "publico"].includes(normalizePathSegment(category));
+}
+
+function serveStorageFile(req, res, urlPath) {
   const parts = urlPath.split("/").filter(Boolean);
   const tenantCode = normalizeTenantCode(parts[1] || "");
   const category = normalizePathSegment(parts[2] || "");
   const filename = path.basename(parts.slice(3).join("-"));
-  const file = path.join(storageDir, tenantCode, category, filename);
-  if (!file.startsWith(path.join(storageDir, tenantCode, category))) {
+  if (!tenantCode || !category || !filename) {
+    send(res, 400, "Arquivo invalido");
+    return;
+  }
+  const categoryDir = path.join(storageDir, tenantCode, category);
+  const file = path.join(categoryDir, filename);
+  if (!pathInside(categoryDir, file)) {
     send(res, 403, "Acesso negado");
     return;
+  }
+  if (!publicStorageCategory(category)) {
+    const provider = readProvider();
+    const access = tenantAccessOrProvider(req, provider, tenantCode);
+    if (access.error) {
+      sendJson(res, access.error.status, { ok: false, error: access.error.message });
+      return;
+    }
   }
   fs.readFile(file, (error, data) => {
     if (error) {

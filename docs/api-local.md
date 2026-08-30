@@ -61,7 +61,9 @@ O arquivo antigo `data/app-state.json` fica apenas como migracao local se ja exi
 - `POST /api/licenses/expire`: simula vencimento de licenca.
 - `POST /api/licenses/redeem`: valida contra-senha e renova licenca.
 
-Os endpoints antigos `GET /api/state` e `POST /api/state` continuam apenas por compatibilidade temporaria com prototipos anteriores.
+Os endpoints antigos `GET /api/state` e `POST /api/state` continuam apenas por compatibilidade temporaria com prototipos anteriores, mas tambem exigem isolamento por unidade: `GET /api/state?tenantCode=<codigo>` e `POST /api/state` com `tenantCode` ou `state.settings.tenantCode`. A sessao Bearer precisa pertencer a essa unidade ou ser uma sessao administrativa da Central.
+
+Arquivos em `/storage/<tenantCode>/<categoria>/<arquivo>` ficam separados por pasta/schema da unidade. Categorias publicas, como `produtos`, podem ser abertas pela loja online e pelo totem; categorias fiscais, backups, PDFs, XMLs, segredos e anexos exigem sessao autorizada da propria unidade ou da Central.
 
 ## Observacao
 
