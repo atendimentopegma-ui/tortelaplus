@@ -2638,6 +2638,59 @@ header.topbar .top-right .central-top-action:hover {
   line-height: 1.35;
 }
 
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 20px 0;
+  border-top: 1px solid var(--line);
+  background: #fffdf5;
+}
+
+.settings-tabs button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #ead9a8;
+  border-radius: 8px 8px 0 0;
+  background: #fff;
+  color: #506070;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.settings-tabs button.active {
+  border-color: #d8bd62;
+  border-bottom-color: #fff;
+  background: #fff;
+  color: #061733;
+  box-shadow: 0 -3px 0 #f2c300 inset;
+}
+
+.settings-body {
+  display: block;
+}
+
+.settings-pane {
+  display: none;
+}
+
+.settings-pane.active {
+  display: block;
+}
+
+.settings-section-title {
+  margin: 4px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  color: #061733;
+  font-size: 18px;
+}
+
+.settings-section-title:not(:first-child) {
+  margin-top: 22px;
+}
+
 .alert {
   padding: 12px;
   border-radius: 6px;

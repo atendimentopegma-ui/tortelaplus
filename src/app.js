@@ -320,6 +320,7 @@ let apiOnline = false;
 let currentMode = "backoffice";
 let currentModule = "dashboard";
 let currentTab = "dados";
+let currentSettingsTab = "geral";
 let reportPeriod = { from: `${today().slice(0, 7)}-01`, to: today() };
 let saleItems = [];
 let saleClubCpf = "";
@@ -2319,11 +2320,24 @@ function renderSettings() {
   const ruleValue = (key, fallback = "") => escapeAttr(editingRule[key] ?? fallback);
   const ruleNumber = (key, fallback = 0) => Number(editingRule[key] ?? fallback);
   const ruleSelected = (key, value, fallback = "") => (editingRule[key] || fallback) === value ? "selected" : "";
+  const settingsTabs = [
+    ["geral", "Empresa e fiscal"],
+    ["regras", "Regras fiscais"],
+    ["operacao", "Operacao"],
+    ["usuarios", "Usuarios"],
+    ["prontidao", "Prontidao"]
+  ];
+  if (!settingsTabs.some(([key]) => key === currentSettingsTab)) currentSettingsTab = "geral";
+  const settingsPaneClass = (key) => `settings-pane ${currentSettingsTab === key ? "active" : ""}`;
   return `
     <section class="panel">
       <div class="panel-head"><h2>Configuracoes</h2><button class="btn primary" id="save-settings">Salvar configuracoes</button></div>
-      <div class="panel-body grid two">
-        <form class="form-card" id="settings-form">
+      <div class="settings-tabs" role="tablist" aria-label="Assuntos das configuracoes">
+        ${settingsTabs.map(([key, label]) => `<button class="${currentSettingsTab === key ? "active" : ""}" data-settings-tab="${key}" type="button" role="tab" aria-selected="${currentSettingsTab === key}">${label}</button>`).join("")}
+      </div>
+      <div class="panel-body settings-body">
+        <form class="form-card ${settingsPaneClass("geral")}" id="settings-form">
+          <h3 class="settings-section-title">Empresa</h3>
           <div class="field"><label>Empresa</label><input id="set-company" value="${state.settings.company}" /></div>
           <div class="field"><label>CNPJ/CPF</label><input id="set-document" value="${state.settings.document || ""}" /></div>
           <div class="grid two">
@@ -2333,6 +2347,7 @@ function renderSettings() {
           <div class="field"><label>UF</label><input id="set-uf" value="${state.settings.uf}" maxlength="2" /></div>
           <div class="field"><label>Regime tributario</label><select id="set-regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></div>
           <div class="field"><label>CRT aplicado</label><input value="${taxRegimeCode(state.settings.regime)}" readonly /></div>
+          <h3 class="settings-section-title">Fiscal, certificado e ACBr</h3>
           <div class="field"><label>Ambiente fiscal</label><select id="set-env"><option>Homologacao</option><option>Producao</option></select></div>
           <div class="grid two">
             <div class="field"><label>Motor fiscal</label><select id="set-fiscal-engine"><option>ACBrLib</option><option>ACBrMonitor</option></select></div>
@@ -2368,6 +2383,7 @@ function renderSettings() {
             <button class="btn" id="validate-fiscal-setup" type="button">Validar prontidao fiscal</button>
             <span class="badge ${fiscalReadiness().ok ? "ok" : "warn"}">${fiscalReadiness().label}</span>
           </div>
+          <h3 class="settings-section-title">Endereco da unidade</h3>
           <div class="grid two">
             <div class="field"><label>CEP</label><input id="set-cep" value="${state.settings.cep || ""}" /></div>
             <div class="field"><label>Cidade</label><input id="set-city" value="${state.settings.city || ""}" /></div>
@@ -2377,7 +2393,7 @@ function renderSettings() {
             <div class="field"><label>Bairro</label><input id="set-district" value="${state.settings.district || ""}" /></div>
           </div>
         </form>
-        <div class="form-card">
+        <div class="form-card ${settingsPaneClass("regras")}">
           <h3>${editingFiscalRuleId ? "Editar regra fiscal" : "Regra fiscal"}</h3>
           <div class="grid four">
             <div class="field"><label>Nome da regra</label><input id="rule-name" value="${ruleValue("name")}" placeholder="Venda interna" /></div>
@@ -2425,7 +2441,7 @@ function renderSettings() {
             <tbody>${(state.fiscalRules || []).map((rule) => `<tr><td>${rule.name}</td><td>${rule.regime}</td><td>${rule.uf}</td><td>${rule.model}</td><td>${rule.cfop}</td><td>${rule.cst || rule.csosn}</td><td>${rule.ncm || "-"}</td><td>${pct(rule.icmsRate)}</td><td>${pct(rule.ibsRate)}</td><td>${pct(rule.cbsRate)}</td><td>${rule.validFrom || "-"} a ${rule.validTo || "sem fim"}</td><td><span class="badge ${rule.active === false ? "danger" : "ok"}">${rule.active === false ? "Inativa" : "Ativa"}</span></td><td><button class="btn" data-edit-fiscal-rule="${rule.id}">Editar</button> <button class="btn ${rule.active === false ? "" : "danger"}" data-toggle-fiscal-rule="${rule.id}">${rule.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody></table>
           </div>
         </div>
-        <div class="form-card">
+        <div class="form-card ${settingsPaneClass("operacao")}">
           <h3>Operacao da rede e seguranca</h3>
           <p class="muted">Backup local, restauracao controlada e exportacao para suporte do provedor.</p>
           <div class="actions">
@@ -2482,12 +2498,12 @@ function renderSettings() {
           <div class="actions"><button class="btn" id="generate-alerts" type="button">Atualizar alertas operacionais</button><button class="btn primary" id="dispatch-alerts" type="button">Enviar alertas pendentes</button></div>
           <div class="table-wrap"><table><thead><tr><th>Data</th><th>Tipo</th><th>Mensagem</th><th>Status</th></tr></thead><tbody>${(state.alertOutbox || []).slice(-10).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.type}</td><td>${row.message}</td><td>${row.status}</td></tr>`).join("")}</tbody></table></div>
         </div>
-        <div class="form-card">
+        <div class="form-card ${settingsPaneClass("prontidao")}">
           <h3>Prontidao para cliente piloto</h3>
           <p class="muted">${readiness.ready}/${readiness.items.length} pontos essenciais preparados.</p>
           <div class="table-wrap"><table><thead><tr><th>Item</th><th>Situacao</th></tr></thead><tbody>${readiness.items.map((item) => `<tr><td>${item.label}</td><td><span class="badge ${item.ok ? "ok" : "warn"}">${item.ok ? "Pronto" : "Pendente"}</span></td></tr>`).join("")}</tbody></table></div>
         </div>
-        <div class="form-card">
+        <div class="form-card ${settingsPaneClass("usuarios")}">
           <h3>Novo usuario</h3>
           <div class="grid two">
             <div class="field"><label>Nome</label><input id="user-name" /></div>
@@ -2500,7 +2516,7 @@ function renderSettings() {
           ${renderScreenPermissionMatrix()}
           <button class="btn primary" id="save-user" type="button">Cadastrar usuario</button>
         </div>
-        <div class="form-card">
+        <div class="form-card ${settingsPaneClass("usuarios")}">
           <h3>Alterar minha senha</h3>
           <div class="grid two">
             <div class="field"><label>Senha atual</label><input id="current-password" type="password" /></div>
@@ -2508,7 +2524,7 @@ function renderSettings() {
           </div>
           <button class="btn primary" id="change-password" type="button">Alterar senha</button>
         </div>
-        <div class="table-wrap" style="grid-column: 1 / -1">
+        <div class="table-wrap ${settingsPaneClass("usuarios")}" style="grid-column: 1 / -1">
           <table>
             <thead><tr><th>Usuario</th><th>Nome</th><th>Perfil</th><th>Permissoes</th><th>Matriz</th><th>Status</th><th>Acoes</th></tr></thead>
             <tbody>${users.map((user) => `<tr><td>${user.username}</td><td>${user.name}</td><td>${user.role}</td><td>${(user.permissions || rolePermissions[user.role] || []).map(permissionLabel).join(", ")}</td><td>${user.screenPermissions ? "CRUD por tela" : "Padrao perfil"}</td><td><span class="badge ${user.active === false ? "danger" : "ok"}">${user.active === false ? "Bloqueado" : "Ativo"}</span></td><td><button class="btn ${user.active === false ? "" : "danger"}" data-toggle-user="${user.id}">${user.active === false ? "Ativar" : "Bloquear"}</button></td></tr>`).join("")}</tbody>
@@ -2856,6 +2872,13 @@ function bindCurrentModule() {
 
   document.querySelectorAll("[data-pay]").forEach((button) => {
     button.addEventListener("click", () => payFinanceRecord(Number(button.dataset.pay)));
+  });
+
+  document.querySelectorAll("[data-settings-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      currentSettingsTab = button.dataset.settingsTab || "geral";
+      renderShell();
+    });
   });
 
   const saveSettings = byId("save-settings");
