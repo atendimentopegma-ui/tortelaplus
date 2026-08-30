@@ -976,3 +976,40 @@ body.tortela-kiosk-page #kiosk-app {
 .tk-empty {
   background: #faf7ef;
 }
+
+/* Ajuste v10: remove o aspecto azul dos botoes e deixa a acao mais premium. */
+.tk-product-card button {
+  background: linear-gradient(180deg, #3a3328, #201d19);
+  color: #fffaf0;
+  box-shadow: 0 10px 22px rgba(45, 38, 28, 0.18);
+}
+
+.tk-product-card button:hover,
+.tk-product-card button:focus-visible {
+  background: linear-gradient(180deg, #4a4031, #2a251f);
+}
+
+.tk-stepper button {
+  background: #3a3328;
+  color: #fffaf0;
+}
+
+.tk-primary,
+.tk-welcome-footer button,
+.tk-bottom-cart strong {
+  background: linear-gradient(180deg, #ffd84a, #e7b900);
+  color: #15120d;
+}
+
+.tk-cart-button strong,
+.tk-product-card strong,
+.tk-custom-info > strong,
+.tk-cart-row > strong,
+.tk-total strong,
+.tk-success-card strong {
+  color: #087187;
+}
+
+.tk-bottom-cart {
+  color: #2f2a21;
+}
