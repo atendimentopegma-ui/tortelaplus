@@ -13,6 +13,7 @@ const modules = [
   ["finance", "Financeiro", "Contas e repasses"],
   ["permissions", "Permissoes", "Acesso das lojas"],
   ["production", "Producao", "Capacidade"],
+  ["deployment", "Implantacao", "Banco e seguranca"],
   ["reports", "Relatorios", "Consultas"]
 ];
 
@@ -92,6 +93,8 @@ function normalizeSummary(payload = {}) {
     whatsapp: {},
     whatsappGroupLeads: [],
     whatsappGroupQueue: [],
+    deployment: { checks: [], blockers: [], warnings: [] },
+    databaseIsolation: { expectedTenants: [], orphanSchemas: [], postgresActive: false, ready: false, mode: "" },
     ...payload,
     totals: { ...(payload.totals || {}) },
     periods: { hour: 0, day: 0, week: 0, fortnight: 0, month: 0, ...(payload.periods || {}) }
@@ -185,6 +188,7 @@ function renderCurrentModule() {
     finance: renderFinance,
     permissions: renderPermissions,
     production: renderProduction,
+    deployment: renderDeployment,
     reports: renderReports
   };
   return (renderers[currentModule] || renderOverview)();
@@ -562,6 +566,49 @@ function renderProduction() {
         escapeHtml(Array.isArray(row.rawMaterials) ? row.rawMaterials.join(", ") : (row.rawMaterials || "-"))
       ]))}
     </section>
+  </div>`;
+}
+
+function statusBadge(ok, warning = false) {
+  if (ok) return `<span class="badge ok">OK</span>`;
+  return `<span class="badge ${warning ? "warn" : "danger"}">${warning ? "Aviso" : "Pendente"}</span>`;
+}
+
+function renderDeployment() {
+  const deployment = summary.deployment || {};
+  const isolation = summary.databaseIsolation || {};
+  const checks = deployment.checks || [];
+  const tenantRows = isolation.expectedTenants || [];
+  return `<div class="network-module compact">
+    ${moduleTitle("Implantacao e banco definitivo", "Conferencia para provedor pago, PostgreSQL e isolamento real por unidade.")}
+    <div class="network-grid four">
+      ${kpi("Modo atual", escapeHtml(isolation.mode || deployment.mode || "-"))}
+      ${kpi("PostgreSQL", isolation.postgresActive ? "Ativo" : "Nao ativo")}
+      ${kpi("Isolamento", isolation.ready ? "Pronto" : "Conferir")}
+      ${kpi("Unidades", amount(tenantRows.length))}
+    </div>
+    ${isolation.warning ? `<section class="network-card"><p><strong>Atencao:</strong> ${escapeHtml(isolation.warning)}</p></section>` : ""}
+    <section class="network-card">
+      <h2>Checklist de producao</h2>
+      ${table(["Item", "Status", "Orientacao"], checks.map((check) => [
+        escapeHtml(check.label || check.id || "-"),
+        statusBadge(check.ok, check.level === "warning"),
+        escapeHtml(check.message || "")
+      ]), "Nenhuma checagem retornada pelo servidor.")}
+    </section>
+    <section class="network-card">
+      <h2>Isolamento por unidade</h2>
+      ${table(["Unidade", "Armazenamento", "Base separada", "Status"], tenantRows.map((tenant) => [
+        `<strong>${escapeHtml(tenant.unit || tenant.tenantCode || "-")}</strong><br><small>${escapeHtml(tenant.tenantCode || "")}</small>`,
+        escapeHtml(tenant.storage || "-"),
+        escapeHtml(tenant.schema || tenant.file || "-"),
+        statusBadge(tenant.exists)
+      ]), "Nenhuma unidade cadastrada na Central.")}
+    </section>
+    ${(isolation.orphanSchemas || []).length ? `<section class="network-card">
+      <h2>Schemas sem unidade ativa</h2>
+      ${table(["Schema"], isolation.orphanSchemas.map((schema) => [escapeHtml(schema)]))}
+    </section>` : ""}
   </div>`;
 }
 

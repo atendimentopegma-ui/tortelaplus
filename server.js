@@ -4,7 +4,7 @@ const path = require("path");
 const crypto = require("crypto");
 const net = require("net");
 const { spawn } = require("child_process");
-const { PostgresStore } = require("./src/server/postgres-store");
+const { PostgresStore, tenantSchema } = require("./src/server/postgres-store");
 const {
   generateFiscalXml,
   generateNfseIni,
@@ -2229,6 +2229,46 @@ function fiscalProviderStatus(tenantState) {
   };
 }
 
+async function databaseIsolationStatus(provider) {
+  const tenants = (provider.clients || []).map((tenant) => {
+    const tenantCode = normalizeTenantCode(tenant.tenantCode);
+    return {
+      tenantCode,
+      unit: tenant.tradeName || tenant.name || tenantCode,
+      storage: postgresStore ? "schema-postgresql" : "arquivo-json-local",
+      schema: postgresStore ? tenantSchema(tenantCode) : "",
+      file: postgresStore ? "" : tenantFile(tenantCode),
+      exists: false
+    };
+  });
+  let database = null;
+  let postgresSchemas = [];
+  if (postgresStore) {
+    database = await postgresStore.health().catch((error) => ({ error: error.message }));
+    postgresSchemas = await postgresStore.listTenantSchemas().catch(() => []);
+    tenants.forEach((tenant) => {
+      tenant.exists = postgresSchemas.includes(tenant.schema);
+    });
+  } else {
+    tenants.forEach((tenant) => {
+      tenant.exists = fs.existsSync(tenant.file);
+    });
+  }
+  const expectedSchemas = new Set(tenants.map((tenant) => tenant.schema).filter(Boolean));
+  return {
+    mode: databaseMode,
+    postgresActive: Boolean(postgresStore),
+    isolation: postgresStore ? "schema-postgresql-por-franquia" : "arquivos-json-locais-por-unidade",
+    ready: Boolean(postgresStore) && tenants.length > 0 && tenants.every((tenant) => tenant.exists),
+    database,
+    expectedTenants: tenants,
+    orphanSchemas: postgresStore ? postgresSchemas.filter((schema) => !expectedSchemas.has(schema)) : [],
+    warning: postgresStore
+      ? ""
+      : "Modo local JSON serve para desenvolvimento/contingencia. Para provedor pago e varias franquias, use DATABASE_URL com PostgreSQL."
+  };
+}
+
 async function handleApi(req, res, urlPath) {
   if (req.method === "OPTIONS") {
     send(res, 204, "");
@@ -2253,8 +2293,13 @@ async function handleApi(req, res, urlPath) {
   }
 
   if (req.method === "GET" && urlPath === "/api/deployment/readiness") {
+    if (!providerAccessAllowed(req)) {
+      sendJson(res, 401, { ok: false, error: "Sessao administrativa da rede obrigatoria." });
+      return;
+    }
     const deployment = buildDeploymentReadiness(process.env, { databaseMode });
-    sendJson(res, deployment.ready ? 200 : 428, deployment);
+    const databaseIsolation = await databaseIsolationStatus(readProvider());
+    sendJson(res, deployment.ready && databaseIsolation.ready ? 200 : 428, { ...deployment, databaseIsolation });
     return;
   }
 
@@ -2905,9 +2950,13 @@ async function handleApi(req, res, urlPath) {
     const inactiveCustomers = customerConsumption
       .filter((row) => Number(row.daysSinceLastPurchase) >= 30)
       .sort((a, b) => Number(b.daysSinceLastPurchase || 0) - Number(a.daysSinceLastPurchase || 0));
+    const deployment = buildDeploymentReadiness(process.env, { databaseMode });
+    const databaseIsolation = await databaseIsolationStatus(provider);
     sendJson(res, 200, {
       ok: true,
       generatedAt: new Date().toISOString(),
+      deployment,
+      databaseIsolation,
       totals,
       periods,
       units,

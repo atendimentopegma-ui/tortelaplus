@@ -54,6 +54,8 @@ Tambem valide no navegador:
 /api/deployment/readiness
 ```
 
+Na Central Tortela, abra a aba **Implantacao** para conferir o mesmo diagnostico em tela: modo do banco, PostgreSQL ativo, checks de seguranca e a base separada de cada unidade.
+
 ## 4. Sequencia de publicacao paga
 
 1. Criar banco PostgreSQL no provedor.

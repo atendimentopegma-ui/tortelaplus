@@ -93,6 +93,13 @@ class PostgresStore {
     return Boolean(result.rows[0]?.exists);
   }
 
+  async listTenantSchemas() {
+    const result = await this.pool.query(
+      "select schema_name from information_schema.schemata where schema_name like 'tenant_%' order by schema_name"
+    );
+    return result.rows.map((row) => row.schema_name);
+  }
+
   async health() {
     const result = await this.pool.query("select current_database() as database, now() as checked_at");
     return result.rows[0];
