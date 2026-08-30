@@ -2622,6 +2622,94 @@ header.topbar .top-right .central-top-action:hover {
   font-size: 12px;
 }
 
+.online-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.online-lane {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 220px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fffdf5;
+}
+
+.online-lane header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ead9a8;
+}
+
+.online-lane header span {
+  color: #17243d;
+  font-size: 14px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.online-lane header strong {
+  display: grid;
+  min-width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  background: #ffca1d;
+  color: #061733;
+  font-size: 16px;
+}
+
+.online-lane-list {
+  display: grid;
+  gap: 10px;
+}
+
+.online-order-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #ece6d7;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(23, 36, 61, 0.06);
+}
+
+.online-order-card > div:first-child {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.online-order-card b,
+.online-order-card strong {
+  color: #061733;
+  font-size: 16px;
+}
+
+.online-order-card span,
+.online-order-card small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.online-order-card .actions {
+  gap: 6px;
+}
+
+.online-order-card .btn {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .terminal-token-field {
   grid-column: 1 / -1;
 }
@@ -3110,6 +3198,7 @@ th {
   .grid.four,
   .grid.five,
   .unit-link-grid,
+  .online-board,
   .sale-inputs,
   .payment-grid,
   .totals {

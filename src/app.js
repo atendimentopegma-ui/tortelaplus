@@ -1811,6 +1811,21 @@ function renderOnlineOrders() {
   const orders = (state.sales || []).filter((sale) => sale.onlineOrder).sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)));
   const pending = orders.filter((sale) => !["Entregue", "Cancelado"].includes(sale.status));
   const unitLinks = onlineUnitLinks();
+  const orderSource = (sale) => sale.kioskOrder ? "Totem" : sale.delivery === "Retirada" ? "Retirada online" : "Delivery online";
+  const orderTicket = (sale) => sale.kioskOrder ? `Senha ${String(sale.kioskTicketNumber || sale.id).padStart(3, "0")}` : `Pedido ${sale.id}`;
+  const orderActionButtons = (sale) => `
+    <button class="btn" data-print-online-order="${sale.id}" type="button">Comprovante</button>
+    ${sale.kioskOrder && sale.status !== "Pronto" && sale.status !== "Entregue" && sale.status !== "Cancelado" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Pronto" type="button">Pedido pronto</button>` : ""}
+    ${!sale.kioskOrder && sale.status === "Aberto" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Conferido" type="button">Conferir</button>` : ""}
+    ${!sale.kioskOrder && ["Aberto", "Conferido"].includes(sale.status) ? `<button class="btn" data-online-status="${sale.id}" data-status="Saiu para entrega" type="button">Saiu entrega</button>` : ""}
+    ${sale.status !== "Entregue" && sale.status !== "Cancelado" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Entregue" type="button">Entregue</button> <button class="btn danger" data-online-status="${sale.id}" data-status="Cancelado" type="button">Cancelar</button>` : ""}
+  `;
+  const operationalColumns = [
+    ["Recebido", orders.filter((sale) => ["Aberto", "Conferido"].includes(sale.status || "Aberto"))],
+    ["Preparando", orders.filter((sale) => sale.status === "Preparando")],
+    ["Pronto", orders.filter((sale) => sale.status === "Pronto")],
+    ["Saiu / entrega", orders.filter((sale) => ["Saiu para entrega", "Entregue"].includes(sale.status))]
+  ];
   return `
     <section class="panel">
       <div class="panel-head">
@@ -1828,6 +1843,34 @@ function renderOnlineOrders() {
           <div class="kpi"><small>A conferir</small><strong>${orders.filter((sale) => sale.status === "Aberto").length}</strong></div>
           <div class="kpi"><small>Prontos/entrega</small><strong>${orders.filter((sale) => ["Pronto", "Saiu para entrega"].includes(sale.status)).length}</strong></div>
           <div class="kpi"><small>Total online</small><strong>${money(orders.reduce((sum, sale) => sum + Number(sale.total || 0), 0))}</strong></div>
+        </div>
+        <div class="online-board">
+          ${operationalColumns.map(([label, rows]) => `
+            <section class="online-lane">
+              <header>
+                <span>${label}</span>
+                <strong>${rows.length}</strong>
+              </header>
+              <div class="online-lane-list">
+                ${rows.slice(0, 6).map((sale) => {
+                  const customer = sale.customerData || {};
+                  const itemCount = (sale.items || []).reduce((sum, item) => sum + Number(item.qty || 0), 0);
+                  return `
+                    <article class="online-order-card">
+                      <div>
+                        <b>${orderTicket(sale)}</b>
+                        <span>${orderSource(sale)}</span>
+                      </div>
+                      <strong>${money(sale.total || 0)}</strong>
+                      <small>${sale.customer || "Consumidor"} ${customer.phone ? `· ${customer.phone}` : ""}</small>
+                      <small>${itemCount} item(ns) · ${sale.payment || "PIX"} · ${sale.paymentOnline ? sale.paymentStatus || "Online" : "No caixa"}</small>
+                      <div class="actions">${orderActionButtons(sale)}</div>
+                    </article>
+                  `;
+                }).join("") || `<p class="muted">Nenhum pedido nesta etapa.</p>`}
+              </div>
+            </section>
+          `).join("")}
         </div>
         <div class="unit-link-grid">
           ${unitLinks.map((link) => `
@@ -1853,21 +1896,15 @@ function renderOnlineOrders() {
               const deliveryStore = sale.deliveryStore || {};
               const items = (sale.items || []).map((item) => `${item.qty}x ${item.description}${item.coverage ? ` (${item.coverage})` : ""}`).join("<br>");
               return `<tr>
-                <td>${sale.kioskOrder ? `Senha ${String(sale.kioskTicketNumber || sale.id).padStart(3, "0")}` : sale.id}<br><small>${sale.kioskOrder ? "Totem" : sale.date || ""}</small></td>
+                <td>${orderTicket(sale)}<br><small>${orderSource(sale)}</small></td>
                 <td>${sale.customer}<br><small>${customer.phone || ""}</small></td>
                 <td>${[customer.address, customer.number, customer.district, customer.city, customer.uf].filter(Boolean).join(", ")}<br><small>${customer.cep || ""} · ${sale.delivery || "Entrega"}</small></td>
-                <td>${deliveryStore.tradeName || state.settings.company || "Loja"}<br><small>${deliveryStore.distanceKm != null ? `${deliveryStore.distanceKm} km` : "-"} de ${deliveryStore.radiusKm || 10} km</small></td>
+                <td>${deliveryStore.tradeName || state.settings.company || "Loja"}<br><small>${deliveryStore.distanceKm != null ? `${deliveryStore.distanceKm} km` : "-"}</small></td>
                 <td>${items}</td>
                 <td>${sale.payment || "PIX"}<br><small>${sale.paymentOnline ? `Online - ${sale.paymentStatus || "Pendente"}` : "No caixa"}</small></td>
                 <td>${money(sale.total)}</td>
                 <td><span class="badge ${sale.status === "Entregue" ? "ok" : sale.status === "Cancelado" ? "danger" : "warn"}">${sale.status || "Aberto"}</span></td>
-                <td>
-                  <button class="btn" data-print-online-order="${sale.id}">Comprovante</button>
-                  ${sale.kioskOrder && sale.status !== "Pronto" && sale.status !== "Entregue" && sale.status !== "Cancelado" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Pronto">Pedido pronto</button>` : ""}
-                  ${!sale.kioskOrder && sale.status === "Aberto" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Conferido">Conferir</button>` : ""}
-                  ${!sale.kioskOrder && ["Aberto", "Conferido"].includes(sale.status) ? `<button class="btn" data-online-status="${sale.id}" data-status="Saiu para entrega">Saiu entrega</button>` : ""}
-                  ${sale.status !== "Entregue" && sale.status !== "Cancelado" ? `<button class="btn primary" data-online-status="${sale.id}" data-status="Entregue">Entregue</button> <button class="btn danger" data-online-status="${sale.id}" data-status="Cancelado">Cancelar</button>` : ""}
-                </td>
+                <td>${orderActionButtons(sale)}</td>
               </tr>`;
             }).join("") || `<tr><td colspan="9">Nenhum pedido online recebido.</td></tr>`}</tbody>
           </table>
