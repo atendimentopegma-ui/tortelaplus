@@ -1,4 +1,5 @@
 node_modules/
+.npm-cache/
 data/
 !data/.gitkeep
 outputs/
