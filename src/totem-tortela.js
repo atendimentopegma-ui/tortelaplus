@@ -1,23 +1,23 @@
 const params = new URLSearchParams(location.search);
 const tenantCode = params.get("unidade") || "cliente-exemplo";
 
-let catalog = { products: [], nearest: null };
-let cart = [];
-let screen = "welcome";
-let activeCategory = "Todos";
-let orderMode = "Retirar no balcao";
-let paymentMethod = "PIX";
-let customerDocument = "";
-let selectedProduct = null;
-let customDraft = {};
-let lastOrder = null;
-let accessibleMode = false;
-let helpOpen = false;
-let language = "PT";
+const state = {
+  catalog: { products: [], nearest: null },
+  screen: "welcome",
+  category: "Todos",
+  orderMode: "",
+  customerDocument: "",
+  paymentMethod: "PIX",
+  selectedProduct: null,
+  draft: null,
+  cart: [],
+  lastOrder: null,
+  loading: false
+};
 
-const byId = (id) => document.getElementById(id);
+const app = document.getElementById("kiosk-app");
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const escapeHtml = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
+const cleanText = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
   ">": "&gt;",
@@ -35,6 +35,11 @@ async function api(path, options = {}) {
   return payload;
 }
 
+function unitName() {
+  const name = String(state.catalog.nearest?.tradeName || "").trim();
+  return !name || /cliente\s*exemplo/i.test(name) ? "Tortela" : name;
+}
+
 function productCategory(product) {
   const text = `${product.description || ""} ${product.unit || ""}`.toLowerCase();
   if (text.includes("bebida") || text.includes("suco") || text.includes("refri") || text.includes("milk")) return "Bebidas";
@@ -44,177 +49,137 @@ function productCategory(product) {
   return "Tortas";
 }
 
-function publicUnitName(unit) {
-  const name = String(unit?.tradeName || "").trim();
-  return !name || /cliente\s*exemplo/i.test(name) ? "Tortela" : name;
-}
-
 function categories() {
-  return ["Todos", ...new Set(catalog.products.map(productCategory))];
+  return ["Todos", ...new Set(state.catalog.products.map(productCategory))];
 }
 
-function productImage(product, className = "kiosk-product-photo") {
-  if (product.photo) return `<img class="${className}" src="${product.photo}" alt="${escapeHtml(product.description)}" />`;
-  return `<div class="${className} kiosk-photo-fallback"><span>Tortela</span></div>`;
-}
-
-function cartTotal() {
-  return cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.qty || 0), 0);
+function visibleProducts() {
+  return state.category === "Todos"
+    ? state.catalog.products
+    : state.catalog.products.filter((product) => productCategory(product) === state.category);
 }
 
 function cartCount() {
-  return cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+  return state.cart.reduce((total, item) => total + Number(item.qty || 0), 0);
 }
 
-function go(next) {
-  screen = next;
+function cartTotal() {
+  return state.cart.reduce((total, item) => total + Number(item.qty || 0) * Number(item.price || 0), 0);
+}
+
+function productPhoto(product, className = "tk-product-photo") {
+  if (product.photo) {
+    return `<img class="${className}" src="${cleanText(product.photo)}" alt="${cleanText(product.description)}" />`;
+  }
+  return `<div class="${className} tk-product-fallback"><span>Tortela</span></div>`;
+}
+
+function setScreen(screen) {
+  state.screen = screen;
   render();
 }
 
-function selectProduct(productId) {
-  selectedProduct = catalog.products.find((item) => Number(item.id) === Number(productId));
-  if (!selectedProduct) return;
-  customDraft = {
-    qty: 1,
-    size: "Padrao",
-    coverage: selectedProduct.hasCoverage ? (selectedProduct.coverageOptions || ["Tradicional"])[0] : "",
-    extras: [],
-    note: ""
-  };
-  go("customize");
-}
-
-function addCustomizedProduct() {
-  if (!selectedProduct) return;
-  const extrasTotal = customDraft.extras.length * 2;
-  const sizeAddition = customDraft.size === "Grande" ? 4 : 0;
-  const item = {
-    productId: selectedProduct.id,
-    description: selectedProduct.description,
-    price: Number(selectedProduct.price || 0) + extrasTotal + sizeAddition,
-    basePrice: Number(selectedProduct.price || 0),
-    qty: Number(customDraft.qty || 1),
-    coverage: customDraft.coverage || "",
-    size: customDraft.size || "Padrao",
-    extras: [...customDraft.extras],
-    note: customDraft.note || ""
-  };
-  cart.push(item);
-  selectedProduct = null;
-  customDraft = {};
-  go("upsell");
-}
-
-function changeCartQty(index, delta) {
-  const item = cart[index];
-  if (!item) return;
-  item.qty += delta;
-  cart = cart.filter((row) => row.qty > 0);
-  render();
-}
-
-function removeCartItem(index) {
-  cart.splice(index, 1);
-  render();
-}
-
-function progress(current) {
-  const steps = ["Inicio", "Pedido", "Cardapio", "Carrinho", "Pagamento"];
-  return `<div class="kiosk-progress">${steps.map((step, index) => `<span class="${index <= current ? "active" : ""}">${step}</span>`).join("")}</div>`;
-}
-
-function header(current = 0) {
+function shell(content, step = 0) {
+  const steps = ["Inicio", "Tipo", "Cardapio", "Carrinho", "Pagamento"];
   return `
-    <header class="kiosk-top">
-      <button class="kiosk-logo-button" data-screen="welcome"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /></button>
-      <div class="kiosk-step-title">${["Inicio", "Identificacao", "Cardapio", "Carrinho", "Pagamento"][current] || "Pedido"}</div>
-      <button class="kiosk-cart-pill" data-screen="cart">${cartCount()} itens<br><strong>${money(cartTotal())}</strong></button>
-    </header>
+    <main class="tk-shell tk-screen-${state.screen}">
+      <header class="tk-header">
+        <button class="tk-logo" data-screen="welcome" aria-label="Voltar ao inicio">
+          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+        </button>
+        <div class="tk-progress" aria-label="Progresso do pedido">
+          ${steps.map((label, index) => `<span class="${index <= step ? "is-active" : ""}">${cleanText(label)}</span>`).join("")}
+        </div>
+        <button class="tk-cart-button" data-screen="cart" aria-label="Abrir carrinho">
+          <span>${cartCount()} itens</span>
+          <strong>${money(cartTotal())}</strong>
+        </button>
+      </header>
+      ${content}
+    </main>
   `;
 }
 
 function renderWelcome() {
   return `
-    <main class="kiosk-stage kiosk-welcome kiosk-mcd-welcome ${accessibleMode ? "accessible" : ""}">
-      <section class="kiosk-mcd-panel">
-        <div class="kiosk-mcd-top">
-          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-          <button type="button" data-help-toggle>${helpOpen ? "Fechar ajuda" : "Ajuda"}</button>
-        </div>
-        <div class="kiosk-mcd-title">
-          <span>${escapeHtml(publicUnitName(catalog.nearest))}</span>
-          <h1>${language === "EN" ? "Where will you eat today?" : "Onde voce vai comer hoje?"}</h1>
-        </div>
-        ${helpOpen ? `<div class="kiosk-help-box">Toque em uma das opcoes grandes para iniciar. Depois escolha os produtos, revise o carrinho e finalize o pagamento.</div>` : ""}
-        <div class="kiosk-mcd-choice-grid">
-          <button class="kiosk-mcd-choice" data-welcome-mode="Comer na loja">
-            <span class="kiosk-mcd-icon">IN</span>
-            <strong>${language === "EN" ? "Eat in" : "Comer na loja"}</strong>
-            <small>${language === "EN" ? "Order to enjoy here" : "Pedido para consumir aqui"}</small>
+    <main class="tk-welcome">
+      <section class="tk-welcome-panel">
+        <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+        <span>Autoatendimento</span>
+        <h1>Onde voce vai comer hoje?</h1>
+        <p>Monte seu pedido na tela, pague e acompanhe sua senha no telao.</p>
+        <div class="tk-mode-grid">
+          <button data-mode="Comer na loja">
+            <b>Comer aqui</b>
+            <small>Pedido para consumir na loja</small>
           </button>
-          <button class="kiosk-mcd-choice" data-welcome-mode="Retirar para viagem">
-            <span class="kiosk-mcd-icon">OUT</span>
-            <strong>${language === "EN" ? "Take out" : "Retirar / viagem"}</strong>
-            <small>${language === "EN" ? "Packed to go" : "Pedido embalado para levar"}</small>
+          <button data-mode="Retirar para viagem">
+            <b>Levar viagem</b>
+            <small>Pedido embalado para retirar</small>
           </button>
         </div>
-        <div class="kiosk-mcd-bottom">
-          <button type="button" class="${language === "PT" ? "active" : ""}" data-language="PT">PT</button>
-          <button type="button" class="${language === "EN" ? "active" : ""}" data-language="EN">EN</button>
-          <button type="button" class="${accessibleMode ? "active" : ""}" data-accessibility>Acessibilidade</button>
-        </div>
       </section>
-    </main>
-  `;
-}
-
-function renderOrderType() {
-  return `
-    <main class="kiosk-stage kiosk-choice-stage">
-      ${header(1)}
-      <section class="kiosk-choice-panel">
-        <span>Como deseja receber?</span>
-        <h1>Escolha o tipo de pedido</h1>
-        <div class="kiosk-choice-grid">
-          ${["Comer na loja", "Retirar no balcao", "Retirar para viagem"].map((mode) => `
-            <button class="kiosk-choice ${orderMode === mode ? "active" : ""}" data-order-mode="${mode}">
-              <strong>${mode}</strong>
-              <small>${mode === "Comer na loja" ? "Para consumir agora" : mode === "Retirar no balcao" ? "Acompanhe sua senha" : "Embalado para levar"}</small>
-            </button>
-          `).join("")}
-        </div>
-        <button class="kiosk-mega-action" data-screen="loyalty">Continuar</button>
-      </section>
+      <footer class="tk-welcome-footer">
+        <button data-screen="loyalty">Comecar pedido</button>
+        <small>${cleanText(unitName())}</small>
+      </footer>
     </main>
   `;
 }
 
 function renderLoyalty() {
-  return `
-    <main class="kiosk-stage kiosk-choice-stage">
-      ${header(1)}
-      <section class="kiosk-choice-panel">
-        <span>Clube Tortela</span>
-        <h1>Deseja identificar seu CPF?</h1>
-        <label class="kiosk-input-label">CPF para NFC-e / Clube Tortela
-          <input id="kiosk-cpf" inputmode="numeric" value="${escapeHtml(customerDocument)}" placeholder="Opcional" />
-        </label>
-        <div class="kiosk-action-row">
-          <button class="kiosk-secondary-action" data-screen="menu">Continuar sem CPF</button>
-          <button class="kiosk-mega-action" id="save-cpf">Entrar no cardapio</button>
+  return shell(`
+    <section class="tk-panel tk-centered-panel">
+      <span class="tk-eyebrow">Clube Tortela</span>
+      <h1>Informe seu CPF?</h1>
+      <p>Use para identificar o cliente no pedido. Voce tambem pode continuar sem CPF.</p>
+      <label class="tk-field">
+        <span>CPF</span>
+        <input id="tk-cpf" inputmode="numeric" autocomplete="off" value="${cleanText(state.customerDocument)}" placeholder="Opcional" />
+      </label>
+      <div class="tk-actions">
+        <button class="tk-secondary" data-screen="menu">Continuar sem CPF</button>
+        <button class="tk-primary" id="tk-save-cpf">Ir para o cardapio</button>
+      </div>
+    </section>
+  `, 1);
+}
+
+function renderMenu() {
+  const products = visibleProducts();
+  return shell(`
+    <section class="tk-menu">
+      <aside class="tk-categories">
+        ${categories().map((category) => `<button class="${state.category === category ? "is-active" : ""}" data-category="${cleanText(category)}">${cleanText(category)}</button>`).join("")}
+      </aside>
+      <section class="tk-menu-board">
+        <div class="tk-menu-title">
+          <div>
+            <span class="tk-eyebrow">Cardapio Tortela</span>
+            <h1>${cleanText(state.category)}</h1>
+          </div>
+          <strong>${products.length} opcoes</strong>
+        </div>
+        <div class="tk-products">
+          ${products.map(productCard).join("") || `<div class="tk-empty">Nenhum produto real liberado para venda no totem.</div>`}
         </div>
       </section>
-    </main>
-  `;
+      <button class="tk-bottom-cart" data-screen="cart" ${state.cart.length ? "" : "disabled"}>
+        <span>${cartCount()} item(ns)</span>
+        <b>${money(cartTotal())}</b>
+        <strong>Ver pedido</strong>
+      </button>
+    </section>
+  `, 2);
 }
 
 function productCard(product) {
   return `
-    <article class="kiosk-menu-product">
-      ${productImage(product)}
-      <div class="kiosk-product-info">
-        <small>${escapeHtml(productCategory(product))}</small>
-        <h2>${escapeHtml(product.description)}</h2>
+    <article class="tk-product-card">
+      ${productPhoto(product)}
+      <div>
+        <small>${cleanText(productCategory(product))}</small>
+        <h2>${cleanText(product.description)}</h2>
         <strong>${money(product.price)}</strong>
       </div>
       <button data-product="${product.id}">Adicionar</button>
@@ -222,273 +187,253 @@ function productCard(product) {
   `;
 }
 
-function renderMenu() {
-  const visible = activeCategory === "Todos" ? catalog.products : catalog.products.filter((product) => productCategory(product) === activeCategory);
-  return `
-    <main class="kiosk-app">
-      ${header(2)}
-      <section class="kiosk-menu-simple">
-        <div class="kiosk-menu-head">
-          <div><span>Cardapio Tortela</span><h1>${escapeHtml(activeCategory)}</h1></div>
-          <strong>${visible.length}</strong>
-        </div>
-        <nav class="kiosk-category-strip">
-          ${categories().map((category) => `<button class="${activeCategory === category ? "active" : ""}" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join("")}
-        </nav>
-        <div class="kiosk-menu-grid">${visible.map(productCard).join("") || `<div class="kiosk-empty-state">Nenhum produto real liberado para venda no totem.</div>`}</div>
-        <button class="kiosk-menu-footer" data-screen="cart" ${cart.length ? "" : "disabled"}>
-          <span>${cartCount()} item(ns)</span>
-          <strong>${money(cartTotal())}</strong>
-          <b>Ver pedido</b>
-        </button>
-      </section>
-    </main>
-  `;
+function selectProduct(productId) {
+  const product = state.catalog.products.find((item) => Number(item.id) === Number(productId));
+  if (!product) return;
+  state.selectedProduct = product;
+  state.draft = {
+    qty: 1,
+    size: "Padrao",
+    coverage: product.hasCoverage ? (product.coverageOptions || ["Tradicional"])[0] : "",
+    extras: [],
+    note: ""
+  };
+  setScreen("customize");
 }
 
 function renderCustomize() {
-  if (!selectedProduct) return renderMenu();
+  const product = state.selectedProduct;
+  if (!product || !state.draft) return renderMenu();
   const extras = ["Calda extra", "Granulado", "Cobertura premium", "Castanha"];
-  return `
-    <main class="kiosk-stage kiosk-customize">
-      ${header(2)}
-      <section class="kiosk-custom-card">
-        <div class="kiosk-custom-media">${productImage(selectedProduct, "kiosk-custom-photo")}</div>
-        <div class="kiosk-custom-form">
-          <span>Personalizacao</span>
-          <h1>${escapeHtml(selectedProduct.description)}</h1>
-          <div class="kiosk-toggle-row">
-            ${["Padrao", "Grande"].map((size) => `<button class="${customDraft.size === size ? "active" : ""}" data-size="${size}">${size}${size === "Grande" ? " + R$ 4,00" : ""}</button>`).join("")}
-          </div>
-          ${selectedProduct.hasCoverage ? `<label class="kiosk-input-label">Cobertura
-            <select id="kiosk-coverage">${(selectedProduct.coverageOptions || ["Tradicional"]).map((option) => `<option ${customDraft.coverage === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}</select>
-          </label>` : ""}
-          <div class="kiosk-extra-grid">
-            ${extras.map((extra) => `<button class="${customDraft.extras.includes(extra) ? "active" : ""}" data-extra="${extra}">${extra}<small>+ R$ 2,00</small></button>`).join("")}
-          </div>
-          <label class="kiosk-input-label">Observacao
-            <input id="kiosk-note" value="${escapeHtml(customDraft.note)}" placeholder="Ex.: sem castanha" />
-          </label>
-          <div class="kiosk-custom-footer">
-            <div class="kiosk-stepper big">
-              <button data-draft-qty="-1">-</button>
-              <span>${customDraft.qty}</span>
-              <button data-draft-qty="1">+</button>
-            </div>
-            <button class="kiosk-mega-action" id="add-custom">Adicionar ao pedido</button>
-          </div>
+  return shell(`
+    <section class="tk-custom">
+      <div class="tk-custom-photo-wrap">${productPhoto(product, "tk-custom-photo")}</div>
+      <div class="tk-custom-info">
+        <span class="tk-eyebrow">Personalize</span>
+        <h1>${cleanText(product.description)}</h1>
+        <strong>${money(product.price)}</strong>
+        <div class="tk-option-row">
+          ${["Padrao", "Grande"].map((size) => `<button class="${state.draft.size === size ? "is-active" : ""}" data-size="${size}">${size}${size === "Grande" ? " + R$ 4,00" : ""}</button>`).join("")}
         </div>
-      </section>
-    </main>
-  `;
+        ${product.hasCoverage ? `
+          <label class="tk-field">
+            <span>Cobertura</span>
+            <select id="tk-coverage">${(product.coverageOptions || ["Tradicional"]).map((option) => `<option ${state.draft.coverage === option ? "selected" : ""}>${cleanText(option)}</option>`).join("")}</select>
+          </label>
+        ` : ""}
+        <div class="tk-extra-grid">
+          ${extras.map((extra) => `<button class="${state.draft.extras.includes(extra) ? "is-active" : ""}" data-extra="${cleanText(extra)}">${cleanText(extra)}<small>+ R$ 2,00</small></button>`).join("")}
+        </div>
+        <label class="tk-field">
+          <span>Observacao</span>
+          <input id="tk-note" value="${cleanText(state.draft.note)}" placeholder="Ex.: sem castanha" />
+        </label>
+        <div class="tk-custom-footer">
+          <div class="tk-stepper">
+            <button data-draft-qty="-1">-</button>
+            <b>${state.draft.qty}</b>
+            <button data-draft-qty="1">+</button>
+          </div>
+          <button class="tk-primary" id="tk-add-product">Adicionar</button>
+        </div>
+      </div>
+    </section>
+  `, 2);
 }
 
-function renderUpsell() {
-  const suggestions = catalog.products.filter((product) => ["Bebidas", "Combos", "Bolos"].includes(productCategory(product))).slice(0, 3);
-  return `
-    <main class="kiosk-stage kiosk-choice-stage">
-      ${header(2)}
-      <section class="kiosk-choice-panel">
-        <span>Sugestoes Tortela</span>
-        <h1>Deseja completar seu pedido?</h1>
-        <div class="kiosk-upsell-grid">${suggestions.map((product) => `
-          <button class="kiosk-upsell-card" data-product="${product.id}">
-            ${productImage(product, "kiosk-upsell-photo")}
-            <strong>${escapeHtml(product.description)}</strong>
-            <small>${money(product.price)}</small>
-          </button>
-        `).join("") || `<p>Continue para revisar seu pedido.</p>`}</div>
-        <div class="kiosk-action-row">
-          <button class="kiosk-secondary-action" data-screen="menu">Adicionar mais itens</button>
-          <button class="kiosk-mega-action" data-screen="cart">Ir para o carrinho</button>
-        </div>
-      </section>
-    </main>
-  `;
+function addProductToCart() {
+  const product = state.selectedProduct;
+  const draft = state.draft;
+  if (!product || !draft) return;
+  const extrasTotal = draft.extras.length * 2;
+  const sizeAddition = draft.size === "Grande" ? 4 : 0;
+  state.cart.push({
+    productId: product.id,
+    description: product.description,
+    qty: Number(draft.qty || 1),
+    price: Number(product.price || 0) + extrasTotal + sizeAddition,
+    size: draft.size,
+    coverage: draft.coverage,
+    extras: [...draft.extras],
+    note: draft.note || ""
+  });
+  state.selectedProduct = null;
+  state.draft = null;
+  setScreen("cart");
 }
 
 function cartRows(editable = true) {
-  if (!cart.length) return `<div class="kiosk-empty-state">Seu carrinho esta vazio.</div>`;
-  return `<div class="kiosk-cart-list">${cart.map((item, index) => `
-    <div class="kiosk-cart-item">
+  if (!state.cart.length) return `<div class="tk-empty">Seu carrinho esta vazio.</div>`;
+  return state.cart.map((item, index) => `
+    <article class="tk-cart-row">
       <div>
-        <strong>${escapeHtml(item.description)}</strong>
+        <h2>${cleanText(item.description)}</h2>
         <small>${[item.size, item.coverage, ...(item.extras || [])].filter(Boolean).join(" - ") || "Padrao"}</small>
       </div>
-      ${editable ? `<div class="kiosk-stepper"><button data-cart-qty="${index}" data-delta="-1">-</button><span>${item.qty}</span><button data-cart-qty="${index}" data-delta="1">+</button></div>` : `<span>${item.qty}x</span>`}
-      <b>${money(item.price * item.qty)}</b>
-      ${editable ? `<button class="kiosk-remove" data-remove="${index}">Remover</button>` : ""}
-    </div>
-  `).join("")}</div>`;
+      ${editable ? `
+        <div class="tk-stepper">
+          <button data-cart-index="${index}" data-delta="-1">-</button>
+          <b>${item.qty}</b>
+          <button data-cart-index="${index}" data-delta="1">+</button>
+        </div>
+      ` : `<b>${item.qty}x</b>`}
+      <strong>${money(item.price * item.qty)}</strong>
+    </article>
+  `).join("");
 }
 
 function renderCart() {
-  return `
-    <main class="kiosk-stage kiosk-cart-stage">
-      ${header(3)}
-      <section class="kiosk-cart-panel">
-        <div class="kiosk-section-title"><span>Carrinho</span><h1>Confira seu pedido</h1></div>
-        ${cartRows(true)}
-        <div class="kiosk-total-line large"><span>Total</span><strong>${money(cartTotal())}</strong></div>
-        <div class="kiosk-action-row">
-          <button class="kiosk-secondary-action" data-screen="menu">Adicionar produtos</button>
-          <button class="kiosk-mega-action" data-screen="review" ${cart.length ? "" : "disabled"}>Revisar pedido</button>
-        </div>
-      </section>
-    </main>
-  `;
-}
-
-function renderReview() {
-  return `
-    <main class="kiosk-stage kiosk-cart-stage">
-      ${header(3)}
-      <section class="kiosk-cart-panel">
-        <div class="kiosk-section-title"><span>Revisao</span><h1>Antes do pagamento</h1></div>
-        <div class="kiosk-review-meta">
-          <strong>${escapeHtml(orderMode)}</strong>
-          <strong>${customerDocument ? `CPF ${escapeHtml(customerDocument)}` : "Sem CPF informado"}</strong>
-        </div>
-        ${cartRows(false)}
-        <div class="kiosk-total-line large"><span>Total</span><strong>${money(cartTotal())}</strong></div>
-        <div class="kiosk-action-row">
-          <button class="kiosk-secondary-action" data-screen="cart">Editar pedido</button>
-          <button class="kiosk-mega-action" data-screen="payment">Ir para pagamento</button>
-        </div>
-      </section>
-    </main>
-  `;
+  return shell(`
+    <section class="tk-panel tk-order-panel">
+      <span class="tk-eyebrow">Meu pedido</span>
+      <h1>Confira seu carrinho</h1>
+      <div class="tk-cart-list">${cartRows(true)}</div>
+      <div class="tk-total"><span>Total</span><strong>${money(cartTotal())}</strong></div>
+      <div class="tk-actions">
+        <button class="tk-secondary" data-screen="menu">Adicionar mais</button>
+        <button class="tk-primary" data-screen="payment" ${state.cart.length ? "" : "disabled"}>Finalizar</button>
+      </div>
+    </section>
+  `, 3);
 }
 
 function renderPayment() {
-  return `
-    <main class="kiosk-stage kiosk-payment-stage">
-      ${header(4)}
-      <section class="kiosk-payment-panel">
-        <div class="kiosk-section-title"><span>Pagamento</span><h1>Escolha como pagar</h1></div>
-        <div class="kiosk-pay-grid">
-          ${["PIX", "Debito", "Credito"].map((method) => `<button class="${paymentMethod === method ? "active" : ""}" data-payment="${method}"><strong>${method}</strong><small>${method === "PIX" ? "QR Code" : "Cartao / aproximacao"}</small></button>`).join("")}
-        </div>
-        <div class="kiosk-total-line large"><span>Total</span><strong>${money(cartTotal())}</strong></div>
-        <div class="kiosk-action-row">
-          <button class="kiosk-secondary-action" data-screen="review">Voltar</button>
-          <button class="kiosk-mega-action" id="confirm-order">Confirmar e gerar NFC-e</button>
-        </div>
-      </section>
-    </main>
-  `;
+  return shell(`
+    <section class="tk-panel tk-payment-panel">
+      <span class="tk-eyebrow">Pagamento</span>
+      <h1>Como deseja pagar?</h1>
+      <div class="tk-payment-grid">
+        ${["PIX", "Debito", "Credito"].map((method) => `<button class="${state.paymentMethod === method ? "is-active" : ""}" data-payment="${method}"><b>${method}</b><small>${method === "PIX" ? "QR Code na tela" : "Cartao / aproximacao"}</small></button>`).join("")}
+      </div>
+      <div class="tk-review">
+        <b>${cleanText(state.orderMode || "Retirar para viagem")}</b>
+        <b>${state.customerDocument ? `CPF ${cleanText(state.customerDocument)}` : "Sem CPF"}</b>
+      </div>
+      <div class="tk-cart-list">${cartRows(false)}</div>
+      <div class="tk-total"><span>Total</span><strong>${money(cartTotal())}</strong></div>
+      <div class="tk-actions">
+        <button class="tk-secondary" data-screen="cart">Voltar</button>
+        <button class="tk-primary" id="tk-confirm-order" ${state.loading ? "disabled" : ""}>${state.loading ? "Enviando..." : "Confirmar pedido"}</button>
+      </div>
+    </section>
+  `, 4);
 }
 
 function renderSuccess() {
   return `
-    <main class="kiosk-stage kiosk-done-stage">
-      <section class="kiosk-done-card">
+    <main class="tk-success">
+      <section class="tk-success-card">
         <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
         <span>Pedido concluido</span>
-        <h1>${String(lastOrder?.ticketNumber || "").padStart(3, "0")}</h1>
-        <p>Seu pedido foi recebido. Acompanhe essa senha no telao e retire quando aparecer como pronto.</p>
-        <div class="kiosk-status-track"><span class="active">Recebido</span><span class="active">Em preparo</span><span>Pronto</span></div>
-        <strong>${money(lastOrder?.total || cartTotal())} - ${escapeHtml(lastOrder?.payment || paymentMethod)}</strong>
-        <button class="kiosk-mega-action" id="new-order">Novo pedido</button>
+        <h1>${String(state.lastOrder?.ticketNumber || "").padStart(3, "0")}</h1>
+        <p>Acompanhe sua senha no telao. Quando aparecer como pronto, retire no balcao.</p>
+        <strong>${money(state.lastOrder?.total || cartTotal())}</strong>
+        <button class="tk-primary" id="tk-new-order">Novo pedido</button>
+      </section>
+    </main>
+  `;
+}
+
+function renderError(message) {
+  app.innerHTML = `
+    <main class="tk-success">
+      <section class="tk-success-card">
+        <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+        <span>Totem indisponivel</span>
+        <h1>Ops</h1>
+        <p>${cleanText(message)}</p>
+        <button class="tk-primary" id="tk-retry">Tentar novamente</button>
       </section>
     </main>
   `;
 }
 
 function render() {
-  const app = byId("kiosk-app");
   if (!app) return;
-  app.innerHTML = screen === "welcome" ? renderWelcome()
-    : screen === "orderType" ? renderOrderType()
-      : screen === "loyalty" ? renderLoyalty()
-        : screen === "menu" ? renderMenu()
-          : screen === "customize" ? renderCustomize()
-            : screen === "upsell" ? renderUpsell()
-              : screen === "cart" ? renderCart()
-                : screen === "review" ? renderReview()
-                  : screen === "payment" ? renderPayment()
-                    : renderSuccess();
+  app.innerHTML = state.screen === "welcome" ? renderWelcome()
+    : state.screen === "loyalty" ? renderLoyalty()
+      : state.screen === "menu" ? renderMenu()
+        : state.screen === "customize" ? renderCustomize()
+          : state.screen === "cart" ? renderCart()
+            : state.screen === "payment" ? renderPayment()
+              : renderSuccess();
 }
 
 document.addEventListener("click", (event) => {
-  const target = event.target.closest("button");
-  if (!target) return;
-  if (target.dataset.screen) return go(target.dataset.screen);
-  if (target.dataset.welcomeMode) {
-    orderMode = target.dataset.welcomeMode;
-    return go("loyalty");
+  const button = event.target.closest("button");
+  if (!button) return;
+
+  if (button.dataset.screen) return setScreen(button.dataset.screen);
+  if (button.dataset.mode) {
+    state.orderMode = button.dataset.mode;
+    return setScreen("loyalty");
   }
-  if (target.dataset.orderMode) {
-    orderMode = target.dataset.orderMode;
+  if (button.id === "tk-save-cpf") {
+    state.customerDocument = document.getElementById("tk-cpf")?.value || "";
+    return setScreen("menu");
+  }
+  if (button.dataset.category) {
+    state.category = button.dataset.category;
     return render();
   }
-  if (target.id === "save-cpf") {
-    customerDocument = byId("kiosk-cpf")?.value || "";
-    return go("menu");
-  }
-  if (target.dataset.category) {
-    activeCategory = target.dataset.category || "Todos";
+  if (button.dataset.product) return selectProduct(button.dataset.product);
+  if (button.dataset.size) {
+    state.draft.size = button.dataset.size;
     return render();
   }
-  if (target.dataset.product) return selectProduct(target.dataset.product);
-  if (target.dataset.size) {
-    customDraft.size = target.dataset.size;
+  if (button.dataset.extra) {
+    const extra = button.dataset.extra;
+    state.draft.extras = state.draft.extras.includes(extra)
+      ? state.draft.extras.filter((item) => item !== extra)
+      : [...state.draft.extras, extra];
     return render();
   }
-  if (target.dataset.extra) {
-    const extra = target.dataset.extra;
-    customDraft.extras = customDraft.extras.includes(extra) ? customDraft.extras.filter((item) => item !== extra) : [...customDraft.extras, extra];
+  if (button.dataset.draftQty) {
+    state.draft.qty = Math.max(1, Number(state.draft.qty || 1) + Number(button.dataset.draftQty || 0));
     return render();
   }
-  if (target.dataset.draftQty) {
-    customDraft.qty = Math.max(1, Number(customDraft.qty || 1) + Number(target.dataset.draftQty || 0));
+  if (button.id === "tk-add-product") {
+    state.draft.coverage = document.getElementById("tk-coverage")?.value || state.draft.coverage || "";
+    state.draft.note = document.getElementById("tk-note")?.value || "";
+    return addProductToCart();
+  }
+  if (button.dataset.cartIndex) {
+    const index = Number(button.dataset.cartIndex);
+    const item = state.cart[index];
+    if (!item) return;
+    item.qty += Number(button.dataset.delta || 0);
+    state.cart = state.cart.filter((row) => row.qty > 0);
     return render();
   }
-  if (target.id === "add-custom") {
-    customDraft.coverage = byId("kiosk-coverage")?.value || customDraft.coverage || "";
-    customDraft.note = byId("kiosk-note")?.value || "";
-    return addCustomizedProduct();
-  }
-  if (target.dataset.cartQty) return changeCartQty(Number(target.dataset.cartQty), Number(target.dataset.delta || 0));
-  if (target.dataset.remove) return removeCartItem(Number(target.dataset.remove));
-  if (target.dataset.payment) {
-    paymentMethod = target.dataset.payment;
+  if (button.dataset.payment) {
+    state.paymentMethod = button.dataset.payment;
     return render();
   }
-  if (target.id === "confirm-order") return submitOrder();
-  if (target.id === "new-order") {
-    cart = [];
-    selectedProduct = null;
-    customDraft = {};
-    lastOrder = null;
-    paymentMethod = "PIX";
-    screen = "welcome";
-    return render();
+  if (button.id === "tk-confirm-order") return submitOrder();
+  if (button.id === "tk-new-order") {
+    state.cart = [];
+    state.lastOrder = null;
+    state.paymentMethod = "PIX";
+    state.orderMode = "";
+    state.customerDocument = "";
+    return setScreen("welcome");
   }
-  if (target.dataset.language) {
-    language = target.dataset.language;
-    return render();
-  }
-  if (target.hasAttribute("data-accessibility")) {
-    accessibleMode = !accessibleMode;
-    return render();
-  }
-  if (target.hasAttribute("data-help-toggle")) {
-    helpOpen = !helpOpen;
-    return render();
-  }
+  if (button.id === "tk-retry") return loadCatalog();
 });
 
 async function submitOrder() {
+  if (!state.cart.length || state.loading) return;
   try {
+    state.loading = true;
+    render();
     const result = await api("/api/public/kiosk/orders", {
       method: "POST",
       body: JSON.stringify({
         tenantCode,
-        paymentMethod,
-        customerDocument,
-        orderMode,
-        items: cart.map((item) => ({
+        paymentMethod: state.paymentMethod,
+        customerDocument: state.customerDocument,
+        orderMode: state.orderMode || "Retirar para viagem",
+        items: state.cart.map((item) => ({
           productId: item.productId,
           qty: item.qty,
           coverage: [item.size, item.coverage, ...(item.extras || [])].filter(Boolean).join(" - "),
@@ -496,18 +441,24 @@ async function submitOrder() {
         }))
       })
     });
-    lastOrder = result;
-    go("success");
+    state.lastOrder = result;
+    state.screen = "success";
+    render();
   } catch (error) {
     alert(error.message);
+  } finally {
+    state.loading = false;
+    if (state.screen !== "success") render();
   }
 }
 
 async function loadCatalog() {
-  catalog = await api(`/api/public/store/catalog?unidade=${encodeURIComponent(tenantCode)}`);
-  render();
+  try {
+    state.catalog = await api(`/api/public/store/catalog?unidade=${encodeURIComponent(tenantCode)}`);
+    render();
+  } catch (error) {
+    renderError(error.message);
+  }
 }
 
-loadCatalog().catch((error) => {
-  byId("kiosk-app").innerHTML = `<main class="kiosk-stage kiosk-done-stage"><section class="kiosk-done-card"><h1>Totem indisponivel</h1><p>${escapeHtml(error.message)}</p></section></main>`;
-});
+loadCatalog();
