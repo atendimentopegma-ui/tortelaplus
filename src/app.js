@@ -1773,6 +1773,7 @@ function renderOnlineOrders() {
         <div class="actions">
           <a class="btn" href="./loja.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir loja online</a>
           <a class="btn" href="./totem.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir totem</a>
+          <a class="btn" href="./cozinha.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir cozinha</a>
           <a class="btn" href="./telao.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir telao</a>
         </div>
       </div>

@@ -2544,6 +2544,46 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if (req.method === "POST" && urlPath === "/api/public/kiosk/orders/status") {
+    const body = await readBody(req);
+    const tenantCode = normalizeTenantCode(body.tenantCode || "");
+    const tenant = findTenant(readProvider(), tenantCode);
+    if (!tenant || tenant.status !== "Ativo") {
+      sendJson(res, 404, { ok: false, error: "Loja indisponivel para atualizar pedido." });
+      return;
+    }
+    const tenantState = readTenantState(tenant.tenantCode);
+    const sale = (tenantState.sales || []).find((row) => Number(row.id) === Number(body.orderId) && row.kioskOrder);
+    if (!sale) {
+      sendJson(res, 404, { ok: false, error: "Pedido do totem nao encontrado nesta unidade." });
+      return;
+    }
+    const status = String(body.status || "").trim();
+    const allowedStatuses = ["Preparando", "Pronto", "Entregue", "Cancelado"];
+    if (!allowedStatuses.includes(status)) {
+      sendJson(res, 400, { ok: false, error: "Status invalido para pedido do totem." });
+      return;
+    }
+    sale.status = status;
+    sale.updatedAt = new Date().toISOString();
+    if (status === "Preparando") sale.preparingAt = sale.updatedAt;
+    if (status === "Pronto") sale.readyAt = sale.updatedAt;
+    if (status === "Entregue") sale.deliveredAt = sale.updatedAt;
+    if (status === "Cancelado") sale.cancelledAt = sale.updatedAt;
+    writeTenantState(tenant.tenantCode, tenantState);
+    appendTenantAudit(tenant.tenantCode, `Pedido do totem ${status.toLowerCase()}`, `Senha ${sale.kioskTicketNumber || sale.id}`, "cozinha-totem");
+    sendJson(res, 200, {
+      ok: true,
+      order: {
+        id: sale.id,
+        ticketNumber: sale.kioskTicketNumber,
+        status: sale.status,
+        updatedAt: sale.updatedAt
+      }
+    });
+    return;
+  }
+
   if (req.method === "GET" && urlPath === "/api/network/summary") {
     const access = providerAccess(req);
     if (!access) {
