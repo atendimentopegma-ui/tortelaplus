@@ -1,6 +1,6 @@
 const displayParams = new URLSearchParams(location.search);
 const displayTenantCode = displayParams.get("unidade") || "cliente-exemplo";
-const displayTerminalToken = displayParams.get("terminalToken") || "";
+const displayTerminalToken = displayParams.get("terminalToken") || displayParams.get("token") || displayParams.get("limpar") || "";
 
 const displayMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const displayEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({

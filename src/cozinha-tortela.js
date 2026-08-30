@@ -1,6 +1,6 @@
 const kitchenParams = new URLSearchParams(location.search);
 const kitchenTenantCode = kitchenParams.get("unidade") || "cliente-exemplo";
-const kitchenTerminalToken = kitchenParams.get("terminalToken") || "";
+const kitchenTerminalToken = kitchenParams.get("terminalToken") || kitchenParams.get("token") || kitchenParams.get("limpar") || "";
 const kitchenApp = document.getElementById("kitchen-app");
 
 const kitchenMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

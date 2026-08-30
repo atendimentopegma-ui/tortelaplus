@@ -1104,6 +1104,20 @@ function publicTerminalAllowed(tenantState, token) {
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 
+function publicTerminalTokenFromSearch(searchParams) {
+  return searchParams.get("terminalToken") || searchParams.get("token") || searchParams.get("limpar") || "";
+}
+
+function publicTerminalTokenFromBody(body) {
+  return body.terminalToken || body.token || body.limpar || "";
+}
+
+function publicTerminalError(token) {
+  return token
+    ? "Token do totem invalido para esta unidade. Abra pelo link atualizado em Pedidos online / Totem."
+    : "Link sem token do totem. Abra pelo botao Copiar link em Pedidos online / Totem.";
+}
+
 function findUser(tenantState, username) {
   const normalized = String(username || "").trim().toLowerCase();
   return (tenantState.users || []).find((user) => String(user.username || "").trim().toLowerCase() === normalized);
@@ -2521,8 +2535,9 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
-    if (!publicTerminalAllowed(tenantState, body.terminalToken)) {
-      sendJson(res, 403, { ok: false, error: "Token do totem invalido para esta unidade." });
+    const terminalToken = publicTerminalTokenFromBody(body);
+    if (!publicTerminalAllowed(tenantState, terminalToken)) {
+      sendJson(res, 403, { ok: false, error: publicTerminalError(terminalToken) });
       return;
     }
     const items = Array.isArray(body.items) ? body.items : [];
@@ -2616,8 +2631,9 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
-    if (!publicTerminalAllowed(tenantState, url.searchParams.get("terminalToken"))) {
-      sendJson(res, 403, { ok: false, error: "Token do totem invalido para esta unidade." });
+    const terminalToken = publicTerminalTokenFromSearch(url.searchParams);
+    if (!publicTerminalAllowed(tenantState, terminalToken)) {
+      sendJson(res, 403, { ok: false, error: publicTerminalError(terminalToken) });
       return;
     }
     const orders = (tenantState.sales || [])
@@ -2647,8 +2663,9 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const tenantState = readTenantState(tenant.tenantCode);
-    if (!publicTerminalAllowed(tenantState, body.terminalToken)) {
-      sendJson(res, 403, { ok: false, error: "Token do totem invalido para esta unidade." });
+    const terminalToken = publicTerminalTokenFromBody(body);
+    if (!publicTerminalAllowed(tenantState, terminalToken)) {
+      sendJson(res, 403, { ok: false, error: publicTerminalError(terminalToken) });
       return;
     }
     const sale = (tenantState.sales || []).find((row) => Number(row.id) === Number(body.orderId) && row.kioskOrder);

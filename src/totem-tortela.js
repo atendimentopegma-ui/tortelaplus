@@ -1,6 +1,6 @@
 const params = new URLSearchParams(location.search);
 const tenantCode = params.get("unidade") || "cliente-exemplo";
-const terminalToken = params.get("terminalToken") || "";
+const terminalToken = params.get("terminalToken") || params.get("token") || params.get("limpar") || "";
 
 const state = {
   catalog: { products: [], nearest: null },
