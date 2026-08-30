@@ -1,6 +1,7 @@
 const displayParams = new URLSearchParams(location.search);
 const displayTenantCode = displayParams.get("unidade") || "cliente-exemplo";
 const displayTerminalToken = displayParams.get("terminalToken") || displayParams.get("token") || displayParams.get("limpar") || "";
+const displayApiBase = location.protocol === "file:" ? "http://localhost:4173" : "";
 
 const displayMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const displayEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
@@ -14,7 +15,7 @@ const displayEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) =
 async function loadDisplayOrders() {
   const query = new URLSearchParams({ unidade: displayTenantCode });
   if (displayTerminalToken) query.set("terminalToken", displayTerminalToken);
-  const response = await fetch(`/api/public/kiosk/orders?${query.toString()}`);
+  const response = await fetch(`${displayApiBase}/api/public/kiosk/orders?${query.toString()}`);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
   return payload;
@@ -65,7 +66,8 @@ async function refreshDisplay() {
   try {
     renderDisplay(await loadDisplayOrders());
   } catch (error) {
-    document.getElementById("display-app").innerHTML = `<main class="display-shell"><div class="display-column"><h1>Telao indisponivel</h1><p>${displayEscape(error.message)}</p></div></main>`;
+    const localFileHint = location.protocol === "file:" ? "Abra pelo servidor local do sistema, nao direto pelo arquivo." : error.message;
+    document.getElementById("display-app").innerHTML = `<main class="display-shell"><div class="display-column"><h1>Telao indisponivel</h1><p>${displayEscape(localFileHint)}</p></div></main>`;
   }
 }
 

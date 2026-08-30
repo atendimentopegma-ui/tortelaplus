@@ -2,6 +2,7 @@ const kitchenParams = new URLSearchParams(location.search);
 const kitchenTenantCode = kitchenParams.get("unidade") || "cliente-exemplo";
 const kitchenTerminalToken = kitchenParams.get("terminalToken") || kitchenParams.get("token") || kitchenParams.get("limpar") || "";
 const kitchenApp = document.getElementById("kitchen-app");
+const kitchenApiBase = location.protocol === "file:" ? "http://localhost:4173" : "";
 
 const kitchenMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const kitchenEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
@@ -13,7 +14,7 @@ const kitchenEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) =
 }[char]));
 
 async function kitchenApi(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await fetch(`${kitchenApiBase}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...(options.headers || {}) }
   });
@@ -110,7 +111,8 @@ async function loadKitchen() {
     const payload = await kitchenApi(`/api/public/kiosk/orders?${query.toString()}`);
     renderKitchen(payload);
   } catch (error) {
-    kitchenApp.innerHTML = `<main class="kitchen-shell"><section class="kitchen-error"><h1>Cozinha indisponivel</h1><p>${kitchenEscape(error.message)}</p><button id="kitchen-refresh">Tentar novamente</button></section></main>`;
+    const localFileHint = location.protocol === "file:" ? "Abra pelo servidor local do sistema, nao direto pelo arquivo." : error.message;
+    kitchenApp.innerHTML = `<main class="kitchen-shell"><section class="kitchen-error"><h1>Cozinha indisponivel</h1><p>${kitchenEscape(localFileHint)}</p><button id="kitchen-refresh">Tentar novamente</button></section></main>`;
   }
 }
 

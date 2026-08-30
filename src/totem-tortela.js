@@ -1,6 +1,7 @@
 const params = new URLSearchParams(location.search);
 const tenantCode = params.get("unidade") || "cliente-exemplo";
 const terminalToken = params.get("terminalToken") || params.get("token") || params.get("limpar") || "";
+const apiBase = location.protocol === "file:" ? "http://localhost:4173" : "";
 
 const state = {
   catalog: { products: [], nearest: null },
@@ -39,7 +40,7 @@ const cleanText = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
 }[char]));
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
+  const response = await fetch(`${apiBase}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", ...(options.headers || {}) }
   });
@@ -363,13 +364,17 @@ function renderSuccess() {
 }
 
 function renderError(message) {
+  const localFileHint = location.protocol === "file:"
+    ? "Abra pelo servidor local do sistema, nao direto pelo arquivo."
+    : "";
   app.innerHTML = `
     <main class="tk-success">
       <section class="tk-success-card">
         <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
         <span>Totem indisponivel</span>
         <h1>Ops</h1>
-        <p>${cleanText(message)}</p>
+        <p>${cleanText(localFileHint || message)}</p>
+        ${localFileHint ? `<small class="tk-payment-status">${cleanText(message)}</small>` : ""}
         <button class="tk-primary" id="tk-retry">Tentar novamente</button>
       </section>
     </main>
