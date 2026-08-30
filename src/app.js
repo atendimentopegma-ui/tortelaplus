@@ -321,7 +321,9 @@ const licenseGateDisabled = true;
 let currentMode = "backoffice";
 let currentModule = "dashboard";
 let currentTab = "dados";
+let currentPeopleTab = "Todos";
 let currentFiscalTab = "fila";
+let currentStockTab = "producao";
 let currentSettingsTab = "geral";
 let reportPeriod = { from: `${today().slice(0, 7)}-01`, to: today() };
 let saleItems = [];
@@ -1180,7 +1182,7 @@ function ensureAutomaticStockOrder() {
 
 function renderPeople() {
   const draft = pendingPersonDraft;
-  const personTypeFilter = personFilters.includes(currentTab) ? currentTab : "Todos";
+  const personTypeFilter = personFilters.includes(currentPeopleTab) ? currentPeopleTab : "Todos";
   return `
     <section class="panel erp-screen">
       <div class="panel-head">
@@ -1247,8 +1249,8 @@ function renderPeople() {
 
 function peopleTable() {
   const query = personSearch.trim().toLowerCase();
-  const filter = personTypes.includes(currentTab) ? currentTab : "";
-  const aniversariantes = currentTab === "Aniversariantes";
+  const filter = personTypes.includes(currentPeopleTab) ? currentPeopleTab : "";
+  const aniversariantes = currentPeopleTab === "Aniversariantes";
   const monthDay = today().slice(5);
   const rows = state.people.filter((person) => (!filter || person.type === filter)
     && (!aniversariantes || String(person.birthDate || "").slice(5) >= monthDay)
@@ -1664,84 +1666,120 @@ function productsTable() {
 
 function renderStock() {
   const movements = state.stockMovements || [];
+  const stockTabs = [
+    ["producao", "Producao"],
+    ["movimento", "Movimento"],
+    ["qr", "QR Central"],
+    ["inventario", "Inventario"],
+    ["transferencia", "Transferencia"],
+    ["saldos", "Saldos"]
+  ];
+  if (!stockTabs.some(([key]) => key === currentStockTab)) currentStockTab = "producao";
+  const producedProducts = state.products.filter((p) => (p.composition || []).some((component) => component.mode === "production" || component.mode === "both"));
+  const productOptions = state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("");
+  const productionOptions = producedProducts.map((p) => `<option value="${p.id}">${p.description}</option>`).join("");
+  const plannedOptions = (state.productions || [])
+    .filter((row) => row.status === "Planejada")
+    .map((row) => `<option value="${row.id}">Ordem ${row.id} - ${row.product} (${row.plannedQty})</option>`)
+    .join("");
+  const productionPanel = `
+    <div class="form-card">
+      <h3>Ordem de producao da cozinha</h3>
+      <p class="muted">Ao concluir, o sistema da entrada no produto final e baixa as materias-primas pela ficha tecnica.</p>
+      <div class="field"><label>Produto fabricado</label><select id="production-product">${productionOptions}</select></div>
+      <div class="field"><label>Ordem planejada</label><select id="production-order"><option value="">Nova producao</option>${plannedOptions}</select></div>
+      <div class="grid two">
+        <div class="field"><label>Quantidade planejada</label><input id="production-qty" type="number" step="0.001" value="10" /></div>
+        <div class="field"><label>Quantidade produzida</label><input id="production-actual-qty" type="number" step="0.001" value="10" /></div>
+        <div class="field"><label>Lote produzido</label><input id="production-lot" /></div>
+        <div class="field"><label>Validade</label><input id="production-expiry" type="date" /></div>
+        <div class="field"><label>Series produzidas</label><textarea id="production-serials" placeholder="Uma por linha, quando o produto controlar serie"></textarea></div>
+      </div>
+      <div class="actions"><button class="btn" id="plan-production" type="button">Programar ordem</button><button class="btn primary" id="make-production" type="button">Concluir producao</button></div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Ordem</th><th>Data</th><th>Produto</th><th>Planejado</th><th>Produzido</th><th>Perda</th><th>Custo</th><th>Status</th></tr></thead><tbody>${(state.productions || []).slice().reverse().map((row) => `<tr><td>${row.id}</td><td>${row.date}</td><td>${row.product}</td><td>${row.plannedQty}</td><td>${row.actualQty || 0}</td><td>${row.loss || 0}</td><td>${money(row.productionCost || 0)}</td><td><span class="badge ${row.status === "Concluida" ? "ok" : "warn"}">${row.status || "Concluida"}</span></td></tr>`).join("") || `<tr><td colspan="8">Nenhuma ordem registrada.</td></tr>`}</tbody></table>
+    </div>`;
+  const movementPanel = `
+    <div class="form-card">
+      <h3>Ajuste de estoque</h3>
+      <p class="muted">Ajustes manuais exigem autorizacao da Central. Entradas por QR da Central podem ser aplicadas automaticamente.</p>
+      <div class="field"><label>Produto</label><select id="stock-product">${productOptions}</select></div>
+      <div class="grid two">
+        <div class="field"><label>Tipo</label><select id="stock-type"><option value="Entrada">Entrada</option><option value="Saida">Saida</option><option value="Ajuste">Ajuste</option><option value="Perda">Perda</option></select></div>
+        <div class="field"><label>Quantidade</label><input id="stock-qty" type="number" step="0.001" value="1" /></div>
+      </div>
+      <div class="field"><label>Historico</label><input id="stock-history" value="Ajuste manual" /></div>
+      <div class="grid two">
+        <div class="field"><label>Localizacao</label><input id="stock-location" /></div>
+        <div class="field"><label>Lote</label><input id="stock-lot" /></div>
+        <div class="field"><label>Validade</label><input id="stock-expiry" type="date" /></div>
+        <div class="field"><label>Numeros de serie</label><textarea id="stock-serials" placeholder="Um por linha"></textarea></div>
+      </div>
+      <button class="btn primary" id="save-stock-move" type="button">Gravar movimento</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th></tr></thead>
+        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td></tr>`).join("") || `<tr><td colspan="7">Nenhum movimento registrado.</td></tr>`}</tbody>
+      </table>
+    </div>`;
+  const qrPanel = `
+    <div class="form-card">
+      <h3>Recebimento por QR da Central</h3>
+      <p class="muted">Leia ou cole o conteudo do QR enviado pela Central Tortela para dar entrada automatica nos produtos.</p>
+      <div class="field"><label>QR / codigo da remessa</label><textarea id="central-shipment-qr" rows="7" placeholder='{"type":"tortela-central-shipment","items":[{"productId":5014,"qty":10}]}'></textarea></div>
+      <button class="btn primary" id="receive-central-qr" type="button">Dar entrada por QR</button>
+    </div>`;
+  const inventoryPanel = `
+    <div class="form-card">
+      <h3>Inventario</h3>
+      <div class="field"><label>Leitor de codigo de barras</label><input id="inventory-barcode" placeholder="Leia o codigo e pressione Enter" /></div>
+      <div class="field"><label>Produto</label><select id="inventory-product">${productOptions}</select></div>
+      <div class="field"><label>Quantidade contada</label><input id="inventory-counted" type="number" step="0.001" value="0" /></div>
+      <div class="grid two"><div class="field"><label>Lote contado</label><input id="inventory-lot" /></div><div class="field"><label>Numero de serie</label><input id="inventory-serial" /></div></div>
+      <div class="field"><label>Motivo</label><input id="inventory-reason" value="Contagem fisica" /></div>
+      <button class="btn primary" id="save-inventory" type="button">Aplicar inventario</button>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Produto</th><th>Lote</th><th>Validade</th><th>Quantidade</th><th>Situacao</th></tr></thead><tbody>${(state.stockLots || []).filter((row) => Number(row.qty || 0) > 0).map((row) => `<tr><td>${row.product}</td><td>${row.lot}</td><td>${row.expiry || "-"}</td><td>${row.qty}</td><td><span class="badge ${row.expiry && daysUntil(row.expiry) <= 30 ? "warn" : "ok"}">${row.expiry && daysUntil(row.expiry) <= 30 ? "Proximo do vencimento" : "Regular"}</span></td></tr>`).join("") || `<tr><td colspan="5">Nenhum lote aberto.</td></tr>`}</tbody></table>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Produto</th><th>Serie</th><th>Lote</th><th>Status</th><th>Referencia</th></tr></thead><tbody>${(state.stockSerials || []).slice().reverse().map((row) => `<tr><td>${row.product}</td><td>${row.serial}</td><td>${row.lot || "-"}</td><td><span class="badge ${row.status === "Disponivel" ? "ok" : "warn"}">${row.status}</span></td><td>${row.reference || "-"}</td></tr>`).join("") || `<tr><td colspan="5">Nenhuma serie registrada.</td></tr>`}</tbody></table>
+    </div>`;
+  const transferPanel = `
+    <div class="form-card">
+      <h3>Transferencia interna</h3>
+      <div class="field"><label>Produto</label><select id="transfer-product">${productOptions}</select></div>
+      <div class="grid two">
+        <div class="field"><label>Quantidade</label><input id="transfer-qty" type="number" step="0.001" value="1" /></div>
+        <div class="field"><label>Origem</label><input id="transfer-from" value="Estoque principal" /></div>
+        <div class="field"><label>Destino</label><input id="transfer-to" value="Loja" /></div>
+      </div>
+      <button class="btn primary" id="save-transfer" type="button">Registrar transferencia</button>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Deposito</th><th>Produto</th><th>Saldo</th></tr></thead><tbody>${(state.warehouseStocks || []).filter((row) => Number(row.qty || 0) !== 0).map((row) => `<tr><td>${row.warehouse}</td><td>${row.product}</td><td>${row.qty}</td></tr>`).join("") || `<tr><td colspan="3">Nenhum saldo por deposito.</td></tr>`}</tbody></table>
+    </div>`;
+  const saldoPanel = `
+    <div class="grid">${productsTable()}</div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Deposito</th><th>Produto</th><th>Saldo</th></tr></thead><tbody>${(state.warehouseStocks || []).filter((row) => Number(row.qty || 0) !== 0).map((row) => `<tr><td>${row.warehouse}</td><td>${row.product}</td><td>${row.qty}</td></tr>`).join("") || `<tr><td colspan="3">Nenhum saldo por deposito.</td></tr>`}</tbody></table>
+    </div>`;
+  const panels = {
+    producao: productionPanel,
+    movimento: movementPanel,
+    qr: qrPanel,
+    inventario: inventoryPanel,
+    transferencia: transferPanel,
+    saldos: saldoPanel
+  };
   return `
     <section class="panel">
-      <div class="panel-head"><h2>Estoque e producao</h2><div class="actions"><button class="btn" id="plan-production">Programar ordem para cozinha</button><button class="btn primary" id="make-production">Concluir producao</button></div></div>
-      <div class="panel-body grid two">
-        <div class="form-card">
-          <h3>Ordem de producao da cozinha</h3>
-          <p class="muted">Ao concluir a producao, o sistema da entrada no produto final e baixa as materias-primas pela ficha tecnica. Exemplo: 1 torta usa 500 G de farinha, baixando 0,5 KG se a farinha estiver em KG.</p>
-          <div class="field"><label>Produto fabricado</label><select id="production-product">${state.products.filter((p) => (p.composition || []).some((component) => component.mode === "production" || component.mode === "both")).map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
-          <div class="field"><label>Ordem planejada</label><select id="production-order"><option value="">Nova producao</option>${(state.productions || []).filter((row) => row.status === "Planejada").map((row) => `<option value="${row.id}">Ordem ${row.id} - ${row.product} (${row.plannedQty})</option>`).join("")}</select></div>
-          <div class="grid two">
-            <div class="field"><label>Quantidade planejada</label><input id="production-qty" type="number" step="0.001" value="10" /></div>
-            <div class="field"><label>Quantidade produzida</label><input id="production-actual-qty" type="number" step="0.001" value="10" /></div>
-            <div class="field"><label>Lote produzido</label><input id="production-lot" /></div>
-            <div class="field"><label>Validade</label><input id="production-expiry" type="date" /></div>
-            <div class="field"><label>Series produzidas</label><textarea id="production-serials" placeholder="Uma por linha, quando o produto controlar serie"></textarea></div>
-          </div>
-        </div>
-        <div class="form-card">
-          <h3>Ajuste de estoque</h3>
-          <p class="muted">Ajustes manuais exigem autorizacao da Central. Entradas por QR da Central podem ser aplicadas automaticamente.</p>
-          <div class="field"><label>Produto</label><select id="stock-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
-          <div class="grid two">
-            <div class="field"><label>Tipo</label><select id="stock-type"><option value="Entrada">Entrada</option><option value="Saida">Saida</option><option value="Ajuste">Ajuste</option><option value="Perda">Perda</option></select></div>
-            <div class="field"><label>Quantidade</label><input id="stock-qty" type="number" step="0.001" value="1" /></div>
-          </div>
-          <div class="field"><label>Historico</label><input id="stock-history" value="Ajuste manual" /></div>
-          <div class="grid two">
-            <div class="field"><label>Localizacao</label><input id="stock-location" /></div>
-            <div class="field"><label>Lote</label><input id="stock-lot" /></div>
-            <div class="field"><label>Validade</label><input id="stock-expiry" type="date" /></div>
-            <div class="field"><label>Numeros de serie</label><textarea id="stock-serials" placeholder="Um por linha"></textarea></div>
-          </div>
-          <button class="btn primary" id="save-stock-move" type="button">Gravar movimento</button>
-        </div>
-        <div class="form-card">
-          <h3>Recebimento por QR da Central</h3>
-          <p class="muted">Leia ou cole o conteudo do QR enviado pela Central Tortela para dar entrada automatica nos produtos.</p>
-          <div class="field"><label>QR / codigo da remessa</label><textarea id="central-shipment-qr" rows="5" placeholder='{"type":"tortela-central-shipment","items":[{"productId":5014,"qty":10}]}'></textarea></div>
-          <button class="btn primary" id="receive-central-qr" type="button">Dar entrada por QR</button>
-        </div>
-        <div class="form-card">
-          <h3>Inventario</h3>
-          <div class="field"><label>Leitor de codigo de barras</label><input id="inventory-barcode" placeholder="Leia o codigo e pressione Enter" /></div>
-          <div class="field"><label>Produto</label><select id="inventory-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
-          <div class="field"><label>Quantidade contada</label><input id="inventory-counted" type="number" step="0.001" value="0" /></div>
-          <div class="grid two"><div class="field"><label>Lote contado</label><input id="inventory-lot" /></div><div class="field"><label>Numero de serie</label><input id="inventory-serial" /></div></div>
-          <div class="field"><label>Motivo</label><input id="inventory-reason" value="Contagem fisica" /></div>
-          <button class="btn primary" id="save-inventory" type="button">Aplicar inventario</button>
-        </div>
-        <div class="form-card">
-          <h3>Transferencia interna</h3>
-          <div class="field"><label>Produto</label><select id="transfer-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
-          <div class="grid two">
-            <div class="field"><label>Quantidade</label><input id="transfer-qty" type="number" step="0.001" value="1" /></div>
-            <div class="field"><label>Origem</label><input id="transfer-from" value="Estoque principal" /></div>
-            <div class="field"><label>Destino</label><input id="transfer-to" value="Loja" /></div>
-          </div>
-          <button class="btn primary" id="save-transfer" type="button">Registrar transferencia</button>
-        </div>
-        <div class="grid" style="grid-column: 1 / -1">${productsTable()}</div>
-        <div class="table-wrap" style="grid-column: 1 / -1">
-          <table>
-            <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th></tr></thead>
-            <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td></tr>`).join("")}</tbody>
-          </table>
-        </div>
-        <div class="table-wrap" style="grid-column: 1 / -1">
-          <table><thead><tr><th>Ordem</th><th>Data</th><th>Produto</th><th>Planejado</th><th>Produzido</th><th>Perda</th><th>Custo</th><th>Status</th></tr></thead><tbody>${(state.productions || []).slice().reverse().map((row) => `<tr><td>${row.id}</td><td>${row.date}</td><td>${row.product}</td><td>${row.plannedQty}</td><td>${row.actualQty || 0}</td><td>${row.loss || 0}</td><td>${money(row.productionCost || 0)}</td><td><span class="badge ${row.status === "Concluida" ? "ok" : "warn"}">${row.status || "Concluida"}</span></td></tr>`).join("")}</tbody></table>
-        </div>
-        <div class="table-wrap" style="grid-column: 1 / -1">
-          <table><thead><tr><th>Produto</th><th>Lote</th><th>Validade</th><th>Quantidade</th><th>Situacao</th></tr></thead><tbody>${(state.stockLots || []).filter((row) => Number(row.qty || 0) > 0).map((row) => `<tr><td>${row.product}</td><td>${row.lot}</td><td>${row.expiry || "-"}</td><td>${row.qty}</td><td><span class="badge ${row.expiry && daysUntil(row.expiry) <= 30 ? "warn" : "ok"}">${row.expiry && daysUntil(row.expiry) <= 30 ? "Proximo do vencimento" : "Regular"}</span></td></tr>`).join("")}</tbody></table>
-        </div>
-        <div class="table-wrap" style="grid-column: 1 / -1">
-          <table><thead><tr><th>Produto</th><th>Serie</th><th>Lote</th><th>Status</th><th>Referencia</th></tr></thead><tbody>${(state.stockSerials || []).slice().reverse().map((row) => `<tr><td>${row.product}</td><td>${row.serial}</td><td>${row.lot || "-"}</td><td><span class="badge ${row.status === "Disponivel" ? "ok" : "warn"}">${row.status}</span></td><td>${row.reference || "-"}</td></tr>`).join("")}</tbody></table>
-        </div>
-        <div class="table-wrap" style="grid-column: 1 / -1">
-          <table><thead><tr><th>Deposito</th><th>Produto</th><th>Saldo</th></tr></thead><tbody>${(state.warehouseStocks || []).filter((row) => Number(row.qty || 0) !== 0).map((row) => `<tr><td>${row.warehouse}</td><td>${row.product}</td><td>${row.qty}</td></tr>`).join("")}</tbody></table>
-        </div>
+      <div class="panel-head"><h2>Estoque e producao</h2></div>
+      <div class="module-tabs">${stockTabs.map(([key, label]) => `<button type="button" class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}">${label}</button>`).join("")}</div>
+      <div class="panel-body grid">
+        ${panels[currentStockTab]}
       </div>
     </section>
   `;
@@ -2761,7 +2799,7 @@ function bindCurrentModule() {
     }
   });
   document.querySelectorAll("[data-person-filter]").forEach((button) => button.addEventListener("click", () => {
-    currentTab = button.dataset.personFilter === "Todos" ? "dados" : button.dataset.personFilter;
+    currentPeopleTab = button.dataset.personFilter || "Todos";
     renderShell();
   }));
   document.querySelectorAll("[data-select-person]").forEach((row) => row.addEventListener("click", (event) => {
@@ -2796,6 +2834,11 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-edit-product]").forEach((button) => button.addEventListener("click", () => editProductRecord(Number(button.dataset.editProduct))));
   document.querySelectorAll("[data-toggle-product]").forEach((button) => button.addEventListener("click", () => toggleProductRecord(Number(button.dataset.toggleProduct))));
   document.querySelectorAll("[data-label-product]").forEach((button) => button.addEventListener("click", () => printProductLabel(Number(button.dataset.labelProduct))));
+
+  document.querySelectorAll("[data-stock-tab]").forEach((button) => button.addEventListener("click", () => {
+    currentStockTab = button.dataset.stockTab || "producao";
+    renderShell();
+  }));
 
   const addComposition = byId("add-composition");
   if (addComposition) addComposition.addEventListener("click", addCompositionRecord);
