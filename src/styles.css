@@ -2736,6 +2736,19 @@ th {
   background: #fbfdfe;
 }
 
+.form-card.settings-pane,
+.table-wrap.settings-pane {
+  display: none;
+}
+
+.form-card.settings-pane.active {
+  display: grid;
+}
+
+.table-wrap.settings-pane.active {
+  display: block;
+}
+
 .photo-uploader {
   display: grid;
   grid-template-columns: 132px 1fr;
