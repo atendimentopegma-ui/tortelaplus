@@ -2622,6 +2622,22 @@ header.topbar .top-right .central-top-action:hover {
   font-size: 12px;
 }
 
+.terminal-token-field {
+  grid-column: 1 / -1;
+}
+
+.terminal-token-field .actions {
+  margin-top: 8px;
+}
+
+.terminal-token-field small {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .alert {
   padding: 12px;
   border-radius: 6px;

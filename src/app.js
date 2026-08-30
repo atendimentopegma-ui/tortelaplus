@@ -1612,6 +1612,32 @@ async function copyText(text) {
   input.remove();
 }
 
+function generatePublicTerminalToken() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+}
+
+function rotatePublicTerminalToken() {
+  const input = byId("set-public-terminal-token");
+  const token = generatePublicTerminalToken();
+  if (input) input.value = token;
+  state.settings.publicTerminalToken = token;
+  alert("Novo token gerado. Salve as configuracoes para invalidar os links antigos.");
+}
+
+async function copyPublicTerminalToken() {
+  const token = byId("set-public-terminal-token")?.value.trim() || state.settings.publicTerminalToken || "";
+  if (!token) return alert("Nenhum token de totem/cozinha/telao encontrado.");
+  try {
+    await copyText(token);
+    alert("Token copiado.");
+  } catch {
+    alert(`Nao foi possivel copiar automaticamente. Token: ${token}`);
+  }
+}
+
 function productsTable() {
   const query = productSearch.trim().toLowerCase();
   const rows = state.products.filter((product) => !query || [product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query)));
@@ -2427,7 +2453,15 @@ function renderSettings() {
             <div class="field"><label>Email fiscal remetente</label><input id="set-smtp-from" value="${escapeAttr(state.settings.smtpFrom || "")}" /></div>
             <div class="field"><label>Backup automatico</label><select id="set-auto-backup"><option value="true">Sim</option><option value="false" ${state.settings.autoBackup === false ? "selected" : ""}>Nao</option></select></div>
             <div class="field"><label>Raio entrega online km</label><input id="set-delivery-radius-km" type="number" step="0.1" value="${Number(state.settings.deliveryRadiusKm || 10)}" /></div>
-            <div class="field"><label>Token totem/cozinha/telao</label><input id="set-public-terminal-token" value="${escapeAttr(state.settings.publicTerminalToken || "")}" placeholder="Gerado pelo servidor da unidade" /></div>
+            <div class="field terminal-token-field">
+              <label>Token totem/cozinha/telao</label>
+              <input id="set-public-terminal-token" value="${escapeAttr(state.settings.publicTerminalToken || "")}" placeholder="Gerado pelo servidor da unidade" />
+              <div class="actions">
+                <button class="btn" id="copy-public-terminal-token" type="button">Copiar token</button>
+                <button class="btn danger" id="rotate-public-terminal-token" type="button">Gerar novo token</button>
+              </div>
+              <small>Ao gerar e salvar um novo token, os links antigos do totem, cozinha e telao deixam de funcionar.</small>
+            </div>
             <div class="field"><label>Webhook geral de alertas</label><input id="set-alert-webhook" value="${escapeAttr(state.settings.alertWebhookUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>Token webhook de alertas</label><input id="set-alert-webhook-token" type="password" placeholder="${state.settings.alertWebhookTokenConfigured ? "Token protegido configurado" : "Informe se o provedor exigir"}" /></div>
             <div class="field"><label>Webhook WhatsApp</label><input id="set-whatsapp-webhook" value="${escapeAttr(state.settings.whatsappWebhookUrl || "")}" placeholder="Preencher ao escolher o provedor" /></div>
@@ -2836,6 +2870,10 @@ function bindCurrentModule() {
 
   const validateFiscalSetup = byId("validate-fiscal-setup");
   if (validateFiscalSetup) validateFiscalSetup.addEventListener("click", showFiscalReadiness);
+  const copyPublicToken = byId("copy-public-terminal-token");
+  if (copyPublicToken) copyPublicToken.addEventListener("click", copyPublicTerminalToken);
+  const rotatePublicToken = byId("rotate-public-terminal-token");
+  if (rotatePublicToken) rotatePublicToken.addEventListener("click", rotatePublicTerminalToken);
 
   const saveUser = byId("save-user");
   if (saveUser) saveUser.addEventListener("click", saveUserRecord);
