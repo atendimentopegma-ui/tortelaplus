@@ -321,6 +321,7 @@ const licenseGateDisabled = true;
 let currentMode = "backoffice";
 let currentModule = "dashboard";
 let currentTab = "dados";
+let currentFiscalTab = "fila";
 let currentSettingsTab = "geral";
 let reportPeriod = { from: `${today().slice(0, 7)}-01`, to: today() };
 let saleItems = [];
@@ -2006,22 +2007,22 @@ function financeTab() {
 function renderFiscal() {
   ensureFiscalRuleCoverage();
   const tabs = ["nfe", "nfce", "nfse", "cte", "cteos", "mdfe", "sat", "mfe", "sped", "sintegra", "fila"];
-  if (!tabs.includes(currentTab)) currentTab = "fila";
+  if (!tabs.includes(currentFiscalTab)) currentFiscalTab = "fila";
   const availableTabs = tabs.filter((tab) => tab === "fila" || contractedFiscalModule(tab));
-  if (!availableTabs.includes(currentTab)) currentTab = availableTabs[0] || "fila";
-  const filteredRows = currentTab === "fila" ? state.fiscalQueue : state.fiscalQueue.filter((row) => row.model.toLowerCase().replace("-", "") === currentTab);
+  if (!availableTabs.includes(currentFiscalTab)) currentFiscalTab = availableTabs[0] || "fila";
+  const filteredRows = currentFiscalTab === "fila" ? state.fiscalQueue : state.fiscalQueue.filter((row) => row.model.toLowerCase().replace("-", "") === currentFiscalTab);
   const rules = state.fiscalRules || [];
   const serviceRules = rules.filter((rule) => rule.active !== false && rule.model === "NFS-e" && rule.regime === state.settings.regime);
-  const currentModel = fiscalTabModel(currentTab);
+  const currentModel = fiscalTabModel(currentFiscalTab);
   return `
     <section class="panel">
-      <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><button class="btn" id="fiscal-export-batch">Lote XML</button><button class="btn" id="fiscal-pdf-batch">Lote PDF</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
-      <div class="module-tabs">${availableTabs.map((tab) => `<button class="${currentTab === tab ? "active" : ""}" data-fiscal-tab="${tab}" type="button">${tab.toUpperCase()}</button>`).join("")}</div>
+      <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><button class="btn" id="fiscal-export-batch">Lote XML</button><button class="btn" id="fiscal-pdf-batch">Lote PDF</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentFiscalTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
+      <div class="module-tabs">${availableTabs.map((tab) => `<button class="${currentFiscalTab === tab ? "active" : ""}" data-fiscal-tab="${tab}" type="button">${tab.toUpperCase()}</button>`).join("")}</div>
       <div class="panel-body grid">
         <div class="fiscal-note">
           Ambiente ${state.settings.fiscalEnvironment}. NF-e/NFC-e usam fluxo de mercadoria. NFS-e fica em tela separada porque depende de municipio, item de servico, ISS, NBS e padrao nacional/municipal vigente.
         </div>
-        ${currentTab === "nfse" ? renderNfseIssueForm(serviceRules) : advancedFiscalTabs().includes(currentTab) ? renderAdvancedFiscalForm(currentModel) : `
+        ${currentFiscalTab === "nfse" ? renderNfseIssueForm(serviceRules) : advancedFiscalTabs().includes(currentFiscalTab) ? renderAdvancedFiscalForm(currentModel) : `
         <div class="form-card grid four">
           <div class="field"><label>Modelo</label><input id="fiscal-model" value="${currentModel}" readonly /></div>
           <div class="field"><label>Venda de origem</label><select id="fiscal-sale-id"><option value="">Selecione uma venda fechada</option>${state.sales.filter((sale) => ["Fechado", "Parcialmente devolvido"].includes(sale.status) && Array.isArray(sale.items) && sale.items.length).map((sale) => `<option value="${sale.id}">${sale.id} - ${escapeAttr(sale.customer)} - ${money(sale.total)}</option>`).join("")}</select></div>
@@ -2042,7 +2043,7 @@ function renderFiscal() {
         <div class="table-wrap">
           <table>
             <thead><tr><th>Numero</th><th>Modelo</th><th>Status</th><th>Cliente</th><th>Total</th><th>Tentativas</th><th>Ultimo erro</th><th>Chave</th><th>Protocolo</th><th>Acoes</th></tr></thead>
-            <tbody>${filteredRows.map((row) => `<tr><td>${row.id}</td><td>${row.model}</td><td><span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${row.status}</span></td><td>${row.customer}</td><td>${money(row.total)}</td><td>${row.attempts || 0}</td><td>${row.lastFiscalError || "-"}</td><td>${row.key || "-"}</td><td>${row.protocol || "-"}</td><td><button class="btn" data-fiscal-transmit="${row.id}">Transmitir</button> <button class="btn" data-fiscal-query="${row.id}">Consultar</button> <button class="btn" data-fiscal-print="${row.id}">${row.model === "NFS-e" ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE"}</button> ${row.pdfUrl ? `<button class="btn" data-fiscal-pdf="${row.id}">Baixar PDF</button>` : ""} <button class="btn" data-fiscal-xml="${row.id}">XML</button> ${row.model === "NF-e" ? `<button class="btn" data-fiscal-cce="${row.id}">CC-e</button>` : ""} ${row.model === "NFC-e" ? `<button class="btn" data-fiscal-contingency="${row.id}">Contingencia</button>` : ""} <button class="btn danger" data-fiscal-cancel="${row.id}">Cancelar</button></td></tr>`).join("") || `<tr><td colspan="10">Nenhum documento encontrado para ${currentTab === "fila" ? "a fila fiscal" : currentModel}. Use o formulario acima para gerar um documento ou importe um XML.</td></tr>`}</tbody>
+            <tbody>${filteredRows.map((row) => `<tr><td>${row.id}</td><td>${row.model}</td><td><span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${row.status}</span></td><td>${row.customer}</td><td>${money(row.total)}</td><td>${row.attempts || 0}</td><td>${row.lastFiscalError || "-"}</td><td>${row.key || "-"}</td><td>${row.protocol || "-"}</td><td><button class="btn" data-fiscal-transmit="${row.id}">Transmitir</button> <button class="btn" data-fiscal-query="${row.id}">Consultar</button> <button class="btn" data-fiscal-print="${row.id}">${row.model === "NFS-e" ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE"}</button> ${row.pdfUrl ? `<button class="btn" data-fiscal-pdf="${row.id}">Baixar PDF</button>` : ""} <button class="btn" data-fiscal-xml="${row.id}">XML</button> ${row.model === "NF-e" ? `<button class="btn" data-fiscal-cce="${row.id}">CC-e</button>` : ""} ${row.model === "NFC-e" ? `<button class="btn" data-fiscal-contingency="${row.id}">Contingencia</button>` : ""} <button class="btn danger" data-fiscal-cancel="${row.id}">Cancelar</button></td></tr>`).join("") || `<tr><td colspan="10">Nenhum documento encontrado para ${currentFiscalTab === "fila" ? "a fila fiscal" : currentModel}. Use o formulario acima para gerar um documento ou importe um XML.</td></tr>`}</tbody>
           </table>
         </div>
       </div>
@@ -2975,7 +2976,7 @@ function bindCurrentModule() {
 
   document.querySelectorAll("[data-fiscal-tab]").forEach((button) => {
     button.addEventListener("click", () => {
-      currentTab = button.dataset.fiscalTab || "fila";
+      currentFiscalTab = button.dataset.fiscalTab || "fila";
       renderShell();
     });
   });
@@ -5391,8 +5392,8 @@ function escapeXml(value) {
 }
 
 function createFiscalRecord() {
-  const model = fiscalTabModel(currentTab);
-  if (advancedFiscalTabs().includes(currentTab)) return createAdvancedFiscalRecord(model);
+  const model = fiscalTabModel(currentFiscalTab);
+  if (advancedFiscalTabs().includes(currentFiscalTab)) return createAdvancedFiscalRecord(model);
   const saleId = Number(byId("fiscal-sale-id")?.value || 0);
   const sale = (state.sales || []).find((item) => Number(item.id) === saleId);
   if (!sale || !Array.isArray(sale.items) || !sale.items.length) {
@@ -5672,7 +5673,7 @@ async function distributeFiscalDocuments() {
 
 async function inutilizeFiscalRange() {
   if (!requireFiscalApiConnection("Inutilizacao fiscal")) return;
-  const model = prompt("Modelo a inutilizar: NF-e ou NFC-e", currentTab === "nfce" ? "NFC-e" : "NF-e");
+  const model = prompt("Modelo a inutilizar: NF-e ou NFC-e", currentFiscalTab === "nfce" ? "NFC-e" : "NF-e");
   if (!["NF-e", "NFC-e"].includes(model)) return;
   const series = Number(prompt("Serie:", "1"));
   const start = Number(prompt("Numero inicial:", ""));
