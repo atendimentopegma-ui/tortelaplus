@@ -317,6 +317,7 @@ const seed = {
 
 let state = load();
 let apiOnline = false;
+const licenseGateDisabled = true;
 let currentMode = "backoffice";
 let currentModule = "dashboard";
 let currentTab = "dados";
@@ -758,6 +759,14 @@ function onlineUnitLinks() {
 }
 
 function licenseStatus(tenant = getCurrentTenant()) {
+  if (licenseGateDisabled) {
+    return {
+      remaining: 999,
+      expired: false,
+      warning: false,
+      disabled: true
+    };
+  }
   const remaining = daysUntil(tenant?.licenseExpiresAt || today());
   return {
     remaining,
@@ -1001,7 +1010,7 @@ function renderShell() {
           <span class="badge ${apiOnline ? "ok" : "warn"}">${apiOnline ? "API online" : "modo local"}</span>
           <span class="badge ${navigator.onLine ? "ok" : "danger"}">${navigator.onLine ? "Internet ON" : "Offline"}</span>
           <span class="badge warn">Ambiente fiscal: ${state.settings.fiscalEnvironment}</span>
-          <span class="badge ${license.expired ? "danger" : license.warning ? "warn" : "ok"}">Licenca: ${license.expired ? "vencida" : `${license.remaining} dias`}</span>
+          <span class="badge ${license.expired ? "danger" : license.warning ? "warn" : "ok"}">Licenca: ${license.disabled ? "desenvolvimento" : license.expired ? "vencida" : `${license.remaining} dias`}</span>
           ${canAccess("settings") ? `<button class="btn ghost" id="header-backup">Backup</button>` : ""}
           ${canAccess("fiscal") ? `<button class="btn ghost" id="header-xml-backup">Backup XMLs</button>` : ""}
           <button class="btn ghost" id="logout">Sair</button>
