@@ -315,6 +315,8 @@ const seed = {
   }
 };
 
+window.TORTELA_BUILD = "fiscal-cache-fix-v2";
+
 let state = load();
 let apiOnline = false;
 const licenseGateDisabled = true;
@@ -6736,7 +6738,7 @@ window.addEventListener("beforeunload", endSession);
 setInterval(processPendingFiscalQueue, 60000);
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=cache-fix-v2").catch(() => undefined);
 }
 
 boot();
