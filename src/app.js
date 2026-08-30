@@ -2055,7 +2055,7 @@ function renderFiscal() {
   return `
     <section class="panel">
       <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><button class="btn" id="fiscal-export-batch">Lote XML</button><button class="btn" id="fiscal-pdf-batch">Lote PDF</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentFiscalTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
-      <div class="module-tabs">${availableTabs.map((tab) => `<button class="${currentFiscalTab === tab ? "active" : ""}" data-fiscal-tab="${tab}" type="button">${tab.toUpperCase()}</button>`).join("")}</div>
+      <div class="module-tabs">${availableTabs.map((tab) => `<button class="${currentFiscalTab === tab ? "active" : ""}" data-fiscal-tab="${tab}" onclick="selectFiscalTab('${tab}')" type="button">${tab.toUpperCase()}</button>`).join("")}</div>
       <div class="panel-body grid">
         <div class="fiscal-note">
           Ambiente ${state.settings.fiscalEnvironment}. NF-e/NFC-e usam fluxo de mercadoria. NFS-e fica em tela separada porque depende de municipio, item de servico, ISS, NBS e padrao nacional/municipal vigente.
@@ -2103,6 +2103,13 @@ function advancedFiscalTabs() {
 function fiscalTabModel(tab) {
   return ({ nfe: "NF-e", nfce: "NFC-e", nfse: "NFS-e", cte: "CTe", cteos: "CTe-OS", mdfe: "MDFe", sat: "SAT", mfe: "MFe", sped: "SPED", sintegra: "Sintegra" }[tab] || "NFC-e");
 }
+
+function selectFiscalTab(tab) {
+  currentFiscalTab = tab || "fila";
+  renderShell();
+}
+
+window.selectFiscalTab = selectFiscalTab;
 
 function renderAdvancedFiscalForm(model) {
   const isTransport = ["CTe", "CTe-OS", "MDFe"].includes(model);
