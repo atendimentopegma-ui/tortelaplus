@@ -740,10 +740,20 @@ function counterPassword(tenant, challenge, days = tenant.renewalDays) {
   return `${code.slice(0, 3)}-${code.slice(3)}`;
 }
 
-function publicUnitLink(page) {
+function publicUnitLink(page, absolute = false) {
   const params = new URLSearchParams({ unidade: state.settings.tenantCode });
   if (state.settings.publicTerminalToken) params.set("terminalToken", state.settings.publicTerminalToken);
-  return `./${page}?${params.toString()}`;
+  const path = `${page}?${params.toString()}`;
+  return absolute ? `${location.origin}/${path}` : `./${path}`;
+}
+
+function onlineUnitLinks() {
+  return [
+    { key: "store", label: "Loja online", description: "Link publico de venda por entrega ou retirada.", url: `${location.origin}/loja.html?unidade=${encodeURIComponent(state.settings.tenantCode)}`, secure: false },
+    { key: "kiosk", label: "Totem de vendas", description: "Tela vertical usada no autoatendimento da unidade.", url: publicUnitLink("totem.html", true), secure: true },
+    { key: "kitchen", label: "Cozinha do totem", description: "Fila operacional para preparar e marcar pedido pronto.", url: publicUnitLink("cozinha", true), secure: true },
+    { key: "display", label: "Telao de pedidos", description: "Painel para chamar a senha do cliente.", url: publicUnitLink("telao.html", true), secure: true }
+  ];
 }
 
 function licenseStatus(tenant = getCurrentTenant()) {
@@ -1773,6 +1783,7 @@ function renderSales() {
 function renderOnlineOrders() {
   const orders = (state.sales || []).filter((sale) => sale.onlineOrder).sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)));
   const pending = orders.filter((sale) => !["Entregue", "Cancelado"].includes(sale.status));
+  const unitLinks = onlineUnitLinks();
   return `
     <section class="panel">
       <div class="panel-head">
@@ -1790,6 +1801,22 @@ function renderOnlineOrders() {
           <div class="kpi"><small>A conferir</small><strong>${orders.filter((sale) => sale.status === "Aberto").length}</strong></div>
           <div class="kpi"><small>Prontos/entrega</small><strong>${orders.filter((sale) => ["Pronto", "Saiu para entrega"].includes(sale.status)).length}</strong></div>
           <div class="kpi"><small>Total online</small><strong>${money(orders.reduce((sum, sale) => sum + Number(sale.total || 0), 0))}</strong></div>
+        </div>
+        <div class="unit-link-grid">
+          ${unitLinks.map((link) => `
+            <article class="unit-link-card">
+              <div>
+                <span class="badge ${link.secure ? "ok" : "warn"}">${link.secure ? "Com token" : "Publico"}</span>
+                <h3>${link.label}</h3>
+                <p>${link.description}</p>
+                <input value="${escapeAttr(link.url)}" readonly />
+              </div>
+              <div class="actions">
+                <a class="btn" href="${escapeAttr(link.url)}" target="_blank" rel="noopener">Abrir</a>
+                <button class="btn primary" data-copy-public-link="${escapeAttr(link.url)}" type="button">Copiar</button>
+              </div>
+            </article>
+          `).join("")}
         </div>
         <div class="table-wrap">
           <table>
@@ -2400,6 +2427,7 @@ function renderSettings() {
             <div class="field"><label>Email fiscal remetente</label><input id="set-smtp-from" value="${escapeAttr(state.settings.smtpFrom || "")}" /></div>
             <div class="field"><label>Backup automatico</label><select id="set-auto-backup"><option value="true">Sim</option><option value="false" ${state.settings.autoBackup === false ? "selected" : ""}>Nao</option></select></div>
             <div class="field"><label>Raio entrega online km</label><input id="set-delivery-radius-km" type="number" step="0.1" value="${Number(state.settings.deliveryRadiusKm || 10)}" /></div>
+            <div class="field"><label>Token totem/cozinha/telao</label><input id="set-public-terminal-token" value="${escapeAttr(state.settings.publicTerminalToken || "")}" placeholder="Gerado pelo servidor da unidade" /></div>
             <div class="field"><label>Webhook geral de alertas</label><input id="set-alert-webhook" value="${escapeAttr(state.settings.alertWebhookUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>Token webhook de alertas</label><input id="set-alert-webhook-token" type="password" placeholder="${state.settings.alertWebhookTokenConfigured ? "Token protegido configurado" : "Informe se o provedor exigir"}" /></div>
             <div class="field"><label>Webhook WhatsApp</label><input id="set-whatsapp-webhook" value="${escapeAttr(state.settings.whatsappWebhookUrl || "")}" placeholder="Preencher ao escolher o provedor" /></div>
@@ -2753,6 +2781,17 @@ function bindCurrentModule() {
   });
   document.querySelectorAll("[data-online-status]").forEach((button) => {
     button.addEventListener("click", () => updateOnlineOrderStatus(Number(button.dataset.onlineStatus), button.dataset.status));
+  });
+  document.querySelectorAll("[data-copy-public-link]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const link = button.dataset.copyPublicLink || "";
+      try {
+        await copyText(link);
+        alert("Link da unidade copiado.");
+      } catch {
+        alert(`Nao foi possivel copiar automaticamente. Link: ${link}`);
+      }
+    });
   });
 
   const saveFinance = byId("save-finance");
@@ -4820,6 +4859,7 @@ async function saveSettingsRecord() {
   state.settings.smtpFrom = byId("set-smtp-from")?.value || "";
   state.settings.autoBackup = byId("set-auto-backup")?.value !== "false";
   state.settings.deliveryRadiusKm = Number(byId("set-delivery-radius-km")?.value || 10);
+  state.settings.publicTerminalToken = byId("set-public-terminal-token")?.value.trim() || state.settings.publicTerminalToken || "";
   state.settings.alertWebhookUrl = byId("set-alert-webhook").value.trim();
   state.settings.whatsappWebhookUrl = byId("set-whatsapp-webhook").value.trim();
   state.settings.emailWebhookUrl = byId("set-email-webhook").value.trim();

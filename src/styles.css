@@ -2580,6 +2580,48 @@ header.topbar .top-right .central-top-action:hover {
   font-weight: 700;
 }
 
+.unit-link-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.unit-link-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 210px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.unit-link-card h3 {
+  margin: 12px 0 6px;
+  font-size: 18px;
+}
+
+.unit-link-card p {
+  min-height: 42px;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.unit-link-card input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .alert {
   padding: 12px;
   border-radius: 6px;
@@ -2985,6 +3027,7 @@ th {
   .grid.three,
   .grid.four,
   .grid.five,
+  .unit-link-grid,
   .sale-inputs,
   .payment-grid,
   .totals {
