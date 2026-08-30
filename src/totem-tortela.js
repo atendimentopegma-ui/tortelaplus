@@ -85,7 +85,13 @@ function productPhoto(product, className = "tk-product-photo") {
   if (product.photo) {
     return `<img class="${className}" src="${cleanText(product.photo)}" alt="${cleanText(product.description)}" />`;
   }
-  return `<div class="${className} tk-product-fallback"><span>Foto do produto</span></div>`;
+  const category = productCategory(product);
+  return `
+    <div class="${className} tk-product-fallback" aria-label="${cleanText(product.description)}">
+      <span>${cleanText(category)}</span>
+      <b>${cleanText(product.description)}</b>
+    </div>
+  `;
 }
 
 function hasCpf() {
@@ -116,7 +122,7 @@ function shell(content, step = 0) {
           <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
         </button>
         <div class="tk-progress" aria-label="Progresso do pedido">
-          ${steps.map((label, index) => `<span class="${index <= step ? "is-active" : ""}">${cleanText(label)}</span>`).join("")}
+          ${steps.map((label, index) => `<span class="${index <= step ? "is-active" : ""}" title="${cleanText(label)}">${cleanText(label)}</span>`).join("")}
         </div>
         <button class="tk-cart-button" data-screen="cart" aria-label="Abrir carrinho">
           <span>${cartCount()} itens</span>
@@ -208,7 +214,10 @@ function productCard(product) {
       <div class="tk-product-copy">
         <small>${cleanText(productCategory(product))}</small>
         <h2>${cleanText(product.description)}</h2>
-        <strong>${money(product.price)}</strong>
+        <div class="tk-product-footer">
+          <strong>${money(product.price)}</strong>
+          <span>${Number(product.stock || 0) > 0 ? "Disponivel" : "Indisponivel"}</span>
+        </div>
       </div>
       <button data-product="${product.id}">Adicionar</button>
     </article>

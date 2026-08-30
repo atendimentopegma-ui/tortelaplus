@@ -1024,3 +1024,219 @@ body.tortela-kiosk-page #kiosk-app {
 .tk-bottom-cart {
   color: #2f2a21;
 }
+
+/* Polimento v11: cardapio mais limpo, produto sem foto mais apresentavel e area de toque maior. */
+.tk-header {
+  grid-template-columns: 108px 1fr 132px;
+  height: 118px;
+  padding: 14px 16px;
+}
+
+.tk-progress {
+  gap: 8px;
+}
+
+.tk-progress span {
+  width: 31px;
+  height: 31px;
+}
+
+.tk-cart-button {
+  min-height: 78px;
+}
+
+.tk-menu {
+  grid-template-columns: 112px 1fr;
+  gap: 14px;
+  padding: 18px 16px 112px;
+}
+
+.tk-categories {
+  gap: 11px;
+  padding: 12px;
+}
+
+.tk-categories button {
+  min-height: 78px;
+  border: 1px solid #ebe1c9;
+  border-radius: 20px;
+  background: #f5f1e8;
+  font-size: 17px;
+}
+
+.tk-categories .is-active {
+  background: #f2c600;
+  border-color: #d9ae00;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.08);
+}
+
+.tk-menu-board {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.tk-menu-title {
+  min-height: 118px;
+  padding: 22px;
+}
+
+.tk-menu-title .tk-eyebrow {
+  font-size: 15px;
+}
+
+.tk-menu-title h1 {
+  font-size: 48px;
+}
+
+.tk-menu-title strong {
+  min-width: 104px;
+  color: #927400;
+  font-size: 25px;
+  line-height: 1.1;
+}
+
+.tk-products {
+  height: auto;
+  min-height: 0;
+  padding: 16px;
+  gap: 18px;
+}
+
+.tk-product-card {
+  gap: 14px;
+  padding: 14px;
+  border-radius: 26px;
+}
+
+.tk-product-photo,
+.tk-product-fallback {
+  height: 190px;
+  border-radius: 22px;
+}
+
+.tk-product-fallback {
+  position: relative;
+  overflow: hidden;
+  align-content: end;
+  justify-items: start;
+  padding: 20px;
+  box-sizing: border-box;
+  background:
+    radial-gradient(circle at 74% 18%, rgba(255, 255, 255, 0.95), transparent 15%),
+    linear-gradient(135deg, #ffe76d 0%, #f2c600 58%, #dba900 100%);
+  text-align: left;
+}
+
+.tk-product-fallback::before {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 118px;
+  height: 88px;
+  border-radius: 48% 48% 42% 42%;
+  background: rgba(255, 250, 240, 0.72);
+  box-shadow:
+    -26px -18px 0 rgba(255, 250, 240, 0.36),
+    18px -24px 0 rgba(255, 250, 240, 0.28);
+}
+
+.tk-product-fallback span,
+.tk-product-fallback b {
+  position: relative;
+  z-index: 1;
+}
+
+.tk-product-fallback span {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(16, 24, 39, 0.88);
+  color: #fffaf0;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.tk-product-fallback b {
+  max-width: 72%;
+  color: #101827;
+  font-size: 25px;
+  line-height: 1.02;
+}
+
+.tk-product-card h2 {
+  min-height: 56px;
+  font-size: 28px;
+}
+
+.tk-product-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tk-product-footer span {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: #edf7f8;
+  color: #087187;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.tk-product-card button {
+  min-height: 68px;
+  border-radius: 18px;
+  font-size: 24px;
+}
+
+.tk-bottom-cart {
+  left: 28px;
+  right: 28px;
+  bottom: 20px;
+  min-height: 82px;
+  grid-template-columns: 1fr 1fr minmax(142px, 1fr);
+}
+
+.tk-bottom-cart strong {
+  min-height: 54px;
+}
+
+.tk-centered-panel {
+  margin-top: 56px;
+}
+
+.tk-panel {
+  max-height: calc(100vh - 150px);
+}
+
+.tk-custom {
+  grid-template-rows: 300px 1fr;
+  padding: 18px 22px 22px;
+}
+
+.tk-cart-row {
+  grid-template-columns: 1fr 152px;
+}
+
+@media (max-height: 780px) {
+  .tk-product-photo,
+  .tk-product-fallback {
+    height: 156px;
+  }
+
+  .tk-menu-title {
+    min-height: 96px;
+  }
+
+  .tk-menu-title h1 {
+    font-size: 40px;
+  }
+
+  .tk-categories button {
+    min-height: 64px;
+  }
+}
