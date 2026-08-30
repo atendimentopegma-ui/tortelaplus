@@ -17,6 +17,7 @@ const state = {
 
 const app = document.getElementById("kiosk-app");
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const onlyDigits = (value = "") => String(value).replace(/\D/g, "");
 const cleanText = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -71,7 +72,11 @@ function productPhoto(product, className = "tk-product-photo") {
   if (product.photo) {
     return `<img class="${className}" src="${cleanText(product.photo)}" alt="${cleanText(product.description)}" />`;
   }
-  return `<div class="${className} tk-product-fallback"><span>Tortela</span></div>`;
+  return `<div class="${className} tk-product-fallback"><span>Foto do produto</span></div>`;
+}
+
+function hasCpf() {
+  return onlyDigits(state.customerDocument).length >= 11;
 }
 
 function setScreen(screen) {
@@ -106,8 +111,8 @@ function renderWelcome() {
       <section class="tk-welcome-panel">
         <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
         <span>Autoatendimento</span>
-        <h1>Onde voce vai comer hoje?</h1>
-        <p>Monte seu pedido na tela, pague e acompanhe sua senha no telao.</p>
+        <h1>Comece seu pedido</h1>
+        <p>Escolha como deseja receber, informe o CPF e monte seu pedido.</p>
         <div class="tk-mode-grid">
           <button data-mode="Comer na loja">
             <b>Comer aqui</b>
@@ -120,7 +125,7 @@ function renderWelcome() {
         </div>
       </section>
       <footer class="tk-welcome-footer">
-        <button data-screen="loyalty">Comecar pedido</button>
+        <button data-mode="Retirar para viagem">Comecar pedido</button>
         <small>${cleanText(unitName())}</small>
       </footer>
     </main>
@@ -131,15 +136,15 @@ function renderLoyalty() {
   return shell(`
     <section class="tk-panel tk-centered-panel">
       <span class="tk-eyebrow">Clube Tortela</span>
-      <h1>Informe seu CPF?</h1>
-      <p>Use para identificar o cliente no pedido. Voce tambem pode continuar sem CPF.</p>
+      <h1>Informe o CPF</h1>
+      <p>Para continuar a venda, o CPF do cliente precisa ser informado.</p>
       <label class="tk-field">
         <span>CPF</span>
-        <input id="tk-cpf" inputmode="numeric" autocomplete="off" value="${cleanText(state.customerDocument)}" placeholder="Opcional" />
+        <input id="tk-cpf" inputmode="numeric" autocomplete="off" value="${cleanText(state.customerDocument)}" placeholder="Digite o CPF" />
       </label>
-      <div class="tk-actions">
-        <button class="tk-secondary" data-screen="menu">Continuar sem CPF</button>
-        <button class="tk-primary" id="tk-save-cpf">Ir para o cardapio</button>
+      <div id="tk-cpf-warning" class="tk-warning ${hasCpf() ? "" : "is-visible"}">Digite o CPF completo para liberar o cardapio.</div>
+      <div class="tk-actions tk-actions-single">
+        <button class="tk-primary" id="tk-save-cpf" ${hasCpf() ? "" : "disabled"}>Ir para o cardapio</button>
       </div>
     </section>
   `, 1);
@@ -155,7 +160,7 @@ function renderMenu() {
       <section class="tk-menu-board">
         <div class="tk-menu-title">
           <div>
-            <span class="tk-eyebrow">Cardapio Tortela</span>
+            <span class="tk-eyebrow">Escolha um produto</span>
             <h1>${cleanText(state.category)}</h1>
           </div>
           <strong>${products.length} opcoes</strong>
@@ -177,7 +182,7 @@ function productCard(product) {
   return `
     <article class="tk-product-card">
       ${productPhoto(product)}
-      <div>
+      <div class="tk-product-copy">
         <small>${cleanText(productCategory(product))}</small>
         <h2>${cleanText(product.description)}</h2>
         <strong>${money(product.price)}</strong>
@@ -209,7 +214,7 @@ function renderCustomize() {
     <section class="tk-custom">
       <div class="tk-custom-photo-wrap">${productPhoto(product, "tk-custom-photo")}</div>
       <div class="tk-custom-info">
-        <span class="tk-eyebrow">Personalize</span>
+        <span class="tk-eyebrow">Revise o item</span>
         <h1>${cleanText(product.description)}</h1>
         <strong>${money(product.price)}</strong>
         <div class="tk-option-row">
@@ -307,7 +312,7 @@ function renderPayment() {
       </div>
       <div class="tk-review">
         <b>${cleanText(state.orderMode || "Retirar para viagem")}</b>
-        <b>${state.customerDocument ? `CPF ${cleanText(state.customerDocument)}` : "Sem CPF"}</b>
+        <b>CPF ${cleanText(state.customerDocument)}</b>
       </div>
       <div class="tk-cart-list">${cartRows(false)}</div>
       <div class="tk-total"><span>Total</span><strong>${money(cartTotal())}</strong></div>
@@ -370,6 +375,11 @@ document.addEventListener("click", (event) => {
   }
   if (button.id === "tk-save-cpf") {
     state.customerDocument = document.getElementById("tk-cpf")?.value || "";
+    if (!hasCpf()) {
+      document.getElementById("tk-cpf-warning")?.classList.add("is-visible");
+      document.getElementById("tk-cpf")?.focus();
+      return;
+    }
     return setScreen("menu");
   }
   if (button.dataset.category) {
@@ -423,6 +433,10 @@ document.addEventListener("click", (event) => {
 
 async function submitOrder() {
   if (!state.cart.length || state.loading) return;
+  if (!hasCpf()) {
+    alert("Informe o CPF do cliente para finalizar a venda.");
+    return setScreen("loyalty");
+  }
   try {
     state.loading = true;
     render();
@@ -462,3 +476,12 @@ async function loadCatalog() {
 }
 
 loadCatalog();
+
+document.addEventListener("input", (event) => {
+  if (event.target?.id !== "tk-cpf") return;
+  state.customerDocument = event.target.value;
+  const button = document.getElementById("tk-save-cpf");
+  const warning = document.getElementById("tk-cpf-warning");
+  if (button) button.disabled = !hasCpf();
+  if (warning) warning.classList.toggle("is-visible", !hasCpf());
+});
