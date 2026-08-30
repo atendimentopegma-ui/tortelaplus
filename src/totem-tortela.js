@@ -19,6 +19,17 @@ const state = {
 const app = document.getElementById("kiosk-app");
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const onlyDigits = (value = "") => String(value).replace(/\D/g, "");
+const validCpf = (value = "") => {
+  const cpf = onlyDigits(value);
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  const calc = (base) => {
+    let sum = 0;
+    for (let index = 0; index < base.length; index += 1) sum += Number(base[index]) * (base.length + 1 - index);
+    const rest = (sum * 10) % 11;
+    return rest === 10 ? 0 : rest;
+  };
+  return calc(cpf.slice(0, 9)) === Number(cpf[9]) && calc(cpf.slice(0, 10)) === Number(cpf[10]);
+};
 const cleanText = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
   "&": "&amp;",
   "<": "&lt;",
@@ -77,10 +88,20 @@ function productPhoto(product, className = "tk-product-photo") {
 }
 
 function hasCpf() {
-  return onlyDigits(state.customerDocument).length >= 11;
+  return validCpf(state.customerDocument);
 }
 
 function setScreen(screen) {
+  if (["menu", "cart", "payment"].includes(screen) && !hasCpf()) {
+    state.screen = "loyalty";
+    render();
+    return;
+  }
+  if (screen === "payment" && !state.cart.length) {
+    state.screen = "cart";
+    render();
+    return;
+  }
   state.screen = screen;
   render();
 }
@@ -143,7 +164,7 @@ function renderLoyalty() {
         <span>CPF</span>
         <input id="tk-cpf" inputmode="numeric" autocomplete="off" value="${cleanText(state.customerDocument)}" placeholder="Digite o CPF" />
       </label>
-      <div id="tk-cpf-warning" class="tk-warning ${hasCpf() ? "" : "is-visible"}">Digite o CPF completo para liberar o cardapio.</div>
+      <div id="tk-cpf-warning" class="tk-warning ${hasCpf() ? "" : "is-visible"}">Digite um CPF valido para liberar o cardapio.</div>
       <div class="tk-actions tk-actions-single">
         <button class="tk-primary" id="tk-save-cpf" ${hasCpf() ? "" : "disabled"}>Ir para o cardapio</button>
       </div>
@@ -334,6 +355,7 @@ function renderSuccess() {
         <h1>${String(state.lastOrder?.ticketNumber || "").padStart(3, "0")}</h1>
         <p>Acompanhe sua senha no telao. Quando aparecer como pronto, retire no balcao.</p>
         <strong>${money(state.lastOrder?.total || cartTotal())}</strong>
+        <small class="tk-payment-status">${cleanText(state.lastOrder?.paymentInfo?.status || "Pagamento enviado para processamento")}</small>
         <button class="tk-primary" id="tk-new-order">Novo pedido</button>
       </section>
     </main>
@@ -375,7 +397,7 @@ document.addEventListener("click", (event) => {
     return setScreen("loyalty");
   }
   if (button.id === "tk-save-cpf") {
-    state.customerDocument = document.getElementById("tk-cpf")?.value || "";
+    state.customerDocument = onlyDigits(document.getElementById("tk-cpf")?.value || "");
     if (!hasCpf()) {
       document.getElementById("tk-cpf-warning")?.classList.add("is-visible");
       document.getElementById("tk-cpf")?.focus();
@@ -483,7 +505,8 @@ loadCatalog();
 
 document.addEventListener("input", (event) => {
   if (event.target?.id !== "tk-cpf") return;
-  state.customerDocument = event.target.value;
+  state.customerDocument = onlyDigits(event.target.value);
+  event.target.value = state.customerDocument;
   const button = document.getElementById("tk-save-cpf");
   const warning = document.getElementById("tk-cpf-warning");
   if (button) button.disabled = !hasCpf();

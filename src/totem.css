@@ -733,6 +733,17 @@ body.tortela-kiosk-page button {
   font-size: 32px;
 }
 
+.tk-payment-status {
+  display: block;
+  margin: -8px 0 22px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #fff7bf;
+  color: #5f4700;
+  font-size: 17px;
+  font-weight: 900;
+}
+
 .tk-empty {
   display: grid;
   place-items: center;

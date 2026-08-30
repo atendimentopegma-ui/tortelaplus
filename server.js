@@ -560,6 +560,22 @@ function auditHash(previousHash, date, user, action, detail) {
   return crypto.createHash("sha256").update([previousHash, date, user, action, detail].join("|")).digest("hex");
 }
 
+function digitsOnly(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function validCpf(value) {
+  const cpf = digitsOnly(value);
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  const calc = (base) => {
+    let sum = 0;
+    for (let index = 0; index < base.length; index += 1) sum += Number(base[index]) * (base.length + 1 - index);
+    const rest = (sum * 10) % 11;
+    return rest === 10 ? 0 : rest;
+  };
+  return calc(cpf.slice(0, 9)) === Number(cpf[9]) && calc(cpf.slice(0, 10)) === Number(cpf[10]);
+}
+
 function tenantSnapshotDocument(tenantCode, state, reason = "manual") {
   return {
     product: "Tortela Plus",
@@ -2540,6 +2556,11 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 403, { ok: false, error: publicTerminalError(terminalToken) });
       return;
     }
+    const customerDocument = digitsOnly(body.customerDocument);
+    if (!validCpf(customerDocument)) {
+      sendJson(res, 400, { ok: false, error: "Informe um CPF valido do Clube Tortela para iniciar a venda no totem." });
+      return;
+    }
     const items = Array.isArray(body.items) ? body.items : [];
     const normalizedItems = [];
     for (const item of items) {
@@ -2572,7 +2593,7 @@ async function handleApi(req, res, urlPath) {
       date: today(),
       createdAt: new Date().toISOString(),
       customer: "Consumidor Totem",
-      customerDocument: String(body.customerDocument || "").replace(/\D/g, ""),
+      customerDocument,
       seller: "Totem",
       total,
       type: "Totem",
@@ -2588,7 +2609,7 @@ async function handleApi(req, res, urlPath) {
       kioskTicketNumber: nextKioskTicketNumber(tenantState),
       delivery: String(body.orderMode || "Retirada no balcao").trim() || "Retirada no balcao",
       deliveryStore: { tenantCode: tenant.tenantCode, tradeName: tenant.tradeName },
-      customerData: { name: "Consumidor Totem", document: String(body.customerDocument || "").replace(/\D/g, "") },
+      customerData: { name: "Consumidor Totem", document: customerDocument },
       items: normalizedItems
     };
     const paymentInfo = await createOnlinePaymentCharge(tenant.tenantCode, tenantState, sale, payment);
