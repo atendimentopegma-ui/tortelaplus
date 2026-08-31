@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "direct-settings-nav-fix-v10";
+window.TORTELA_BUILD = "settings-tabs-cleanup-v11";
 
 let state = load();
 let apiOnline = false;
@@ -2543,9 +2543,12 @@ function renderSettings() {
   const ruleNumber = (key, fallback = 0) => Number(editingRule[key] ?? fallback);
   const ruleSelected = (key, value, fallback = "") => (editingRule[key] || fallback) === value ? "selected" : "";
   const settingsTabs = [
-    ["geral", "Empresa e fiscal", "Dados da unidade, certificado e ACBr"],
+    ["geral", "Empresa", "Identificacao da unidade"],
+    ["endereco", "Endereco", "Endereco fiscal e cidade IBGE"],
+    ["fiscal", "Fiscal e ACBr", "Certificado, SEFAZ, NFC-e e NFS-e"],
     ["regras", "Regras fiscais", "CFOP, impostos, servicos e reforma"],
-    ["operacao", "Operacao", "Backup, links publicos e integracoes"],
+    ["operacao", "Operacao", "Backup, caixa, impressora e terminais"],
+    ["integracoes", "Integracoes", "Webhooks, pagamentos, PIX e boleto"],
     ["usuarios", "Usuarios", "Acessos, perfis e permissoes"],
     ["prontidao", "Prontidao", "Checklist para ir ao piloto"]
   ];
@@ -2571,8 +2574,8 @@ function renderSettings() {
         <div><span>Usuarios</span><strong>${users.length}</strong></div>
       </div>
       <div class="panel-body settings-body">
-        <form class="form-card ${settingsPaneClass("geral")}" id="settings-form" data-settings-pane="geral">
-          <h3 class="settings-section-title">Empresa</h3>
+        <div class="form-card ${settingsPaneClass("geral")}" id="settings-form" data-settings-pane="geral">
+          <h3 class="settings-section-title">Identificacao da empresa</h3>
           <div class="field"><label>Empresa</label><input id="set-company" value="${state.settings.company}" /></div>
           <div class="field"><label>CNPJ/CPF</label><input id="set-document" value="${state.settings.document || ""}" /></div>
           <div class="grid two">
@@ -2582,6 +2585,19 @@ function renderSettings() {
           <div class="field"><label>UF</label><input id="set-uf" value="${state.settings.uf}" maxlength="2" /></div>
           <div class="field"><label>Regime tributario</label><select id="set-regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></div>
           <div class="field"><label>CRT aplicado</label><input value="${taxRegimeCode(state.settings.regime)}" readonly /></div>
+        </div>
+        <div class="form-card ${settingsPaneClass("endereco")}" data-settings-pane="endereco">
+          <h3 class="settings-section-title">Endereco fiscal da unidade</h3>
+          <div class="grid two">
+            <div class="field"><label>CEP</label><input id="set-cep" value="${state.settings.cep || ""}" /></div>
+            <div class="field"><label>Cidade</label><input id="set-city" value="${state.settings.city || ""}" /></div>
+            <div class="field"><label>Codigo IBGE da cidade</label><input id="set-city-code" value="${state.settings.cityCode || ""}" /></div>
+            <div class="field"><label>Endereco</label><input id="set-address" value="${state.settings.address || ""}" /></div>
+            <div class="field"><label>Numero</label><input id="set-number" value="${state.settings.number || ""}" /></div>
+            <div class="field"><label>Bairro</label><input id="set-district" value="${state.settings.district || ""}" /></div>
+          </div>
+        </div>
+        <div class="form-card ${settingsPaneClass("fiscal")}" data-settings-pane="fiscal">
           <h3 class="settings-section-title">Fiscal, certificado e ACBr</h3>
           <div class="field"><label>Ambiente fiscal</label><select id="set-env"><option>Homologacao</option><option>Producao</option></select></div>
           <div class="grid two">
@@ -2618,16 +2634,7 @@ function renderSettings() {
             <button class="btn" id="validate-fiscal-setup" type="button">Validar prontidao fiscal</button>
             <span class="badge ${fiscalReadiness().ok ? "ok" : "warn"}">${fiscalReadiness().label}</span>
           </div>
-          <h3 class="settings-section-title">Endereco da unidade</h3>
-          <div class="grid two">
-            <div class="field"><label>CEP</label><input id="set-cep" value="${state.settings.cep || ""}" /></div>
-            <div class="field"><label>Cidade</label><input id="set-city" value="${state.settings.city || ""}" /></div>
-            <div class="field"><label>Codigo IBGE da cidade</label><input id="set-city-code" value="${state.settings.cityCode || ""}" /></div>
-            <div class="field"><label>Endereco</label><input id="set-address" value="${state.settings.address || ""}" /></div>
-            <div class="field"><label>Numero</label><input id="set-number" value="${state.settings.number || ""}" /></div>
-            <div class="field"><label>Bairro</label><input id="set-district" value="${state.settings.district || ""}" /></div>
-          </div>
-        </form>
+        </div>
         <div class="form-card ${settingsPaneClass("regras")}" data-settings-pane="regras">
           <h3>${editingFiscalRuleId ? "Editar regra fiscal" : "Regra fiscal"}</h3>
           <div class="grid four">
@@ -2713,6 +2720,12 @@ function renderSettings() {
               </div>
               <small>${publicTerminalGateDisabled ? "Durante o desenvolvimento, os links do totem, cozinha e telao abrem direto por unidade." : "Ao gerar e salvar um novo token, os links antigos do totem, cozinha e telao deixam de funcionar."}</small>
             </div>
+          </div>
+        </div>
+        <div class="form-card ${settingsPaneClass("integracoes")}" data-settings-pane="integracoes">
+          <h3>Integracoes e pagamentos</h3>
+          <p class="muted">Webhooks, notificacoes, gateway online, PIX e boleto.</p>
+          <div class="grid two">
             <div class="field"><label>Webhook geral de alertas</label><input id="set-alert-webhook" value="${escapeAttr(state.settings.alertWebhookUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>Token webhook de alertas</label><input id="set-alert-webhook-token" type="password" placeholder="${state.settings.alertWebhookTokenConfigured ? "Token protegido configurado" : "Informe se o provedor exigir"}" /></div>
             <div class="field"><label>Webhook WhatsApp</label><input id="set-whatsapp-webhook" value="${escapeAttr(state.settings.whatsappWebhookUrl || "")}" placeholder="Preencher ao escolher o provedor" /></div>
@@ -6926,7 +6939,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=direct-settings-nav-fix-v10").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=settings-tabs-cleanup-v11").catch(() => undefined);
 }
 
 boot();

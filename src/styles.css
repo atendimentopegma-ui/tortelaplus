@@ -2816,7 +2816,7 @@ header.topbar .top-right .central-top-action:hover {
 
 .settings-tabs {
   display: grid;
-  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   padding: 16px 20px;
   border-top: 1px solid var(--line);
@@ -2826,7 +2826,7 @@ header.topbar .top-right .central-top-action:hover {
 
 .settings-tabs button,
 .settings-tabs a {
-  min-height: 76px;
+  min-height: 68px;
   padding: 12px 14px;
   border: 1px solid #ead9a8;
   border-radius: 10px;

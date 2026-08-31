@@ -152,7 +152,7 @@ includesAll("Abas de configuracoes", settingsRenderer, [
   "href=\"#module=settings&settings=",
   "settingsPaneClass"
 ]);
-["geral", "regras", "operacao", "usuarios", "prontidao"].forEach((key) => {
+["geral", "endereco", "fiscal", "regras", "operacao", "integracoes", "usuarios", "prontidao"].forEach((key) => {
   assert(settingsRenderer.includes(`["${key}"`), `Configuracoes: faltando aba ${key}`);
   assert(settingsRenderer.includes(`data-settings-pane="${key}"`), `Configuracoes: faltando painel ${key}`);
 });
@@ -165,9 +165,9 @@ includesAll("Links publicos do totem em desenvolvimento", app, [
 assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
 assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
 includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
-  "direct-settings-nav-fix-v10",
-  "tortelaplus-operacao-v10",
-  'navigator.serviceWorker.register("/sw.js?v=direct-settings-nav-fix-v10")'
+  "settings-tabs-cleanup-v11",
+  "tortelaplus-operacao-v11",
+  'navigator.serviceWorker.register("/sw.js?v=settings-tabs-cleanup-v11")'
 ]);
 
 console.log("OK - navegacao da retaguarda validada: modulos, abas e paineis principais estao conectados.");
