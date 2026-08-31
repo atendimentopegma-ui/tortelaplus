@@ -450,7 +450,7 @@ function renderOverview() {
   const pendingOrders = state.sales.filter((sale) => sale.onlineOrder && !["Entregue", "Cancelado", "Cancelada"].includes(sale.status));
   return `<div class="network-module compact">
     ${moduleTitle("Painel do Franqueado", "")}
-    <div class="network-grid four">
+    <div class="network-grid four store-metric-grid" aria-label="Indicadores do painel">
       ${kpi("Vendas no mes", money(data.salesTotal), `${amount(data.sales.length)} venda(s)`)}
       ${kpi("A receber aberto", money(data.receivableOpen))}
       ${kpi("A pagar aberto", money(data.payableOpen))}
@@ -755,7 +755,7 @@ function renderStock() {
   const pending = pendingManualDropRequests();
   return `<div class="network-module compact">
     ${moduleTitle("Estoque local", "Receba remessas por QR e controle baixas manuais com rastreabilidade para a Central Administrativa.")}
-    <div class="network-grid four">
+    <div class="network-grid four store-metric-grid" aria-label="Indicadores de estoque">
       ${kpi("Baixas manuais no mes", amount(drops.length), drops.length >= 2 ? "proximas exigem aprovacao" : "limite local: 2")}
       ${kpi("Aprovacoes pendentes", amount(pending.length))}
       ${kpi("Produtos cadastrados", amount(state.products.length))}
@@ -1027,7 +1027,7 @@ function renderImports() {
     </section>
     <section class="network-card">
       <h2>Modelo rapido</h2>
-      <div class="network-grid four">
+      <div class="network-grid four store-metric-grid" aria-label="Modelo de importacao">
         ${kpi("Vendas", "customer,total,date,status")}
         ${kpi("A pagar", "supplier,value,dueDate,status")}
         ${kpi("A receber", "customer,value,dueDate,status")}
@@ -1273,7 +1273,7 @@ function renderReports() {
   const ranking = Object.entries(topProducts).sort((a, b) => b[1] - a[1]).slice(0, 10);
   return `<div class="network-module compact">
     ${moduleTitle("Relatorios da unidade", "Indicadores resumidos para tomada de decisao do franqueado.", `<button class="btn primary" id="export-report">Exportar CSV</button>`)}
-    <div class="network-grid four">
+    <div class="network-grid four store-metric-grid" aria-label="Indicadores de relatorios">
       ${kpi("Vendas no mes", money(data.salesTotal))}
       ${kpi("Ticket medio", money(data.salesTotal / Math.max(1, data.sales.length)))}
       ${kpi("A pagar", money(data.payableOpen))}

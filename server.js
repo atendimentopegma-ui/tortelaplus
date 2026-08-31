@@ -4870,7 +4870,7 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Tortela Plus unidade: http://localhost:${port}`);
     console.log(`Central Tortela: http://localhost:${port}/central-rede.html`);
-    console.log(`Central do Lojista: http://localhost:${port}/central-lojista.html`);
+    console.log(`Central do Franqueado: http://localhost:${port}/central-lojista.html`);
     console.log(`Persistencia: ${databaseMode}`);
   });
 }
