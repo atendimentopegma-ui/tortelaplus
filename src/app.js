@@ -1326,7 +1326,7 @@ function renderPeople() {
         </button>
       </div>
 
-      <div class="desktop-context-strip">
+      <div class="desktop-context-strip finance-context-strip">
         ${personFilters.map((type) => `<button class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}" type="button">${personFilterLabel(type)}</button>`).join("")}
       </div>
 
@@ -2561,13 +2561,64 @@ function renderOnlineOrders() {
 }
 
 function renderFinance() {
-  const tabs = ["receber", "pagar", "caixa", "plano"];
-  if (!tabs.includes(currentTab)) currentTab = "receber";
+  const tabs = [
+    ["receber", "A receber", "Clientes e boletos", "finance"],
+    ["pagar", "A pagar", "Fornecedores", "purchases"],
+    ["caixa", "Caixa", "Movimento e OFX", "pdv"],
+    ["plano", "Plano de contas", "Cadastro contabil", "reports"]
+  ];
+  if (!tabs.some(([key]) => key === currentTab)) currentTab = "receber";
+  const receivableOpen = (state.receivables || []).filter((row) => !row.paid && !row.cancelled).reduce((sum, row) => sum + financeBalance(row), 0);
+  const payableOpen = (state.payables || []).filter((row) => !row.paid && !row.cancelled).reduce((sum, row) => sum + financeBalance(row), 0);
+  const cashBalance = (state.cash || []).reduce((sum, row) => sum + Number(row.in || 0) - Number(row.out || 0), 0);
+  const overdueCount = [...(state.receivables || []), ...(state.payables || [])].filter((row) => !row.paid && !row.cancelled && row.due < today()).length;
+  const activeTab = tabs.find(([key]) => key === currentTab) || tabs[0];
+  const footerAction = currentTab === "caixa"
+    ? `<button class="desktop-command primary" id="save-reconciliation-footer" type="button"><span>C</span>Conciliar saldo</button><label class="desktop-command" for="import-ofx"><span>O</span>Importar OFX</label>`
+    : currentTab === "plano"
+      ? `<button class="desktop-command primary" id="save-account-footer" type="button"><span>S</span>${editingAccountId ? "Atualizar conta" : "Cadastrar conta"}</button>${editingAccountId ? `<button class="desktop-command" id="cancel-account-edit-footer" type="button"><span>X</span>Cancelar edicao</button>` : ""}`
+      : `<button class="desktop-command primary" id="save-finance" type="button"><span>S</span>Novo lancamento</button>`;
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Financeiro</h2><button class="btn primary" id="save-finance">Novo lancamento</button></div>
-      <div class="module-tabs">${tabs.map((tab) => `<a class="${currentTab === tab ? "active" : ""}" data-tab="${tab}" href="#module=finance&tab=${tab}" role="button">${tab === "receber" ? "Contas a receber" : tab === "pagar" ? "Contas a pagar" : tab === "caixa" ? "Livro caixa" : "Plano de contas"}</a>`).join("")}</div>
-      <div class="panel-body">${financeTab()}</div>
+    <section class="panel finance-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Financeiro</strong>
+        <span>${activeTab[1]}: ${activeTab[2]}</span>
+        <span>${overdueCount} titulo(s) atrasado(s)</span>
+      </div>
+
+      <div class="desktop-module-ribbon">
+        ${tabs.map(([key, label, text, icon]) => `
+          <button class="desktop-ribbon-button ${currentTab === key ? "primary" : ""}" data-tab="${key}" type="button">
+            <span class="dashboard-module-icon icon-${icon}" aria-hidden="true"></span>
+            <strong>${label}</strong>
+            <small>${text}</small>
+          </button>
+        `).join("")}
+      </div>
+
+      <div class="desktop-context-strip">
+        <span class="desktop-context-metric">Aberto a receber: ${money(receivableOpen)}</span>
+        <span class="desktop-context-metric">Aberto a pagar: ${money(payableOpen)}</span>
+        <span class="desktop-context-metric">Saldo caixa: ${money(cashBalance)}</span>
+      </div>
+
+      <div class="desktop-work-area finance-work-area">
+        <div class="desktop-summary-strip">
+          <div><span>A receber aberto</span><strong>${money(receivableOpen)}</strong></div>
+          <div><span>A pagar aberto</span><strong>${money(payableOpen)}</strong></div>
+          <div><span>Saldo caixa</span><strong>${money(cashBalance)}</strong></div>
+          <div><span>Atrasados</span><strong>${overdueCount}</strong></div>
+        </div>
+        <div class="desktop-filter-panel">
+          <div class="filter-caption">Rotina atual | ${activeTab[1]}</div>
+          <p>Use os botoes superiores para trocar entre contas a receber, contas a pagar, caixa e plano de contas.</p>
+        </div>
+        <div class="panel-body finance-desktop-body">${financeTab()}</div>
+      </div>
+
+      <div class="desktop-action-bar erp-action-bar">
+        ${footerAction}
+      </div>
     </section>
   `;
 }
@@ -3704,6 +3755,8 @@ function bindCurrentModule() {
   if (saveFinance) saveFinance.addEventListener("click", saveFinanceRecord);
   const saveReconciliation = byId("save-reconciliation");
   if (saveReconciliation) saveReconciliation.addEventListener("click", saveFinanceReconciliation);
+  const saveReconciliationFooter = byId("save-reconciliation-footer");
+  if (saveReconciliationFooter) saveReconciliationFooter.addEventListener("click", saveFinanceReconciliation);
   const importOfx = byId("import-ofx");
   if (importOfx) importOfx.addEventListener("change", importOfxFile);
   const generateRemittance = byId("generate-remittance");
@@ -3714,8 +3767,15 @@ function bindCurrentModule() {
   if (printIssuedBillsButton) printIssuedBillsButton.addEventListener("click", printIssuedBills);
   const saveAccount = byId("save-account");
   if (saveAccount) saveAccount.addEventListener("click", saveChartAccount);
+  const saveAccountFooter = byId("save-account-footer");
+  if (saveAccountFooter) saveAccountFooter.addEventListener("click", saveChartAccount);
   const cancelAccountEdit = byId("cancel-account-edit");
   if (cancelAccountEdit) cancelAccountEdit.addEventListener("click", () => {
+    editingAccountId = 0;
+    renderShell();
+  });
+  const cancelAccountEditFooter = byId("cancel-account-edit-footer");
+  if (cancelAccountEditFooter) cancelAccountEditFooter.addEventListener("click", () => {
     editingAccountId = 0;
     renderShell();
   });

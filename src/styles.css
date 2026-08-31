@@ -3172,6 +3172,51 @@ header.topbar .top-right .central-top-action:hover {
   outline-offset: 2px;
 }
 
+.finance-screen {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.finance-context-strip {
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.finance-context-strip .desktop-context-metric {
+  margin-left: 0;
+  min-height: 36px;
+  border: 1px solid rgba(200, 206, 212, 0.9);
+  border-radius: 6px;
+}
+
+.finance-work-area {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.finance-desktop-body {
+  min-height: 0;
+  padding: 0;
+  overflow: auto;
+  background: transparent;
+}
+
+.finance-desktop-body > .grid {
+  min-height: 0;
+  gap: 12px;
+}
+
+.finance-desktop-body .form-card,
+.finance-desktop-body .table-wrap,
+.finance-desktop-body .kpi {
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.finance-desktop-body .form-card {
+  border-left: 4px solid #f2c300;
+}
+
 @media (max-width: 1100px) {
   .erp-overview {
     grid-template-columns: repeat(2, minmax(140px, 1fr));
