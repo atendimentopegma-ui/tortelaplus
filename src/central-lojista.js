@@ -40,8 +40,11 @@ const permissionLabels = {
 const modules = [
   ["overview", "Painel", "Resumo da loja"],
   ["channels", "Pedidos", "PDV, totem e loja"],
+  ["people", "Pessoas", "Clientes e fornecedores"],
+  ["products", "Produtos", "Cadastro da unidade"],
   ["qr", "Entrada QR", "Remessa da Central"],
   ["stock", "Estoque", "Baixas e aprovacao"],
+  ["purchases", "Compras", "Entrada de nota"],
   ["fiscal", "Fiscal", "NF-e e impressao"],
   ["imports", "Importacoes", "Vendas, financeiro e estoque"],
   ["payables", "A pagar", "Fornecedores e despesas"],
@@ -373,8 +376,11 @@ function renderCurrentModule() {
   const renderers = {
     overview: renderOverview,
     channels: renderChannels,
+    people: renderPeople,
+    products: renderProducts,
     qr: renderQr,
     stock: renderStock,
+    purchases: renderPurchases,
     fiscal: renderFiscal,
     imports: renderImports,
     payables: renderPayables,
@@ -464,8 +470,11 @@ function renderOverview() {
     <section class="network-card">
       <h2>Controles da unidade</h2>
       <div class="store-action-grid">
+        <button class="desktop-ribbon-button" data-store-module="people" type="button"><span class="dashboard-module-icon icon-people"></span><strong>Pessoas</strong><small>Clientes e fornecedores</small></button>
+        <button class="desktop-ribbon-button" data-store-module="products" type="button"><span class="dashboard-module-icon icon-products"></span><strong>Produtos</strong><small>Cadastro local</small></button>
         <button class="desktop-ribbon-button primary" data-store-module="qr" type="button"><span class="dashboard-module-icon icon-pdv"></span><strong>Entrada QR</strong><small>Receber remessa</small></button>
         <button class="desktop-ribbon-button" data-store-module="stock" type="button"><span class="dashboard-module-icon icon-stock"></span><strong>Estoque</strong><small>Baixa auditada</small></button>
+        <button class="desktop-ribbon-button" data-store-module="purchases" type="button"><span class="dashboard-module-icon icon-purchases"></span><strong>Compras</strong><small>Entrada de nota</small></button>
         <button class="desktop-ribbon-button" data-store-module="fiscal" type="button"><span class="dashboard-module-icon icon-fiscal"></span><strong>Fiscal</strong><small>NF-e e impressao</small></button>
         <button class="desktop-ribbon-button" data-store-module="imports" type="button"><span class="dashboard-module-icon icon-fiscal"></span><strong>Importar dados</strong><small>Venda, estoque e contas</small></button>
         <button class="desktop-ribbon-button" data-store-module="payables" type="button"><span class="dashboard-module-icon icon-finance"></span><strong>A pagar</strong><small>Despesas abertas</small></button>
@@ -530,6 +539,140 @@ function renderChannels() {
       ]), "Nenhum pedido recebido pelos canais da loja.")}
     </section>
   </div>`;
+}
+
+function renderPeople() {
+  const people = (state.people || []).slice().sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+  return `<div class="network-module compact">
+    ${moduleTitle("Pessoas da unidade", "Cadastro operacional de clientes, fornecedores e equipe local.")}
+    <section class="network-card">
+      <h2>Novo cadastro</h2>
+      <form class="network-form" id="person-form">
+        <div class="field"><label>Tipo</label><select id="person-type">${["Cliente", "Fornecedor", "Funcionario", "Parceiro", "Entregador", "Transportadora", "Motorista", "Contador"].map((item) => `<option>${item}</option>`).join("")}</select></div>
+        <div class="field wide"><label>Nome/Razao social</label><input id="person-name" required /></div>
+        <div class="field"><label>Fantasia/Apelido</label><input id="person-alias" /></div>
+        <div class="field"><label>CPF/CNPJ</label><input id="person-document" /></div>
+        <div class="field"><label>Telefone</label><input id="person-phone" /></div>
+        <div class="field"><label>WhatsApp</label><input id="person-whatsapp" /></div>
+        <div class="field wide"><label>Email</label><input id="person-email" type="email" /></div>
+        <button class="btn primary full" type="submit">Salvar pessoa</button>
+      </form>
+    </section>
+    <section class="network-card">
+      <h2>Lista de pessoas</h2>
+      ${table(["Codigo", "Tipo", "Nome", "Documento", "Telefone", "Status", "Acao"], people.map((person) => [
+        amount(person.id || 0),
+        escapeHtml(person.type || "-"),
+        `<strong>${escapeHtml(person.name || "-")}</strong><br><small>${escapeHtml(person.alias || person.email || "")}</small>`,
+        escapeHtml(person.document || "-"),
+        escapeHtml(person.whatsapp || person.phone || "-"),
+        `<span class="badge ${person.active === false ? "danger" : "ok"}">${person.active === false ? "Inativo" : "Ativo"}</span>`,
+        `<button class="btn ${person.active === false ? "primary" : "danger"}" data-toggle-person="${person.id}">${person.active === false ? "Ativar" : "Inativar"}</button>`
+      ]), "Nenhuma pessoa cadastrada nesta unidade.")}
+    </section>
+  </div>`;
+}
+
+async function savePerson(event) {
+  event.preventDefault();
+  if (!requirePermission("people")) return;
+  const name = byId("person-name").value.trim();
+  if (!name) return alert("Informe o nome.");
+  state.people.push({
+    id: nextId(state.people),
+    type: byId("person-type").value,
+    name,
+    alias: byId("person-alias").value.trim(),
+    document: byId("person-document").value.trim(),
+    phone: byId("person-phone").value.trim(),
+    whatsapp: byId("person-whatsapp").value.trim(),
+    email: byId("person-email").value.trim(),
+    active: true,
+    registeredAt: new Date().toISOString(),
+    source: "Central do Lojista"
+  });
+  audit("Pessoa cadastrada", name);
+  const saved = await saveState("people", "Pessoa salva.");
+  if (saved) render();
+}
+
+async function togglePerson(id) {
+  if (!requirePermission("people")) return;
+  const person = state.people.find((row) => Number(row.id) === Number(id));
+  if (!person) return;
+  person.active = person.active === false;
+  audit(person.active ? "Pessoa ativada" : "Pessoa inativada", person.name || String(id));
+  const saved = await saveState("people", "Cadastro atualizado.");
+  if (saved) render();
+}
+
+function renderProducts() {
+  const products = (state.products || []).slice().sort((a, b) => String(a.description || "").localeCompare(String(b.description || "")));
+  return `<div class="network-module compact">
+    ${moduleTitle("Produtos da unidade", "Cadastro operacional usado pelo PDV, totem, loja online, estoque e fiscal.")}
+    <section class="network-card">
+      <h2>Novo produto</h2>
+      <form class="network-form" id="product-form">
+        <div class="field wide"><label>Descricao</label><input id="product-description" required /></div>
+        <div class="field"><label>Codigo de barras</label><input id="product-barcode" /></div>
+        <div class="field"><label>Tipo</label><select id="product-type">${["Mercadoria para revenda", "Materia-prima", "Produto fabricado", "Servico"].map((item) => `<option>${item}</option>`).join("")}</select></div>
+        <div class="field"><label>Unidade</label><input id="product-unit" value="UN" /></div>
+        <div class="field"><label>Preco venda</label><input id="product-price" type="number" step="0.01" min="0" /></div>
+        <div class="field"><label>Custo</label><input id="product-cost" type="number" step="0.01" min="0" /></div>
+        <div class="field"><label>Estoque minimo</label><input id="product-min-stock" type="number" step="0.001" min="0" /></div>
+        <div class="field"><label>NCM</label><input id="product-ncm" /></div>
+        <button class="btn primary full" type="submit">Salvar produto</button>
+      </form>
+    </section>
+    <section class="network-card">
+      <h2>Lista de produtos</h2>
+      ${table(["Codigo", "Produto", "Tipo", "Preco", "Estoque", "Fiscal", "Status", "Acao"], products.map((product) => [
+        amount(product.id || 0),
+        `<strong>${escapeHtml(product.description || "-")}</strong><br><small>${escapeHtml(product.barcode || product.reference || "")}</small>`,
+        escapeHtml(product.type || "-"),
+        money(product.price || 0),
+        `${amount(product.stock || 0)} ${escapeHtml(product.unit || "")}`,
+        escapeHtml(product.ncm || "-"),
+        `<span class="badge ${product.active === false ? "danger" : Number(product.stock || 0) <= Number(product.minStock || 0) ? "warn" : "ok"}">${product.active === false ? "Inativo" : Number(product.stock || 0) <= Number(product.minStock || 0) ? "Comprar" : "OK"}</span>`,
+        `<button class="btn ${product.active === false ? "primary" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button>`
+      ]), "Nenhum produto cadastrado nesta unidade.")}
+    </section>
+  </div>`;
+}
+
+async function saveProduct(event) {
+  event.preventDefault();
+  if (!requirePermission("products")) return;
+  const description = byId("product-description").value.trim();
+  if (!description) return alert("Informe a descricao.");
+  state.products.push({
+    id: nextId(state.products),
+    description,
+    barcode: byId("product-barcode").value.trim(),
+    type: byId("product-type").value,
+    unit: byId("product-unit").value.trim() || "UN",
+    price: Number(byId("product-price").value || 0),
+    cost: Number(byId("product-cost").value || 0),
+    stock: 0,
+    minStock: Number(byId("product-min-stock").value || 0),
+    ncm: byId("product-ncm").value.trim(),
+    fiscalStatus: byId("product-ncm").value.trim() ? "Conferir" : "Pendente",
+    active: true,
+    source: "Central do Lojista"
+  });
+  audit("Produto cadastrado", description);
+  const saved = await saveState("products", "Produto salvo.");
+  if (saved) render();
+}
+
+async function toggleProduct(id) {
+  if (!requirePermission("products")) return;
+  const product = state.products.find((row) => Number(row.id) === Number(id));
+  if (!product) return;
+  product.active = product.active === false;
+  audit(product.active ? "Produto ativado" : "Produto inativado", product.description || String(id));
+  const saved = await saveState("products", "Produto atualizado.");
+  if (saved) render();
 }
 
 function productOptions() {
@@ -649,6 +792,73 @@ function renderStock() {
       ]), "Nenhuma movimentacao registrada.")}
     </section>
   </div>`;
+}
+
+function supplierOptions() {
+  return (state.people || [])
+    .filter((person) => ["Fornecedor", "Transportadora", "Parceiro"].includes(person.type) && person.active !== false)
+    .map((person) => `<option value="${escapeAttr(person.name)}">${escapeHtml(person.name)}</option>`)
+    .join("");
+}
+
+function renderPurchases() {
+  const purchases = (state.purchases || []).slice().reverse();
+  return `<div class="network-module compact">
+    ${moduleTitle("Compras da unidade", "Entrada de mercadorias da loja com reflexo no estoque e visibilidade para a Central Administrativa.")}
+    <section class="network-card">
+      <h2>Nova compra</h2>
+      <form class="network-form" id="purchase-form">
+        <div class="field wide"><label>Fornecedor</label><input id="purchase-supplier" list="supplier-list" required /><datalist id="supplier-list">${supplierOptions()}</datalist></div>
+        <div class="field"><label>Documento</label><input id="purchase-document" /></div>
+        <div class="field"><label>Data</label><input id="purchase-date" type="date" value="${today()}" /></div>
+        <div class="field wide"><label>Produto</label><select id="purchase-product" required>${productOptions()}</select></div>
+        <div class="field"><label>Quantidade</label><input id="purchase-qty" type="number" step="0.001" min="0.001" required /></div>
+        <div class="field"><label>Custo unitario</label><input id="purchase-cost" type="number" step="0.01" min="0" /></div>
+        <button class="btn primary full" type="submit">Gravar compra e entrar estoque</button>
+      </form>
+    </section>
+    <section class="network-card">
+      <h2>Compras lancadas</h2>
+      ${table(["Data", "Fornecedor", "Documento", "Itens", "Total", "Status"], purchases.map((purchase) => [
+        escapeHtml(purchase.date || "-"),
+        escapeHtml(purchase.supplier || "-"),
+        escapeHtml(purchase.document || "-"),
+        amount((purchase.items || []).length || 1),
+        money(purchase.total || 0),
+        `<span class="badge ${purchase.status === "Cancelada" ? "danger" : "ok"}">${escapeHtml(purchase.status || "Confirmada")}</span>`
+      ]), "Nenhuma compra lancada.")}
+    </section>
+  </div>`;
+}
+
+async function savePurchase(event) {
+  event.preventDefault();
+  if (!requirePermission("purchases")) return;
+  const product = state.products.find((row) => Number(row.id) === Number(byId("purchase-product").value));
+  const qty = Number(byId("purchase-qty").value || 0);
+  const cost = Number(byId("purchase-cost").value || product?.cost || 0);
+  if (!product || qty <= 0) return alert("Informe produto e quantidade.");
+  const total = qty * cost;
+  const purchase = {
+    id: nextId(state.purchases),
+    date: byId("purchase-date").value || today(),
+    supplier: byId("purchase-supplier").value.trim(),
+    document: byId("purchase-document").value.trim(),
+    total,
+    status: "Confirmada",
+    source: "Central do Lojista",
+    items: [{ productId: product.id, description: product.description, qty, unit: product.unit || "UN", cost, total }]
+  };
+  state.purchases.push(purchase);
+  product.stock = Number(product.stock || 0) + qty;
+  if (cost > 0) product.cost = cost;
+  addStockMovement(product, "Entrada compra", qty, `Compra ${purchase.id} - ${purchase.supplier}`, {
+    location: "Central do Lojista",
+    purchaseId: purchase.id
+  });
+  audit("Compra lancada", `${purchase.supplier} ${money(total)}`);
+  const saved = await saveState("purchases", "Compra gravada e estoque atualizado.");
+  if (saved) render();
 }
 
 async function submitManualStockDrop(event) {
@@ -1207,8 +1417,11 @@ function bind() {
   });
   byId("refresh")?.addEventListener("click", boot);
   byId("logout")?.addEventListener("click", () => logout(true));
+  byId("person-form")?.addEventListener("submit", savePerson);
+  byId("product-form")?.addEventListener("submit", saveProduct);
   byId("qr-form")?.addEventListener("submit", receiveQr);
   byId("manual-stock-form")?.addEventListener("submit", submitManualStockDrop);
+  byId("purchase-form")?.addEventListener("submit", savePurchase);
   byId("print-settings-form")?.addEventListener("submit", savePrintSettings);
   document.querySelectorAll("[data-fiscal-transmit]").forEach((button) => button.addEventListener("click", () => transmitFiscalRow(button.dataset.fiscalTransmit)));
   byId("import-file")?.addEventListener("change", loadImportFile);
@@ -1221,6 +1434,8 @@ function bind() {
   document.querySelectorAll("[data-payable-settle]").forEach((button) => button.addEventListener("click", () => settleFinance("payable", button.dataset.payableSettle)));
   document.querySelectorAll("[data-receivable-settle]").forEach((button) => button.addEventListener("click", () => settleFinance("receivable", button.dataset.receivableSettle)));
   document.querySelectorAll("[data-toggle-user]").forEach((button) => button.addEventListener("click", () => toggleUser(button.dataset.toggleUser)));
+  document.querySelectorAll("[data-toggle-person]").forEach((button) => button.addEventListener("click", () => togglePerson(button.dataset.togglePerson)));
+  document.querySelectorAll("[data-toggle-product]").forEach((button) => button.addEventListener("click", () => toggleProduct(button.dataset.toggleProduct)));
   document.querySelectorAll("[data-order-status]").forEach((button) => button.addEventListener("click", () => updateOrderStatus(button.dataset.orderStatus, button.dataset.status)));
   applyRolePermissions();
 }
