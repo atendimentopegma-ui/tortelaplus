@@ -1459,6 +1459,16 @@ function renderProducts() {
   const lowStockProducts = state.products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0)).length;
   const fiscalPendingProducts = state.products.filter((product) => product.fiscalStatus !== "Homologado").length;
   const selectedProduct = state.products.find((product) => Number(product.id) === Number(selectedProductId));
+  const productRibbon = [
+    { title: "Produto", text: "Mercadoria comum", icon: "products", type: "Mercadoria para revenda", kind: "primary" },
+    { title: "Materia-prima", text: "Item de producao", icon: "stock", type: "Materia-prima" },
+    { title: "Fabricado", text: "Receita ou kit", icon: "purchases", type: "Produto fabricado" },
+    { title: "Servico", text: "Venda sem estoque", icon: "sales", type: "Servico" },
+    { title: "Impostos", text: "NCM, CFOP e CST", icon: "fiscal", tab: "impostos" },
+    { title: "Composicao", text: "Ficha tecnica", icon: "reports", tab: "composicao" },
+    { title: "Balanca", text: "Codigo e validade", icon: "pdv", tab: "balanca" },
+    { title: "Etiquetas", text: "Codigo de barras", icon: "settings", tab: "etiquetas" }
+  ];
   const bodyHtml = currentTab === "dados"
     ? `
       <div class="product-edit-panel">
@@ -1484,65 +1494,60 @@ function renderProducts() {
     `
     : `${productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>${productsTable()}`;
   return `
-    <section class="panel erp-screen products-screen didactic-screen">
-      <div class="panel-head didactic-head">
-        <div>
-          <h2>Produtos</h2>
-          <p>Cadastre itens de venda, materia-prima, produtos fabricados, servicos, precos, estoque, fiscal e etiquetas.</p>
+    <section class="panel erp-screen products-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Produtos</strong>
+        <span>Cadastro, precos, estoque, fiscal e etiquetas</span>
+        <span>${activeProducts} ativos</span>
+      </div>
+
+      <div class="desktop-module-ribbon product-desktop-ribbon">
+        ${productRibbon.map((item) => `
+          <button class="desktop-ribbon-button ${item.kind || ""}" ${item.type ? `data-new-product-type="${item.type}"` : ""} ${item.tab ? `data-product-tab="${item.tab}"` : ""} type="button">
+            <span class="dashboard-module-icon icon-${item.icon}" aria-hidden="true"></span>
+            <strong>${item.title}</strong>
+            <small>${item.text}</small>
+          </button>
+        `).join("")}
+      </div>
+
+      <div class="desktop-tab-strip">
+        <span class="active">Produtos</span>
+        <span>${tabLabel(currentTab)}</span>
+        <span>${selectedProduct ? `Selecionado: ${selectedProduct.description}` : "Nenhum selecionado"}</span>
+      </div>
+
+      <div class="desktop-work-area">
+        <div class="desktop-summary-strip product-overview">
+          <div><span>Total</span><strong>${state.products.length}</strong></div>
+          <div><span>Ativos</span><strong>${activeProducts}</strong></div>
+          <div><span>Abaixo do minimo</span><strong>${lowStockProducts}</strong></div>
+          <div><span>Fiscal pendente</span><strong>${fiscalPendingProducts}</strong></div>
         </div>
-        <div class="actions"><button class="btn primary" id="save-product">${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button></div>
-      </div>
 
-      <div class="product-quick-start">
-        <button class="quick-action-card primary" data-new-product-type="Mercadoria para revenda" type="button">
-          <strong>Novo produto</strong>
-          <span>Item comum vendido no PDV, loja ou pedido.</span>
-        </button>
-        <button class="quick-action-card" data-new-product-type="Materia-prima" type="button">
-          <strong>Materia-prima</strong>
-          <span>Ingrediente usado em producao e composicao.</span>
-        </button>
-        <button class="quick-action-card" data-new-product-type="Produto fabricado" type="button">
-          <strong>Produto fabricado</strong>
-          <span>Receita, kit ou item com ficha tecnica.</span>
-        </button>
-        <button class="quick-action-card" data-new-product-type="Servico" type="button">
-          <strong>Servico</strong>
-          <span>Item sem estoque para venda ou fiscal.</span>
-        </button>
-      </div>
-
-      <div class="erp-overview product-overview">
-        <div><span>Total</span><strong>${state.products.length}</strong></div>
-        <div><span>Ativos</span><strong>${activeProducts}</strong></div>
-        <div><span>Abaixo do minimo</span><strong>${lowStockProducts}</strong></div>
-        <div><span>Fiscal pendente</span><strong>${fiscalPendingProducts}</strong></div>
-      </div>
-
-      <div class="product-workflow">
-        <div><strong>1. Busque antes</strong><span>Evite duplicar produto por descricao, codigo de barras, marca, grupo ou NCM.</span></div>
-        <div><strong>2. Cadastre o essencial</strong><span>Descricao, codigo, tipo, unidade, custo, venda e estoque minimo.</span></div>
-        <div><strong>3. Complete quando necessario</strong><span>Use as abas para impostos, composicao, lote, balanca, etiquetas e tabela de precos.</span></div>
-      </div>
-
-      <div class="erp-search-strip product-search-strip">
-        <div>
-          <label>Localizar produto</label>
-          <span>Descricao, codigo de barras, marca, grupo ou NCM.</span>
+        <div class="desktop-filter-panel">
+          <div class="filter-caption">F6 | Localizar produto</div>
+          <div class="desktop-filter-line">
+            <input id="product-search" value="${escapeAttr(productSearch)}" placeholder="Digite descricao, codigo de barras, marca, grupo ou NCM" />
+            <button class="btn" id="filter-products">Buscar</button>
+          </div>
+          <p>Busque antes de cadastrar para evitar duplicidade. Use as abas para completar fiscal, lote, balanca, etiquetas e precos.</p>
         </div>
-        <div class="erp-search-line"><input id="product-search" value="${escapeAttr(productSearch)}" placeholder="Ex.: torta, 789..., farinha, congelados ou 19059090" /><button class="btn" id="filter-products">Buscar</button></div>
+
+        <div class="module-tabs desktop-record-tabs">${tabs.map((tab) => `<a class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" href="#module=products&tab=${tab}" role="button" aria-current="${currentTab === tab ? "page" : "false"}">${tabLabel(tab)}</a>`).join("")}</div>
+
+        <div class="panel-body erp-body product-body desktop-record-body ${currentTab === "dados" ? "product-body-dados" : "product-body-tab"}">
+          ${bodyHtml}
+        </div>
       </div>
-      <div class="module-tabs">${tabs.map((tab) => `<a class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" href="#module=products&tab=${tab}" role="button" aria-current="${currentTab === tab ? "page" : "false"}">${tabLabel(tab)}</a>`).join("")}</div>
-      <div class="panel-body erp-body product-body ${currentTab === "dados" ? "product-body-dados" : "product-body-tab"}">
-        ${bodyHtml}
-      </div>
-      <div class="erp-action-bar">
-        <button class="btn primary" id="new-product" type="button">Novo</button>
-        <button class="btn" id="edit-selected-product" type="button">Alterar</button>
-        <button class="btn primary" id="label-selected-product" type="button">Etiqueta</button>
-        <button class="btn" id="print-products" type="button">Imprimir</button>
-        <button class="btn" id="refresh-products" type="button">Atualizar</button>
-        <button class="btn" id="close-products" type="button">Fechar</button>
+      <div class="desktop-action-bar erp-action-bar">
+        <button class="desktop-command primary" id="new-product" type="button"><span>+</span>F2 | Novo</button>
+        <button class="desktop-command" id="edit-selected-product" type="button"><span>=</span>F3 | Alterar</button>
+        <button class="desktop-command primary" id="label-selected-product" type="button"><span>B</span>Etiqueta</button>
+        <button class="desktop-command" id="print-products" type="button"><span>P</span>F4 | Imprimir</button>
+        <button class="desktop-command" id="refresh-products" type="button"><span>R</span>F5 | Atualizar</button>
+        <button class="desktop-command primary" id="save-product" type="button"><span>S</span>${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button>
+        <button class="desktop-command danger" id="close-products" type="button"><span>X</span>Fechar</button>
       </div>
     </section>
   `;
