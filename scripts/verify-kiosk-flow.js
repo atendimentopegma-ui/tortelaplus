@@ -18,14 +18,15 @@ function freePort() {
   });
 }
 
-function requestJson(baseUrl, method, route, body) {
+function requestJson(baseUrl, method, route, body, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : "";
     const req = http.request(`${baseUrl}${route}`, {
       method,
       headers: {
         "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload)
+        "Content-Length": Buffer.byteLength(payload),
+        ...extraHeaders
       }
     }, (res) => {
       let raw = "";
@@ -77,18 +78,32 @@ function assert(condition, message) {
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-kiosk-flow-"));
   const baseUrl = `http://localhost:${port}`;
+  const providerToken = "verify-provider-token";
   const child = spawn(process.execPath, ["server.js"], {
     cwd: root,
     env: {
       ...process.env,
       PORT: String(port),
-      PEGMA_DB_DIR: dataDir
+      PEGMA_DB_DIR: dataDir,
+      PEGMA_PROVIDER_TOKEN: providerToken
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
 
   try {
     await waitForServer(child, baseUrl);
+
+    await requestJson(baseUrl, "POST", "/api/tenants", {
+      tradeName: "Unidade Isolada",
+      tenantCode: "unidade-isolada",
+      document: "11.111.111/0001-11",
+      plan: "Essencial",
+      maxTerminals: 1,
+      renewalDays: 365,
+      adminName: "Administrador",
+      adminUser: "admin@unidade-isolada.local",
+      adminPassword: "SenhaTeste123"
+    }, { Authorization: `Bearer ${providerToken}` });
 
     const catalog = await requestJson(baseUrl, "GET", "/api/public/store/catalog?unidade=cliente-exemplo");
     const product = catalog.products.find((item) => item.active !== false && Number(item.price || 0) > 0 && Number(item.stock || 0) > 0);
@@ -121,6 +136,9 @@ function assert(condition, message) {
     const boardOrder = board.orders.find((item) => Number(item.id) === Number(order.orderId));
     assert(boardOrder && boardOrder.status === "Preparando", "Pedido nao apareceu na cozinha/telao como Preparando.");
 
+    const isolatedBoard = await requestJson(baseUrl, "GET", "/api/public/kiosk/orders?unidade=unidade-isolada");
+    assert(Array.isArray(isolatedBoard.orders) && isolatedBoard.orders.length === 0, "Pedido de uma unidade apareceu na fila de outra unidade ativa.");
+
     await requestJson(baseUrl, "POST", "/api/public/kiosk/orders/status", {
       tenantCode: "cliente-exemplo",
       orderId: order.orderId,
@@ -131,10 +149,14 @@ function assert(condition, message) {
     assert(updatedOrder && updatedOrder.status === "Pronto", "Cozinha nao atualizou o pedido para Pronto.");
 
     const tenantState = JSON.parse(fs.readFileSync(path.join(dataDir, "tenants", "cliente-exemplo.json"), "utf8"));
+    const isolatedTenantState = JSON.parse(fs.readFileSync(path.join(dataDir, "tenants", "unidade-isolada.json"), "utf8"));
     const sale = tenantState.sales.find((item) => Number(item.id) === Number(order.orderId));
     assert(sale && sale.deliveryStore?.tenantCode === "cliente-exemplo", "Venda nao ficou vinculada a unidade correta.");
     assert((tenantState.stockMovements || []).some((item) => item.history === `Pedido online ${order.orderId}`), "Pedido nao gerou movimento de baixa no estoque.");
     assert((tenantState.fiscalQueue || []).some((item) => Number(item.saleId) === Number(order.orderId) && item.model === "NFC-e"), "Pedido nao entrou na fila fiscal NFC-e.");
+    assert((isolatedTenantState.sales || []).length === 0, "Venda de uma unidade foi gravada no arquivo de outra unidade.");
+    assert((isolatedTenantState.stockMovements || []).every((item) => item.history !== `Pedido online ${order.orderId}`), "Baixa de estoque de uma unidade apareceu em outra unidade.");
+    assert((isolatedTenantState.fiscalQueue || []).every((item) => Number(item.saleId) !== Number(order.orderId)), "Fila fiscal de uma unidade apareceu em outra unidade.");
 
     let otherTenantBlocked = false;
     try {
@@ -144,7 +166,7 @@ function assert(condition, message) {
     }
     assert(otherTenantBlocked, "Unidade inexistente conseguiu consultar fila do totem.");
 
-    console.log("OK - fluxo totem/cozinha/telao validado com CPF, estoque, fila fiscal e isolamento.");
+    console.log("OK - fluxo totem/cozinha/telao validado com CPF, estoque, fila fiscal e isolamento entre unidades ativas.");
   } finally {
     child.kill();
     fs.rmSync(dataDir, { recursive: true, force: true });
