@@ -59,6 +59,28 @@ function amount(value) {
   return Number(value || 0).toLocaleString("pt-BR");
 }
 
+function saleChannelLabel(sale = {}) {
+  const source = String(sale.channel || sale.source || sale.type || sale.seller || "").toLowerCase();
+  if (source.includes("totem")) return "Totem local";
+  if (source.includes("loja online") || source.includes("delivery") || source.includes("pedido online")) return "Loja online";
+  if (source.includes("pdv")) return "PDV";
+  if (source.includes("central do lojista")) return "Importado";
+  if (source.includes("orcamento")) return "Orcamento";
+  return sale.channel || sale.source || sale.type || "Venda da loja";
+}
+
+function groupedSales(keyFn) {
+  const rows = new Map();
+  (summary.salesDetails || []).forEach((sale) => {
+    const key = keyFn(sale) || "-";
+    const current = rows.get(key) || { key, count: 0, total: 0 };
+    current.count += 1;
+    current.total += Number(sale.total || sale.value || 0);
+    rows.set(key, current);
+  });
+  return [...rows.values()].sort((a, b) => b.total - a.total);
+}
+
 function brandMarkup() {
   return `<div class="tortela-logo"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /></div>`;
 }
@@ -249,10 +271,13 @@ function renderSales() {
   const rows = (summary.salesDetails || []).map((sale) => [
     escapeHtml(sale.unit || sale.tradeName || sale.tenantCode || "-"),
     escapeHtml(sale.date || sale.createdAt || "-"),
+    escapeHtml(saleChannelLabel(sale)),
     escapeHtml(sale.product || sale.description || "Venda"),
     amount(sale.qty || sale.quantity || sale.items || 0),
     money(sale.total || sale.value || 0),
-    escapeHtml(sale.customer || sale.client || "Consumidor Final")
+    `${escapeHtml(sale.customer || sale.client || "Consumidor Final")}<br><small>${escapeHtml(sale.customerDocument || sale.customerPhone || "")}</small>`,
+    escapeHtml(sale.seller || sale.operator || "-"),
+    escapeHtml(sale.status || "Finalizada")
   ]);
   return `<div class="network-module">
     ${moduleTitle("Vendas da rede", "Movimento por hora, dia, semana, quinzena e mes.")}
@@ -265,7 +290,7 @@ function renderSales() {
     </div>
     <section class="network-card">
       <h2>Detalhe de vendas</h2>
-      ${table(["Unidade", "Data", "Produto", "Qtd.", "Total", "Cliente"], rows)}
+      ${table(["Unidade", "Data", "Canal", "Produto", "Qtd.", "Total", "Cliente", "Vendedor", "Status"], rows)}
     </section>
   </div>`;
 }
@@ -613,17 +638,55 @@ function renderDeployment() {
 }
 
 function renderReports() {
-  const reports = [
-    ["Vendas", "Historico por unidade, vendedor, produto, hora e periodo."],
-    ["Fiscal", "Notas emitidas, pendentes, XMLs, cancelamentos e contingencia."],
-    ["Estoque", "Saldos, minimo, composicao, grade, lote e movimentacao."],
-    ["Financeiro", "Contas, caixa, pagamentos das franquias e repasses."],
-    ["Clientes", "Cadastros da rede, origem do link e duplicidade por CPF."],
-    ["Producao", "Receitas, capacidade e consumo de materias primas."]
-  ];
+  const byUnit = groupedSales((sale) => sale.unit || sale.tradeName || sale.tenantCode);
+  const byCustomer = groupedSales((sale) => sale.customer || sale.client || "Consumidor Final").slice(0, 20);
+  const byChannel = groupedSales((sale) => saleChannelLabel(sale));
+  const bySeller = groupedSales((sale) => sale.seller || sale.operator || "Sem vendedor");
+  const fiscalPending = (summary.units || []).reduce((sum, unit) => sum + Number(unit.fiscalPending || 0), 0);
+  const financeOpen = (summary.finance || []).map((row) => [
+    escapeHtml(row.unit || row.tradeName || row.tenantCode || "-"),
+    money(row.receivableOpen || row.receivables || 0),
+    money(row.payableOpen || row.payables || 0),
+    money(row.franchiseOpen || row.open || 0)
+  ]);
   return `<div class="network-module compact">
-    ${moduleTitle("Relatorios", "Consultas separadas por assunto para manter a central limpa.")}
-    <div class="network-grid three report-grid">${reports.map(([title, detail]) => `<section class="network-card"><h2>${title}</h2><p>${detail}</p></section>`).join("")}</div>
+    ${moduleTitle("Relatorios da Central", "Visao consolidada para saber quanto cada loja vendeu, para quem vendeu e quais pontos precisam de acao.")}
+    <div class="network-grid four">
+      ${kpi("Vendas da rede", money((summary.totals || {}).salesTotal || 0), `${amount((summary.totals || {}).salesCount || 0)} venda(s)`)}
+      ${kpi("Estoque baixo", amount((summary.lowStockItems || []).length), "itens nas unidades")}
+      ${kpi("Fiscal pendente", amount(fiscalPending), "documentos")}
+      ${kpi("Clientes rastreados", amount((summary.customerConsumption || []).length), "com historico")}
+    </div>
+    <section class="network-card">
+      <h2>Vendas por unidade</h2>
+      ${table(["Unidade", "Vendas", "Total"], byUnit.map((row) => [escapeHtml(row.key), amount(row.count), money(row.total)]))}
+    </section>
+    <section class="network-card">
+      <h2>Vendas por canal</h2>
+      ${table(["Canal", "Vendas", "Total"], byChannel.map((row) => [escapeHtml(row.key), amount(row.count), money(row.total)]))}
+    </section>
+    <section class="network-card">
+      <h2>Vendas por vendedor</h2>
+      ${table(["Vendedor", "Vendas", "Total"], bySeller.map((row) => [escapeHtml(row.key), amount(row.count), money(row.total)]))}
+    </section>
+    <section class="network-card">
+      <h2>Quem comprou</h2>
+      ${table(["Cliente", "Compras", "Total"], byCustomer.map((row) => [escapeHtml(row.key), amount(row.count), money(row.total)]))}
+    </section>
+    <section class="network-card">
+      <h2>Financeiro por unidade</h2>
+      ${table(["Unidade", "A receber", "A pagar", "Taxas abertas"], financeOpen)}
+    </section>
+    <section class="network-card">
+      <h2>Estoque que precisa de remessa QR</h2>
+      ${table(["Unidade", "Produto", "Atual", "Minimo", "Sugerido"], (summary.lowStockItems || []).map((row) => [
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        escapeHtml(row.product || row.description || "-"),
+        amount(row.stock || 0),
+        amount(row.minStock || 0),
+        amount(row.suggested || 0)
+      ]), "Nenhum produto abaixo do minimo.")}
+    </section>
   </div>`;
 }
 

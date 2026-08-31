@@ -39,6 +39,7 @@ const permissionLabels = {
 
 const modules = [
   ["overview", "Painel", "Resumo da loja"],
+  ["channels", "Pedidos", "PDV, totem e loja"],
   ["qr", "Entrada QR", "Remessa da Central"],
   ["imports", "Importacoes", "Vendas, financeiro e estoque"],
   ["payables", "A pagar", "Fornecedores e despesas"],
@@ -237,7 +238,8 @@ function render() {
       <div class="brand">${brandMarkup()}<div><strong>Central do Lojista</strong><small>${escapeHtml(state.settings?.company || tenant?.tradeName || tenantCode)} | ${escapeHtml(authUser?.role || "Usuario")}</small></div></div>
       <div class="top-right">
         <button class="btn network-white" id="refresh">Atualizar</button>
-        <a class="btn network-white" href="./index.html#module=dashboard">Retaguarda</a>
+        <a class="btn network-white" href="./index.html#mode=pdv">PDV</a>
+        <a class="btn network-white" href="./totem.html?unidade=${encodeURIComponent(tenantCode)}">Totem local</a>
         <a class="btn network-white" href="./loja.html?unidade=${encodeURIComponent(tenantCode)}">Loja online</a>
         <button class="btn network-white" id="logout">Sair</button>
       </div>
@@ -261,6 +263,7 @@ function renderNav() {
 function renderCurrentModule() {
   const renderers = {
     overview: renderOverview,
+    channels: renderChannels,
     qr: renderQr,
     imports: renderImports,
     payables: renderPayables,
@@ -302,18 +305,53 @@ function totals() {
   return { sales, salesTotal, payableOpen, receivableOpen, stockCost, lowStock };
 }
 
+function channelLabel(sale = {}) {
+  const source = String(sale.source || sale.origin || sale.channel || sale.type || sale.seller || "").toLowerCase();
+  if (sale.kioskOrder || sale.kioskTicketNumber || source.includes("totem")) return "Totem local";
+  if (sale.onlineOrder && sale.delivery === "Retirada") return "Loja online - retirada";
+  if (sale.onlineOrder || source.includes("loja online") || source.includes("delivery")) return "Loja online";
+  if (source.includes("pdv") || sale.cashRegisterId || sale.cashRegisterOpenedAt) return "PDV";
+  if (source.includes("central do lojista")) return "Importado";
+  return sale.type === "Orcamento" ? "Orcamento" : "Venda da loja";
+}
+
+function channelSummary() {
+  const rows = new Map();
+  state.sales.forEach((sale) => {
+    const channel = channelLabel(sale);
+    const current = rows.get(channel) || { channel, count: 0, total: 0, pending: 0 };
+    current.count += 1;
+    current.total += Number(sale.total || 0);
+    if (sale.onlineOrder && !["Entregue", "Cancelado", "Cancelada", "Devolvido"].includes(sale.status)) current.pending += 1;
+    rows.set(channel, current);
+  });
+  return [...rows.values()].sort((a, b) => b.total - a.total);
+}
+
 function renderOverview() {
   const data = totals();
+  const pendingOrders = state.sales.filter((sale) => sale.onlineOrder && !["Entregue", "Cancelado", "Cancelada"].includes(sale.status));
   return `<div class="network-module compact">
     ${moduleTitle("Painel do lojista", "Operacao da unidade sem controles totais da Central administrativa.")}
     <div class="network-grid four">
       ${kpi("Vendas no mes", money(data.salesTotal), `${amount(data.sales.length)} venda(s)`)}
       ${kpi("A receber aberto", money(data.receivableOpen))}
       ${kpi("A pagar aberto", money(data.payableOpen))}
-      ${kpi("Estoque a custo", money(data.stockCost), `${amount(data.lowStock.length)} item(ns) no minimo`)}
+      ${kpi("Pedidos em aberto", amount(pendingOrders.length), "PDV, totem e loja")}
     </div>
     <section class="network-card">
-      <h2>Atalhos de operacao</h2>
+      <h2>Canais ligados a esta loja</h2>
+      <div class="store-action-grid">
+        <button class="desktop-ribbon-button primary" data-store-module="channels" type="button"><span class="dashboard-module-icon icon-sales"></span><strong>Pedidos</strong><small>Controlar canais</small></button>
+        <a class="desktop-ribbon-button" href="./index.html#mode=pdv"><span class="dashboard-module-icon icon-pdv"></span><strong>PDV</strong><small>Venda no caixa</small></a>
+        <a class="desktop-ribbon-button" href="./totem.html?unidade=${encodeURIComponent(tenantCode)}"><span class="dashboard-module-icon icon-products"></span><strong>Totem local</strong><small>Autoatendimento</small></a>
+        <a class="desktop-ribbon-button" href="./loja.html?unidade=${encodeURIComponent(tenantCode)}"><span class="dashboard-module-icon icon-store"></span><strong>Loja online</strong><small>Pedidos delivery</small></a>
+        <a class="desktop-ribbon-button" href="./cozinha?unidade=${encodeURIComponent(tenantCode)}"><span class="dashboard-module-icon icon-stock"></span><strong>Cozinha</strong><small>Preparo</small></a>
+        <a class="desktop-ribbon-button" href="./telao.html?unidade=${encodeURIComponent(tenantCode)}"><span class="dashboard-module-icon icon-reports"></span><strong>Telao</strong><small>Chamada de senha</small></a>
+      </div>
+    </section>
+    <section class="network-card">
+      <h2>Controles da unidade</h2>
       <div class="store-action-grid">
         <button class="desktop-ribbon-button primary" data-store-module="qr" type="button"><span class="dashboard-module-icon icon-pdv"></span><strong>Entrada QR</strong><small>Receber remessa</small></button>
         <button class="desktop-ribbon-button" data-store-module="imports" type="button"><span class="dashboard-module-icon icon-fiscal"></span><strong>Importar dados</strong><small>Venda, estoque e contas</small></button>
@@ -330,6 +368,53 @@ function renderOverview() {
         amount(row.minStock || 0),
         money(row.cost || 0)
       ]), "Nenhum produto abaixo do minimo.")}
+    </section>
+  </div>`;
+}
+
+function orderActions(sale) {
+  if (!sale.onlineOrder || ["Entregue", "Cancelado", "Cancelada"].includes(sale.status)) return "-";
+  return `
+    ${!sale.kioskOrder && (sale.status || "Aberto") === "Aberto" ? `<button class="btn primary" data-order-status="${sale.id}" data-status="Conferido" type="button">Conferir</button>` : ""}
+    ${!["Preparando", "Pronto", "Saiu para entrega"].includes(sale.status) ? `<button class="btn" data-order-status="${sale.id}" data-status="Preparando" type="button">Preparar</button>` : ""}
+    ${sale.status === "Preparando" ? `<button class="btn primary" data-order-status="${sale.id}" data-status="Pronto" type="button">Pronto</button>` : ""}
+    ${sale.status === "Pronto" && !sale.kioskOrder && sale.delivery !== "Retirada" ? `<button class="btn" data-order-status="${sale.id}" data-status="Saiu para entrega" type="button">Saiu entrega</button>` : ""}
+    <button class="btn primary" data-order-status="${sale.id}" data-status="Entregue" type="button">Entregue</button>
+    <button class="btn danger" data-order-status="${sale.id}" data-status="Cancelado" type="button">Cancelar</button>`;
+}
+
+function renderChannels() {
+  const orders = state.sales.slice().sort((a, b) => String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || "")));
+  const pendingOrders = orders.filter((sale) => sale.onlineOrder && !["Entregue", "Cancelado", "Cancelada"].includes(sale.status));
+  const channelRows = channelSummary();
+  return `<div class="network-module compact">
+    ${moduleTitle("Pedidos e canais da loja", "Acompanhe PDV, totem local, loja online e a fila de preparo sem acessar a Retaguarda completa.")}
+    <div class="network-grid four">
+      ${kpi("Pedidos abertos", amount(pendingOrders.length))}
+      ${kpi("Canais ativos", amount(channelRows.length))}
+      ${kpi("Vendas registradas", amount(state.sales.length))}
+      ${kpi("Faturamento total", money(state.sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0)))}
+    </div>
+    <section class="network-card">
+      <h2>Resumo por canal</h2>
+      ${table(["Canal", "Vendas", "Em aberto", "Total"], channelRows.map((row) => [
+        escapeHtml(row.channel),
+        amount(row.count),
+        amount(row.pending),
+        money(row.total)
+      ]), "Nenhum canal com venda registrada.")}
+    </section>
+    <section class="network-card">
+      <h2>Pedidos recebidos</h2>
+      ${table(["Canal", "Data", "Cliente", "Itens", "Total", "Status", "Acao"], orders.map((sale) => [
+        escapeHtml(channelLabel(sale)),
+        escapeHtml(String(sale.createdAt || sale.date || "").slice(0, 16).replace("T", " ") || "-"),
+        `${escapeHtml(sale.customer || sale.client || "Consumidor Final")}<br><small>${escapeHtml(sale.customerData?.phone || sale.customerDocument || "")}</small>`,
+        amount((sale.items || []).length || sale.items || 0),
+        money(sale.total || 0),
+        `<span class="badge ${["Cancelado", "Cancelada", "Devolvido"].includes(sale.status) ? "danger" : ["Aberto", "Conferido", "Preparando"].includes(sale.status) ? "warn" : "ok"}">${escapeHtml(sale.status || "Fechado")}</span>`,
+        orderActions(sale)
+      ]), "Nenhum pedido recebido pelos canais da loja.")}
     </section>
   </div>`;
 }
@@ -503,7 +588,10 @@ function applyImport(type, rows) {
       customer: row.customer || row.client || "Consumidor Final",
       total: Number(String(row.total || row.value || 0).replace(",", ".")),
       status: row.status || "Importada",
-      source: "Central do Lojista"
+      seller: row.seller || row.operator || authUser?.username || "Lojista",
+      payment: row.payment || row.paymentMethod || "",
+      source: row.source || "Central do Lojista",
+      channel: row.channel || row.source || "Importado"
     }));
   }
   if (type === "payables") {
@@ -635,6 +723,45 @@ async function settleFinance(type, id) {
   row.paidAt = new Date().toISOString();
   audit(type === "payable" ? "Conta paga" : "Conta recebida", row.supplier || row.customer || String(id));
   const saved = await saveState("finance_settle", "Baixa registrada.");
+  if (saved) render();
+}
+
+function restoreOrderStock(sale) {
+  (sale.items || []).forEach((item) => {
+    const product = findProduct(item);
+    const qty = Number(item.qty || item.quantity || 0);
+    if (!product || qty <= 0) return;
+    product.stock = Number(product.stock || 0) + qty;
+    addStockMovement(product, "Estorno pedido", qty, `Cancelamento do pedido ${sale.id}`, {
+      location: "Central do Lojista",
+      sourceSaleId: sale.id
+    });
+  });
+}
+
+async function updateOrderStatus(id, status) {
+  if (!requirePermission("sales")) return;
+  const sale = state.sales.find((row) => Number(row.id) === Number(id) && row.onlineOrder);
+  if (!sale) return alert("Pedido nao encontrado nesta unidade.");
+  if (status === "Cancelado" && !confirm(`Cancelar o pedido ${id}? O estoque sera estornado quando houver itens baixados.`)) return;
+  if (status === "Cancelado" && sale.status !== "Cancelado") {
+    restoreOrderStock(sale);
+    state.receivables.filter((row) => Number(row.sourceSaleId) === Number(id) && !row.paid).forEach((row) => {
+      row.cancelled = true;
+      row.paid = true;
+      row.balance = 0;
+      row.status = "Cancelado";
+    });
+  }
+  sale.status = status;
+  sale.updatedAt = new Date().toISOString();
+  if (status === "Conferido") sale.checkedAt = sale.updatedAt;
+  if (status === "Preparando") sale.preparingAt = sale.updatedAt;
+  if (status === "Pronto") sale.readyAt = sale.updatedAt;
+  if (status === "Saiu para entrega") sale.deliveryStartedAt = sale.updatedAt;
+  if (status === "Entregue") sale.deliveredAt = sale.updatedAt;
+  audit(`Pedido ${status.toLowerCase()}`, `Pedido ${sale.id} - ${sale.customer || "Consumidor Final"}`);
+  const saved = await saveState("sales", `Pedido marcado como ${status}.`);
   if (saved) render();
 }
 
@@ -785,6 +912,7 @@ function bind() {
   document.querySelectorAll("[data-payable-settle]").forEach((button) => button.addEventListener("click", () => settleFinance("payable", button.dataset.payableSettle)));
   document.querySelectorAll("[data-receivable-settle]").forEach((button) => button.addEventListener("click", () => settleFinance("receivable", button.dataset.receivableSettle)));
   document.querySelectorAll("[data-toggle-user]").forEach((button) => button.addEventListener("click", () => toggleUser(button.dataset.toggleUser)));
+  document.querySelectorAll("[data-order-status]").forEach((button) => button.addEventListener("click", () => updateOrderStatus(button.dataset.orderStatus, button.dataset.status)));
   applyRolePermissions();
 }
 
