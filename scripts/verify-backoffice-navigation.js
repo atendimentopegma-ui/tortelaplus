@@ -68,6 +68,14 @@ includesAll("Rotas internas", routeHandler, [
   "route.settings"
 ]);
 
+const stockNavigation = extractFunction("navigateStockTab");
+includesAll("Navegacao de estoque", stockNavigation, [
+  'currentModule = "stock"',
+  "currentStockTab",
+  "setInternalRoute",
+  "renderShell()"
+]);
+
 const shellRenderer = extractFunction("renderShell");
 includesAll("Menu lateral", shellRenderer, [
   'data-module="${key}"',

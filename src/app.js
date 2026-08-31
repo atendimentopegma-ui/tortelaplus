@@ -3021,6 +3021,14 @@ function navigateBackofficeModule(module) {
 
 window.navigateBackofficeModule = navigateBackofficeModule;
 
+function navigateStockTab(tab = "producao") {
+  currentMode = "backoffice";
+  currentModule = "stock";
+  currentStockTab = tab || "producao";
+  setInternalRoute({ module: "stock", stock: currentStockTab, tab: "", fiscal: "", people: "", settings: "" });
+  renderShell();
+}
+
 function productSalesTotals() {
   const map = new Map();
   reportRows(state.sales, "date").forEach((sale) => {
@@ -3694,9 +3702,7 @@ function bindCurrentModule() {
   });
 
   document.querySelectorAll("[data-stock-tab]").forEach((button) => button.addEventListener("click", () => {
-    currentStockTab = button.dataset.stockTab || "producao";
-    setInternalRoute({ module: "stock", stock: currentStockTab });
-    renderShell();
+    navigateStockTab(button.dataset.stockTab || "producao");
   }));
 
   const addComposition = byId("add-composition");
@@ -7821,9 +7827,7 @@ document.addEventListener("click", (event) => {
   if (stockTab) {
     event.preventDefault();
     event.stopPropagation();
-    currentStockTab = stockTab.dataset.stockTab || "producao";
-    setInternalRoute({ module: "stock", stock: currentStockTab });
-    renderShell();
+    navigateStockTab(stockTab.dataset.stockTab || "producao");
     return;
   }
   const personFilter = event.target.closest("[data-person-filter]");
