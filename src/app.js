@@ -1474,8 +1474,21 @@ function renderProducts() {
     { title: "Balanca", text: "Codigo e validade", icon: "pdv", tab: "balanca" },
     { title: "Etiquetas", text: "Codigo de barras", icon: "settings", tab: "etiquetas" }
   ];
+  const productListPanel = `
+    <div class="product-list-panel">
+      <div class="product-section-title">
+        <div>
+          <h3>Lista de produtos</h3>
+          <p>${activeProducts} ativo(s), ${lowStockProducts} abaixo do minimo, ${fiscalPendingProducts} com fiscal pendente.</p>
+        </div>
+        <span class="badge ${selectedProduct ? "ok" : "warn"}">${selectedProduct ? `Selecionado: ${selectedProduct.description}` : "Selecione para alterar"}</span>
+      </div>
+      ${productsTable()}
+    </div>
+  `;
   const bodyHtml = currentTab === "dados"
     ? `
+      ${productListPanel}
       <div class="product-edit-panel">
         <div class="product-section-title">
           <div>
@@ -1486,18 +1499,8 @@ function renderProducts() {
         </div>
         ${formHtml}
       </div>
-      <div class="product-list-panel">
-        <div class="product-section-title">
-          <div>
-            <h3>Lista de produtos</h3>
-            <p>${activeProducts} ativo(s), ${lowStockProducts} abaixo do minimo, ${fiscalPendingProducts} com fiscal pendente.</p>
-          </div>
-          <span class="badge ${selectedProduct ? "ok" : "warn"}">${selectedProduct ? `Selecionado: ${selectedProduct.description}` : "Selecione para alterar"}</span>
-        </div>
-        ${productsTable()}
-      </div>
     `
-    : `${productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>${productsTable()}`;
+    : `${productListPanel}${productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>`;
   return `
     <section class="panel erp-screen products-screen desktop-module-screen">
       <div class="desktop-module-titlebar">
@@ -1767,6 +1770,15 @@ function productTab() {
       <div class="form-card">
         <h3>Ficha tecnica: composicao e fabricacao</h3>
         <p class="muted">Informe quanto de cada materia-prima entra em 1 unidade do produto final. Exemplo: farinha cadastrada em KG, usar 500 G na torta baixa 0,5 KG do estoque.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Componente</th><th>Uso por unidade</th><th>Baixa no estoque</th><th>Custo unit.</th><th>Quando baixa</th><th>Acao</th></tr></thead>
+            <tbody>${pendingComposition.length ? pendingComposition.map((component, index) => {
+              const product = state.products.find((item) => item.id === component.productId);
+              return `<tr><td>${product?.description || component.productId}</td><td>${formatQty(component.qty)} ${component.useUnit || product?.unit || ""}</td><td>${formatQty(componentStockQty(component, product))} ${product?.unit || ""}</td><td>${money(product?.cost || 0)}</td><td>${compositionModeLabel(component.mode)}</td><td><button class="btn danger" data-remove-composition="${index}" type="button">Remover</button></td></tr>`;
+            }).join("") : `<tr><td colspan="6">Nenhum componente adicionado para o novo produto.</td></tr>`}</tbody>
+          </table>
+        </div>
         <div class="grid four">
           <div class="field"><label>Materia-prima / componente</label><select id="composition-product">${state.products.map((product) => `<option value="${product.id}">${product.description} (${product.unit || "UN"})</option>`).join("")}</select></div>
           <div class="field"><label>Quantidade usada por unidade</label><input id="composition-qty" type="number" step="0.001" value="1" /></div>
@@ -1776,15 +1788,6 @@ function productTab() {
         <div class="actions">
           <button class="btn primary" id="add-composition" type="button">Adicionar componente</button>
           <span class="badge warn">Custo dos componentes: ${money(compositionCost)}</span>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Componente</th><th>Uso por unidade</th><th>Baixa no estoque</th><th>Custo unit.</th><th>Quando baixa</th><th>Acao</th></tr></thead>
-            <tbody>${pendingComposition.length ? pendingComposition.map((component, index) => {
-              const product = state.products.find((item) => item.id === component.productId);
-              return `<tr><td>${product?.description || component.productId}</td><td>${formatQty(component.qty)} ${component.useUnit || product?.unit || ""}</td><td>${formatQty(componentStockQty(component, product))} ${product?.unit || ""}</td><td>${money(product?.cost || 0)}</td><td>${compositionModeLabel(component.mode)}</td><td><button class="btn danger" data-remove-composition="${index}" type="button">Remover</button></td></tr>`;
-            }).join("") : `<tr><td colspan="6">Nenhum componente adicionado para o novo produto.</td></tr>`}</tbody>
-          </table>
         </div>
       </div>
     `;

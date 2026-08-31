@@ -2890,13 +2890,14 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .product-body-dados {
-  grid-template-columns: minmax(460px, 0.92fr) minmax(520px, 1.08fr);
-  grid-template-rows: minmax(0, 1fr);
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: start;
 }
 
 .product-body-tab {
-  grid-template-rows: auto minmax(220px, 1fr);
+  grid-template-rows: auto auto;
+  align-items: start;
 }
 
 .product-edit-panel,
@@ -2911,7 +2912,7 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .product-list-panel {
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
 }
 
 .product-section-title {
