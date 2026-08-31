@@ -2226,11 +2226,11 @@ function renderPurchases() {
       </div>
 
       <div class="desktop-module-ribbon">
-        <label class="desktop-ribbon-button primary" for="purchase-xml">
+        <button class="desktop-ribbon-button primary" id="open-purchase-xml-ribbon" type="button">
           <span class="dashboard-module-icon icon-fiscal" aria-hidden="true"></span>
           <strong>Ler XML</strong>
           <small>Importar nota</small>
-        </label>
+        </button>
         <button class="desktop-ribbon-button" id="add-purchase-item-ribbon" type="button">
           <span class="dashboard-module-icon icon-products" aria-hidden="true"></span>
           <strong>Adicionar item</strong>
@@ -2313,7 +2313,7 @@ function renderPurchases() {
       </div>
 
       <div class="desktop-action-bar erp-action-bar">
-        <label class="desktop-command primary" for="purchase-xml"><span>X</span>Ler XML</label>
+        <button class="desktop-command primary" id="open-purchase-xml-footer" type="button"><span>X</span>Ler XML</button>
         <button class="desktop-command" id="add-purchase-item-footer" type="button"><span>+</span>Adicionar item</button>
         <button class="desktop-command" id="clear-purchase-items-footer" type="button"><span>L</span>Limpar itens</button>
         <button class="desktop-command primary" id="new-purchase" type="button"><span>S</span>Gravar compra</button>
@@ -3736,6 +3736,10 @@ function bindCurrentModule() {
   if (newPurchase) newPurchase.addEventListener("click", savePurchaseRecord);
   const newPurchaseRibbon = byId("new-purchase-ribbon");
   if (newPurchaseRibbon) newPurchaseRibbon.addEventListener("click", savePurchaseRecord);
+  const openPurchaseXmlRibbon = byId("open-purchase-xml-ribbon");
+  if (openPurchaseXmlRibbon) openPurchaseXmlRibbon.addEventListener("click", openPurchaseXmlPicker);
+  const openPurchaseXmlFooter = byId("open-purchase-xml-footer");
+  if (openPurchaseXmlFooter) openPurchaseXmlFooter.addEventListener("click", openPurchaseXmlPicker);
 
   const addPurchaseItem = byId("add-purchase-item");
   if (addPurchaseItem) addPurchaseItem.addEventListener("click", addPurchaseItemRecord);
@@ -3745,20 +3749,11 @@ function bindCurrentModule() {
   if (addPurchaseItemFooter) addPurchaseItemFooter.addEventListener("click", addPurchaseItemRecord);
 
   const clearPurchaseItems = byId("clear-purchase-items");
-  if (clearPurchaseItems) clearPurchaseItems.addEventListener("click", () => {
-    purchaseItems = [];
-    renderShell();
-  });
+  if (clearPurchaseItems) clearPurchaseItems.addEventListener("click", clearPurchaseItemsRecord);
   const clearPurchaseItemsRibbon = byId("clear-purchase-items-ribbon");
-  if (clearPurchaseItemsRibbon) clearPurchaseItemsRibbon.addEventListener("click", () => {
-    purchaseItems = [];
-    renderShell();
-  });
+  if (clearPurchaseItemsRibbon) clearPurchaseItemsRibbon.addEventListener("click", clearPurchaseItemsRecord);
   const clearPurchaseItemsFooter = byId("clear-purchase-items-footer");
-  if (clearPurchaseItemsFooter) clearPurchaseItemsFooter.addEventListener("click", () => {
-    purchaseItems = [];
-    renderShell();
-  });
+  if (clearPurchaseItemsFooter) clearPurchaseItemsFooter.addEventListener("click", clearPurchaseItemsRecord);
 
   const purchaseXml = byId("purchase-xml");
   if (purchaseXml) purchaseXml.addEventListener("change", readPurchaseXml);
@@ -5390,6 +5385,15 @@ function addPurchaseItemRecord() {
     expiry: byId("purchase-expiry").value,
     serials
   });
+  renderShell();
+}
+
+function openPurchaseXmlPicker() {
+  byId("purchase-xml")?.click();
+}
+
+function clearPurchaseItemsRecord() {
+  purchaseItems = [];
   renderShell();
 }
 
@@ -7828,6 +7832,41 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     navigateStockTab(stockTab.dataset.stockTab || "producao");
+    return;
+  }
+  const openPurchaseXml = event.target.closest("#open-purchase-xml-ribbon, #open-purchase-xml-footer");
+  if (openPurchaseXml) {
+    event.preventDefault();
+    event.stopPropagation();
+    openPurchaseXmlPicker();
+    return;
+  }
+  const addPurchaseShortcut = event.target.closest("#add-purchase-item-ribbon, #add-purchase-item-footer");
+  if (addPurchaseShortcut) {
+    event.preventDefault();
+    event.stopPropagation();
+    addPurchaseItemRecord();
+    return;
+  }
+  const clearPurchaseShortcut = event.target.closest("#clear-purchase-items-ribbon, #clear-purchase-items-footer");
+  if (clearPurchaseShortcut) {
+    event.preventDefault();
+    event.stopPropagation();
+    clearPurchaseItemsRecord();
+    return;
+  }
+  const savePurchaseShortcut = event.target.closest("#new-purchase-ribbon, #new-purchase");
+  if (savePurchaseShortcut) {
+    event.preventDefault();
+    event.stopPropagation();
+    savePurchaseRecord();
+    return;
+  }
+  const purchaseStep = event.target.closest("[data-purchase-step]");
+  if (purchaseStep) {
+    event.preventDefault();
+    event.stopPropagation();
+    focusPurchaseStep(purchaseStep.dataset.purchaseStep || "document");
     return;
   }
   const personFilter = event.target.closest("[data-person-filter]");
