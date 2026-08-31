@@ -78,7 +78,9 @@ const kioskSource = fs.readFileSync(path.join(root, "src", "totem-tortela.js"), 
 const kioskHtml = fs.readFileSync(path.join(root, "totem.html"), "utf8");
 assert(kioskSource.includes("data-remove-cart-index"), "Totem: carrinho precisa ter botao explicito para remover item.");
 assert(kioskSource.includes("button.dataset.removeCartIndex"), "Totem: clique em Remover item precisa atualizar o carrinho.");
-assert(kioskHtml.includes("totem-cart-remove-v2"), "Totem: cache bust do carrinho nao foi atualizado.");
+assert(kioskSource.includes("scheduleSuccessReset()"), "Totem: pedido concluido precisa iniciar novo pedido automaticamente.");
+assert(!kioskSource.includes('id="tk-new-order"'), "Totem: tela de sucesso nao deve depender do botao Novo pedido.");
+assert(kioskHtml.includes("totem-auto-new-order-v1"), "Totem: cache bust do novo pedido automatico nao foi atualizado.");
 
 (async () => {
   const port = await freePort();

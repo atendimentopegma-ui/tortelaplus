@@ -2,6 +2,8 @@ const params = new URLSearchParams(location.search);
 const tenantCode = params.get("unidade") || "cliente-exemplo";
 const terminalToken = params.get("terminalToken") || params.get("token") || params.get("limpar") || "";
 const apiBase = location.protocol === "file:" ? "http://localhost:4173" : "";
+const SUCCESS_RESET_MS = 6000;
+let successResetTimer = null;
 
 const state = {
   catalog: { products: [], nearest: null },
@@ -38,6 +40,24 @@ const cleanText = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
   '"': "&quot;",
   "'": "&#39;"
 }[char]));
+
+function resetOrder() {
+  if (successResetTimer) {
+    clearTimeout(successResetTimer);
+    successResetTimer = null;
+  }
+  state.cart = [];
+  state.lastOrder = null;
+  state.paymentMethod = "PIX";
+  state.orderMode = "";
+  state.customerDocument = "";
+  setScreen("welcome");
+}
+
+function scheduleSuccessReset() {
+  if (successResetTimer) clearTimeout(successResetTimer);
+  successResetTimer = setTimeout(resetOrder, SUCCESS_RESET_MS);
+}
 
 async function api(path, options = {}) {
   const response = await fetch(`${apiBase}${path}`, {
@@ -369,7 +389,7 @@ function renderSuccess() {
         <p>Acompanhe sua senha no telao. Quando aparecer como pronto, retire no balcao.</p>
         <strong>${money(state.lastOrder?.total || cartTotal())}</strong>
         <small class="tk-payment-status">${cleanText(state.lastOrder?.paymentInfo?.status || "Pagamento enviado para processamento")}</small>
-        <button class="tk-primary" id="tk-new-order">Novo pedido</button>
+        <small class="tk-payment-status">Novo pedido sera iniciado automaticamente.</small>
       </section>
     </main>
   `;
@@ -464,14 +484,6 @@ document.addEventListener("click", (event) => {
     return render();
   }
   if (button.id === "tk-confirm-order") return submitOrder();
-  if (button.id === "tk-new-order") {
-    state.cart = [];
-    state.lastOrder = null;
-    state.paymentMethod = "PIX";
-    state.orderMode = "";
-    state.customerDocument = "";
-    return setScreen("welcome");
-  }
   if (button.id === "tk-retry") return loadCatalog();
 });
 
@@ -503,6 +515,7 @@ async function submitOrder() {
     state.lastOrder = result;
     state.screen = "success";
     render();
+    scheduleSuccessReset();
   } catch (error) {
     alert(error.message);
   } finally {
