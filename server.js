@@ -4639,6 +4639,10 @@ function serveFile(req, res, urlPath) {
     send(res, 404, "Esta edicao utiliza a Central Tortela.");
     return;
   }
+  if (urlPath === "/central-lojista.html") {
+    send(res, 200, fs.readFileSync(path.join(root, "central-lojista.html")), types[".html"]);
+    return;
+  }
   if (urlPath === "/api-cadastro" || urlPath === "/api-cadastro/") {
     send(res, 200, fs.readFileSync(path.join(root, "api-cadastro", "index.html")), types[".html"]);
     return;
@@ -4752,6 +4756,7 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`Tortela Plus unidade: http://localhost:${port}`);
     console.log(`Central Tortela: http://localhost:${port}/central-rede.html`);
+    console.log(`Central do Lojista: http://localhost:${port}/central-lojista.html`);
     console.log(`Persistencia: ${databaseMode}`);
   });
 }
