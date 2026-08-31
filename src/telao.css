@@ -17,6 +17,14 @@ body.tortela-display-page {
   background-size: 72px 72px, auto;
 }
 
+body.tortela-display-page .display-shell::before,
+body.tortela-display-page .display-shell::after {
+  content: none;
+  display: none;
+  background: none;
+  box-shadow: none;
+}
+
 .display-header {
   display: grid;
   grid-template-columns: minmax(280px, 1fr) auto auto;
