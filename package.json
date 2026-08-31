@@ -16,7 +16,7 @@
     "verify:kiosk": "node scripts/verify-kiosk-flow.js",
     "implantation:status": "node scripts/implantation-status.js",
     "fiscal:rules:import": "node scripts/import-fiscal-rules.js",
-    "verify": "node --check server.js && node --check fiscal-agent.js && node --check src/app.js && node --check src/central-rede.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
+    "verify": "node --check server.js && node --check fiscal-agent.js && node --check src/app.js && node --check src/central-rede.js && node --check src/central-lojista.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
   },
   "keywords": [
     "erp",
