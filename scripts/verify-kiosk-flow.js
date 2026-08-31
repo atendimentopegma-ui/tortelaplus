@@ -74,6 +74,12 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+const kioskSource = fs.readFileSync(path.join(root, "src", "totem-tortela.js"), "utf8");
+const kioskHtml = fs.readFileSync(path.join(root, "totem.html"), "utf8");
+assert(kioskSource.includes("data-remove-cart-index"), "Totem: carrinho precisa ter botao explicito para remover item.");
+assert(kioskSource.includes("button.dataset.removeCartIndex"), "Totem: clique em Remover item precisa atualizar o carrinho.");
+assert(kioskHtml.includes("totem-cart-remove-v2"), "Totem: cache bust do carrinho nao foi atualizado.");
+
 (async () => {
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-kiosk-flow-"));

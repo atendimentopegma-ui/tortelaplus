@@ -645,6 +645,25 @@ body.tortela-kiosk-page button {
   background: #f6f9fc;
 }
 
+.tk-cart-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.tk-remove-item {
+  min-height: 42px;
+  border: 1px solid #ffd2a6;
+  border-radius: 14px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.tk-remove-item:active {
+  transform: translateY(1px);
+}
+
 .tk-cart-row h2 {
   margin: 0 0 6px;
   font-size: 22px;

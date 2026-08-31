@@ -308,10 +308,13 @@ function cartRows(editable = true) {
         <small>${[item.size, item.coverage, ...(item.extras || [])].filter(Boolean).join(" - ") || "Padrao"}</small>
       </div>
       ${editable ? `
-        <div class="tk-stepper">
-          <button data-cart-index="${index}" data-delta="-1">-</button>
-          <b>${item.qty}</b>
-          <button data-cart-index="${index}" data-delta="1">+</button>
+        <div class="tk-cart-controls">
+          <div class="tk-stepper">
+            <button data-cart-index="${index}" data-delta="-1" aria-label="Diminuir quantidade">-</button>
+            <b>${item.qty}</b>
+            <button data-cart-index="${index}" data-delta="1" aria-label="Aumentar quantidade">+</button>
+          </div>
+          <button class="tk-remove-item" data-remove-cart-index="${index}" type="button">Remover item</button>
         </div>
       ` : `<b>${item.qty}x</b>`}
       <strong>${money(item.price * item.qty)}</strong>
@@ -450,6 +453,10 @@ document.addEventListener("click", (event) => {
     if (!item) return;
     item.qty += Number(button.dataset.delta || 0);
     state.cart = state.cart.filter((row) => row.qty > 0);
+    return render();
+  }
+  if (button.dataset.removeCartIndex) {
+    state.cart.splice(Number(button.dataset.removeCartIndex), 1);
     return render();
   }
   if (button.dataset.payment) {
