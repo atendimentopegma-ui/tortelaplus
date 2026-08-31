@@ -3123,6 +3123,54 @@ header.topbar .top-right .central-top-action:hover {
   }
 }
 
+.sales-screen {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.sales-work-area {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.sales-desktop-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(260px, 1fr);
+  gap: 12px;
+  overflow: auto;
+}
+
+.sales-order-card,
+.sales-items-card,
+.sales-history-card {
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.sales-order-card {
+  align-content: start;
+  border-left: 4px solid #0f7891;
+}
+
+.sales-history-card {
+  min-height: 220px;
+  overflow: auto;
+}
+
+.sales-order-card h3,
+.sales-items-card h3 {
+  margin-top: 0;
+}
+
+.sales-order-card:focus,
+.sales-items-card:focus,
+.sales-history-card:focus {
+  outline: 3px solid rgba(15, 120, 145, 0.24);
+  outline-offset: 2px;
+}
+
 @media (max-width: 1100px) {
   .erp-overview {
     grid-template-columns: repeat(2, minmax(140px, 1fr));

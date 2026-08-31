@@ -2324,26 +2324,91 @@ function renderPurchases() {
 
 function renderSales() {
   const orderTotal = orderItems.reduce((sum, item) => sum + item.qty * item.price, 0);
+  const monthSales = state.sales.filter((sale) => String(sale.date || "").slice(0, 7) === today().slice(0, 7));
+  const openQuotes = state.sales.filter((sale) => sale.type === "Orcamento" && sale.status === "Aberto");
+  const closedSales = state.sales.filter((sale) => sale.type !== "Orcamento" && !["Cancelado", "Devolvido", "Trocado"].includes(sale.status));
+  const monthTotal = monthSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Vendas e orcamentos</h2><div class="actions"><button class="btn primary" id="save-order">Salvar pedido/orcamento</button></div></div>
-      <div class="panel-body grid">
-        <div class="form-card grid four">
-          <div class="field"><label>Cliente</label><select id="order-customer">${state.people.filter((p) => p.type === "Cliente").map((p) => `<option>${p.name}</option>`).join("")}</select></div>
-          <div class="field"><label>Produto</label><select id="order-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
-          <div class="field"><label>Quantidade</label><input id="order-qty" type="number" step="0.001" value="1" /></div>
-          <div class="field"><label>Tipo</label><select id="order-type"><option>Pedido</option><option>Orcamento</option></select></div>
-          <div class="field"><label>Forma de pagamento</label><select id="order-payment"><option>Dinheiro</option><option>PIX</option><option>Cartao</option><option>Boleto</option><option>Crediario</option></select></div>
-          <div class="field"><label>Vencimento</label><input id="order-due" type="date" value="${today()}" /></div>
-          <div class="field"><label>Total</label><input readonly value="${money(orderTotal)}" /></div>
-          <div class="actions"><button class="btn" id="add-order-item" type="button">Adicionar item</button><button class="btn danger" id="clear-order-items" type="button">Limpar itens</button></div>
+    <section class="panel sales-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Vendas e orcamentos</strong>
+        <span>Pedido, orcamento, recebimento e acoes pos-venda</span>
+        <span>${monthSales.length} lancamento(s) no mes</span>
+      </div>
+
+      <div class="desktop-module-ribbon">
+        <button class="desktop-ribbon-button primary" id="add-order-item-ribbon" type="button">
+          <span class="dashboard-module-icon icon-products" aria-hidden="true"></span>
+          <strong>Adicionar item</strong>
+          <small>Produto na venda</small>
+        </button>
+        <button class="desktop-ribbon-button" id="clear-order-items-ribbon" type="button">
+          <span class="dashboard-module-icon icon-settings" aria-hidden="true"></span>
+          <strong>Limpar itens</strong>
+          <small>Recomecar venda</small>
+        </button>
+        <button class="desktop-ribbon-button primary" id="save-order-ribbon" type="button">
+          <span class="dashboard-module-icon icon-sales" aria-hidden="true"></span>
+          <strong>Salvar</strong>
+          <small>Pedido/orcamento</small>
+        </button>
+      </div>
+
+      <div class="desktop-context-strip">
+        <button class="active" data-sales-step="order" type="button">Dados da venda</button>
+        <button data-sales-step="items" type="button">Itens</button>
+        <button data-sales-step="history" type="button">Historico</button>
+        <span class="desktop-context-metric">Total atual: ${money(orderTotal)}</span>
+      </div>
+
+      <div class="desktop-work-area sales-work-area">
+        <div class="desktop-summary-strip">
+          <div><span>Itens atuais</span><strong>${orderItems.length}</strong></div>
+          <div><span>Total atual</span><strong>${money(orderTotal)}</strong></div>
+          <div><span>Orcamentos abertos</span><strong>${openQuotes.length}</strong></div>
+          <div><span>Vendas ativas</span><strong>${closedSales.length}</strong></div>
+          <div><span>Total do mes</span><strong>${money(monthTotal)}</strong></div>
         </div>
-        <div class="table-wrap">
-          <table><thead><tr><th>Produto</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead><tbody>${orderItems.length ? orderItems.map((item, index) => `<tr><td>${item.description}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-order-item="${index}">Remover</button></td></tr>`).join("") : `<tr><td colspan="6">Adicione os produtos do pedido ou orcamento.</td></tr>`}</tbody></table>
+
+        <div class="desktop-filter-panel">
+          <div class="filter-caption">Fluxo de venda</div>
+          <p>Escolha cliente, tipo, pagamento e vencimento. Depois adicione itens e salve como pedido ou orcamento.</p>
         </div>
-        <div class="table-wrap">
-          <table><thead><tr><th>Numero</th><th>Data</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Comissao</th><th>Tipo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.sales.map((sale) => `<tr><td>${sale.id}</td><td>${sale.date}</td><td>${sale.customer}</td><td>${sale.seller}</td><td>${money(sale.total)}</td><td>${money(sale.commission || 0)}</td><td>${sale.type}</td><td><span class="badge ${sale.status === "Cancelado" || sale.status === "Devolvido" || sale.status === "Trocado" ? "danger" : sale.status === "Aberto" || sale.status === "Parcialmente devolvido" ? "warn" : "ok"}">${sale.status || "Fechado"}</span></td><td>${sale.type === "Orcamento" && sale.status === "Aberto" ? `<button class="btn primary" data-convert-quote="${sale.id}">Converter em pedido</button>` : ["Fechado", "Parcialmente devolvido"].includes(sale.status) ? `<button class="btn" data-return-sale="${sale.id}">Devolver</button> <button class="btn" data-exchange-sale="${sale.id}">Trocar</button> ${sale.status === "Fechado" ? `<button class="btn danger" data-cancel-sale-record="${sale.id}">Cancelar</button>` : ""}` : "-"}</td></tr>`).join("")}</tbody></table>
+
+        <div class="sales-desktop-body">
+          <div class="form-card sales-order-card" id="sales-step-order" tabindex="-1">
+            <h3>Dados da venda</h3>
+            <div class="grid four">
+              <div class="field"><label>Cliente</label><select id="order-customer">${state.people.filter((p) => p.type === "Cliente").map((p) => `<option>${p.name}</option>`).join("")}</select></div>
+              <div class="field"><label>Tipo</label><select id="order-type"><option>Pedido</option><option>Orcamento</option></select></div>
+              <div class="field"><label>Forma de pagamento</label><select id="order-payment"><option>Dinheiro</option><option>PIX</option><option>Cartao</option><option>Boleto</option><option>Crediario</option></select></div>
+              <div class="field"><label>Vencimento</label><input id="order-due" type="date" value="${today()}" /></div>
+              <div class="field"><label>Total atual</label><input readonly value="${money(orderTotal)}" /></div>
+            </div>
+          </div>
+
+          <div class="form-card sales-items-card" id="sales-step-items" tabindex="-1">
+            <h3>Itens</h3>
+            <div class="grid four">
+              <div class="field"><label>Produto</label><select id="order-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
+              <div class="field"><label>Quantidade</label><input id="order-qty" type="number" step="0.001" value="1" /></div>
+            </div>
+            <div class="actions"><button class="btn primary" id="add-order-item" type="button">Adicionar item</button><button class="btn danger" id="clear-order-items" type="button">Limpar itens</button></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Produto</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead><tbody>${orderItems.length ? orderItems.map((item, index) => `<tr><td>${item.description}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-order-item="${index}">Remover</button></td></tr>`).join("") : `<tr><td colspan="6">Adicione os produtos do pedido ou orcamento.</td></tr>`}</tbody></table>
+            </div>
+          </div>
+
+          <div class="table-wrap sales-history-card" id="sales-step-history" tabindex="-1">
+            <table><thead><tr><th>Numero</th><th>Data</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Comissao</th><th>Tipo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.sales.map((sale) => `<tr><td>${sale.id}</td><td>${sale.date}</td><td>${sale.customer}</td><td>${sale.seller}</td><td>${money(sale.total)}</td><td>${money(sale.commission || 0)}</td><td>${sale.type}</td><td><span class="badge ${sale.status === "Cancelado" || sale.status === "Devolvido" || sale.status === "Trocado" ? "danger" : sale.status === "Aberto" || sale.status === "Parcialmente devolvido" ? "warn" : "ok"}">${sale.status || "Fechado"}</span></td><td>${sale.type === "Orcamento" && sale.status === "Aberto" ? `<button class="btn primary" data-convert-quote="${sale.id}">Converter em pedido</button>` : ["Fechado", "Parcialmente devolvido"].includes(sale.status) ? `<button class="btn" data-return-sale="${sale.id}">Devolver</button> <button class="btn" data-exchange-sale="${sale.id}">Trocar</button> ${sale.status === "Fechado" ? `<button class="btn danger" data-cancel-sale-record="${sale.id}">Cancelar</button>` : ""}` : "-"}</td></tr>`).join("") || `<tr><td colspan="9">Nenhuma venda registrada.</td></tr>`}</tbody></table>
+          </div>
         </div>
+      </div>
+
+      <div class="desktop-action-bar erp-action-bar">
+        <button class="desktop-command" id="add-order-item-footer" type="button"><span>+</span>Adicionar item</button>
+        <button class="desktop-command" id="clear-order-items-footer" type="button"><span>L</span>Limpar itens</button>
+        <button class="desktop-command primary" id="save-order" type="button"><span>S</span>Salvar pedido/orcamento</button>
       </div>
     </section>
   `;
@@ -3534,12 +3599,31 @@ function bindCurrentModule() {
 
   const saveOrder = byId("save-order");
   if (saveOrder) saveOrder.addEventListener("click", saveOrderRecord);
+  const saveOrderRibbon = byId("save-order-ribbon");
+  if (saveOrderRibbon) saveOrderRibbon.addEventListener("click", saveOrderRecord);
   const addOrderItem = byId("add-order-item");
   if (addOrderItem) addOrderItem.addEventListener("click", addOrderItemRecord);
+  const addOrderItemRibbon = byId("add-order-item-ribbon");
+  if (addOrderItemRibbon) addOrderItemRibbon.addEventListener("click", addOrderItemRecord);
+  const addOrderItemFooter = byId("add-order-item-footer");
+  if (addOrderItemFooter) addOrderItemFooter.addEventListener("click", addOrderItemRecord);
   const clearOrderItems = byId("clear-order-items");
   if (clearOrderItems) clearOrderItems.addEventListener("click", () => {
     orderItems = [];
     renderShell();
+  });
+  const clearOrderItemsRibbon = byId("clear-order-items-ribbon");
+  if (clearOrderItemsRibbon) clearOrderItemsRibbon.addEventListener("click", () => {
+    orderItems = [];
+    renderShell();
+  });
+  const clearOrderItemsFooter = byId("clear-order-items-footer");
+  if (clearOrderItemsFooter) clearOrderItemsFooter.addEventListener("click", () => {
+    orderItems = [];
+    renderShell();
+  });
+  document.querySelectorAll("[data-sales-step]").forEach((button) => {
+    button.addEventListener("click", () => focusSalesStep(button.dataset.salesStep || "order"));
   });
   document.querySelectorAll("[data-remove-order-item]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -5288,6 +5372,21 @@ function addOrderItemRecord() {
   if (existing) existing.qty += qty;
   else orderItems.push({ id: product.id, description: product.description, qty, unit: product.unit, price: effectiveProductPrice(product, qty) });
   renderShell();
+}
+
+function focusSalesStep(step) {
+  const targets = {
+    order: ["sales-step-order", "order-customer"],
+    items: ["sales-step-items", "order-product"],
+    history: ["sales-step-history", ""]
+  };
+  const [sectionId, fieldId] = targets[step] || targets.order;
+  const section = byId(sectionId);
+  if (!section) return;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  section.focus({ preventScroll: true });
+  const field = fieldId ? byId(fieldId) : null;
+  if (field) setTimeout(() => field.focus(), 160);
 }
 
 function saveOrderRecord() {
