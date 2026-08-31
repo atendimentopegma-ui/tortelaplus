@@ -175,7 +175,7 @@ function audit(action, detail) {
   state.auditLogs.unshift({
     id: nextId(state.auditLogs),
     at: new Date().toISOString(),
-    user: authUser?.username || "lojista",
+    user: authUser?.username || "franqueado",
     action,
     detail
   });
@@ -200,7 +200,7 @@ function renderLogin() {
       <section class="login-card">
         <div class="login-brand tortela-login-brand">
           ${brandMarkup()}
-          <div><h1>Central do Lojista</h1><p>Controle simples da unidade: financeiro, estoque, relatorios, QR e usuarios.</p></div>
+          <div><h1>Central do Franqueado</h1><p>Controle da unidade: financeiro, estoque, relatorios, QR e usuarios.</p></div>
         </div>
         <form class="login-panel" id="store-login">
           <h2>Acesso da loja</h2>
@@ -224,7 +224,7 @@ async function login(event) {
         tenantCode,
         user: byId("store-user").value.trim(),
         password: byId("store-password").value,
-        terminalName: "Central do Lojista"
+        terminalName: "Central do Franqueado"
       })
     });
     sessionId = result.sessionId;
@@ -284,10 +284,10 @@ function renderLicenseGate() {
           </div>
         </div>
         <form class="login-panel" id="license-form">
-          <h2>Codigo do lojista</h2>
+          <h2>Codigo do franqueado</h2>
           <div class="network-card kpi"><small>Enviar para a Central Administrativa</small><strong>${escapeHtml(challenge)}</strong><span>Prazo configurado: ${amount(renewalDays)} dia(s)</span></div>
           <div class="field"><label>Contra-senha recebida</label><input id="counter-password" placeholder="AAA-0000" autocomplete="off" required /></div>
-          <button class="btn primary" type="submit">Liberar Central do Lojista</button>
+          <button class="btn primary" type="submit">Liberar Central do Franqueado</button>
           <button class="btn ghost" id="license-refresh" type="button">Verificar liberacao da Central</button>
           <button class="btn ghost" id="license-logout" type="button">Voltar</button>
         </form>
@@ -347,7 +347,7 @@ async function refreshLicenseStatus() {
 function render() {
   byId("app").innerHTML = `
     <header class="topbar tortela-topbar">
-      <div class="brand">${brandMarkup()}<div><strong>Central do Lojista</strong><small>${escapeHtml(state.settings?.company || tenant?.tradeName || tenantCode)} | ${escapeHtml(authUser?.role || "Usuario")}</small></div></div>
+      <div class="brand">${brandMarkup()}<div><strong>Central do Franqueado</strong><small>${escapeHtml(state.settings?.company || tenant?.tradeName || tenantCode)} | ${escapeHtml(authUser?.role || "Usuario")}</small></div></div>
       <div class="top-right">
         <button class="btn network-white" id="refresh">Atualizar</button>
         <a class="btn network-white" href="./index.html#mode=pdv">PDV</a>
@@ -392,7 +392,7 @@ function renderCurrentModule() {
 }
 
 function moduleTitle(title, detail, action = "") {
-  return `<div class="network-module-title"><div><h1>${title}</h1><p>${detail}</p></div>${action}</div>`;
+  return `<div class="network-module-title"><div><h1>${title}</h1>${detail ? `<p>${detail}</p>` : ""}</div>${action}</div>`;
 }
 
 function kpi(label, value, note = "") {
@@ -428,7 +428,7 @@ function channelLabel(sale = {}) {
   if (sale.onlineOrder && sale.delivery === "Retirada") return "Loja online - retirada";
   if (sale.onlineOrder || source.includes("loja online") || source.includes("delivery")) return "Loja online";
   if (source.includes("pdv") || sale.cashRegisterId || sale.cashRegisterOpenedAt) return "PDV";
-  if (source.includes("central do lojista")) return "Importado";
+  if (source.includes("central do lojista") || source.includes("central do franqueado")) return "Importado";
   return sale.type === "Orcamento" ? "Orcamento" : "Venda da loja";
 }
 
@@ -449,7 +449,7 @@ function renderOverview() {
   const data = totals();
   const pendingOrders = state.sales.filter((sale) => sale.onlineOrder && !["Entregue", "Cancelado", "Cancelada"].includes(sale.status));
   return `<div class="network-module compact">
-    ${moduleTitle("Painel do lojista", "Operacao da unidade sem controles totais da Central administrativa.")}
+    ${moduleTitle("Painel do franqueado", "")}
     <div class="network-grid four">
       ${kpi("Vendas no mes", money(data.salesTotal), `${amount(data.sales.length)} venda(s)`)}
       ${kpi("A receber aberto", money(data.receivableOpen))}
@@ -589,7 +589,7 @@ async function savePerson(event) {
     email: byId("person-email").value.trim(),
     active: true,
     registeredAt: new Date().toISOString(),
-    source: "Central do Lojista"
+    source: "Central do Franqueado"
   });
   audit("Pessoa cadastrada", name);
   const saved = await saveState("people", "Pessoa salva.");
@@ -658,7 +658,7 @@ async function saveProduct(event) {
     ncm: byId("product-ncm").value.trim(),
     fiscalStatus: byId("product-ncm").value.trim() ? "Conferir" : "Pendente",
     active: true,
-    source: "Central do Lojista"
+    source: "Central do Franqueado"
   });
   audit("Produto cadastrado", description);
   const saved = await saveState("products", "Produto salvo.");
@@ -846,14 +846,14 @@ async function savePurchase(event) {
     document: byId("purchase-document").value.trim(),
     total,
     status: "Confirmada",
-    source: "Central do Lojista",
+    source: "Central do Franqueado",
     items: [{ productId: product.id, description: product.description, qty, unit: product.unit || "UN", cost, total }]
   };
   state.purchases.push(purchase);
   product.stock = Number(product.stock || 0) + qty;
   if (cost > 0) product.cost = cost;
   addStockMovement(product, "Entrada compra", qty, `Compra ${purchase.id} - ${purchase.supplier}`, {
-    location: "Central do Lojista",
+    location: "Central do Franqueado",
     purchaseId: purchase.id
   });
   audit("Compra lancada", `${purchase.supplier} ${money(total)}`);
@@ -879,7 +879,7 @@ async function submitManualStockDrop(event) {
       title: "Baixa manual de estoque",
       detail: `${product.description} - ${amount(qty)}`,
       justification: note,
-      requestedBy: authUser?.username || "lojista",
+      requestedBy: authUser?.username || "franqueado",
       requestedAt: new Date().toISOString(),
       status: "Pendente",
       priority: "Alta",
@@ -889,7 +889,7 @@ async function submitManualStockDrop(event) {
         direction,
         type: "Baixa manual autorizada",
         history: `${reason}: ${note}`,
-        details: { location: "Central do Lojista", manualDrop: true, reason }
+        details: { location: "Central do Franqueado", manualDrop: true, reason }
       }
     });
     audit("Baixa manual enviada para aprovacao", `${product.description}: ${amount(qty)} - ${reason}`);
@@ -899,10 +899,10 @@ async function submitManualStockDrop(event) {
   }
   product.stock = Number(product.stock || 0) + direction;
   addStockMovement(product, "Baixa manual", direction, `${reason}: ${note}`, {
-    location: "Central do Lojista",
+    location: "Central do Franqueado",
     manualDrop: true,
     reason,
-    requestedBy: authUser?.username || "lojista",
+    requestedBy: authUser?.username || "franqueado",
     createdAt: new Date().toISOString()
   });
   audit("Baixa manual registrada", `${product.description}: ${amount(qty)} - ${reason}`);
@@ -913,14 +913,14 @@ async function submitManualStockDrop(event) {
 function renderFiscal() {
   const printMode = state.settings?.pdvPrintMode || "Ambos";
   return `<div class="network-module compact">
-    ${moduleTitle("Fiscal e impressao da loja", "NF-e/DANFE ficam na Central do Lojista. O PDV imprime recibo simples ou cupom fiscal conforme configuracao local.")}
+    ${moduleTitle("Fiscal e impressao da loja", "NF-e/DANFE ficam na Central do Franqueado. O PDV imprime recibo simples ou cupom fiscal conforme configuracao local.")}
     <section class="network-card">
       <h2>Configuracao do PDV</h2>
       <form class="network-form" id="print-settings-form">
         <div class="field"><label>Impressao permitida no PDV</label><select id="pdv-print-mode">
           ${["Ambos", "Recibo simples", "Cupom fiscal"].map((item) => `<option ${printMode === item ? "selected" : ""}>${item}</option>`).join("")}
         </select></div>
-        <div class="field"><label>NF-e / DANFE pela Central do Lojista</label><select id="lojista-danfe-enabled"><option value="true">Sim</option><option value="false" ${state.settings?.lojistaDanfeEnabled === false ? "selected" : ""}>Nao</option></select></div>
+        <div class="field"><label>NF-e / DANFE pela Central do Franqueado</label><select id="lojista-danfe-enabled"><option value="true">Sim</option><option value="false" ${state.settings?.lojistaDanfeEnabled === false ? "selected" : ""}>Nao</option></select></div>
         <div class="field"><label>Ambiente fiscal</label><select id="fiscal-environment"><option ${state.settings?.fiscalEnvironment === "Homologacao" ? "selected" : ""}>Homologacao</option><option ${state.settings?.fiscalEnvironment === "Producao" ? "selected" : ""}>Producao</option></select></div>
         <div class="field"><label>Serie NF-e</label><input id="nfe-serie" value="${escapeAttr(state.settings?.nfeSerie || "1")}" /></div>
         <button class="btn primary full" type="submit">Salvar configuracao fiscal</button>
@@ -949,7 +949,7 @@ async function savePrintSettings(event) {
   state.settings.lojistaDanfeEnabled = byId("lojista-danfe-enabled").value === "true";
   state.settings.fiscalEnvironment = byId("fiscal-environment").value;
   state.settings.nfeSerie = byId("nfe-serie").value.trim() || "1";
-  audit("Configuracao fiscal/impressao alterada", `PDV: ${state.settings.pdvPrintMode}; DANFE lojista: ${state.settings.lojistaDanfeEnabled ? "sim" : "nao"}`);
+  audit("Configuracao fiscal/impressao alterada", `PDV: ${state.settings.pdvPrintMode}; DANFE franqueado: ${state.settings.lojistaDanfeEnabled ? "sim" : "nao"}`);
   const saved = await saveState("fiscal_transmit", "Configuracao fiscal salva e visivel para a Central Administrativa.");
   if (saved) render();
 }
@@ -962,7 +962,7 @@ async function transmitFiscalRow(id) {
     return alert("O PDV esta configurado para recibo simples. Altere a configuracao fiscal antes de transmitir NFC-e.");
   }
   if (row.model === "NF-e" && state.settings?.lojistaDanfeEnabled === false) {
-    return alert("NF-e/DANFE esta desativado para a Central do Lojista.");
+    return alert("NF-e/DANFE esta desativado para a Central do Franqueado.");
   }
   try {
     const result = await api(`/api/tenant/${encodeURIComponent(tenantCode)}/fiscal/transmit`, {
@@ -970,7 +970,7 @@ async function transmitFiscalRow(id) {
       body: JSON.stringify({ document: row })
     });
     Object.assign(row, result.document);
-    audit("Documento fiscal transmitido pela Central do Lojista", `${row.model} ${row.id}`);
+    audit("Documento fiscal transmitido pela Central do Franqueado", `${row.model} ${row.id}`);
     await saveState("fiscal_transmit", "Documento fiscal transmitido.");
   } catch (error) {
     alert(error.message || "Nao foi possivel transmitir o documento fiscal.");
@@ -1001,7 +1001,7 @@ async function receiveQr(event) {
       return;
     }
     product.stock = Number(product.stock || 0) + qty;
-    const details = { lot: item.lot || payload.lot || "", expiry: item.expiry || payload.expiry || "", location: "Central do Lojista" };
+    const details = { lot: item.lot || payload.lot || "", expiry: item.expiry || payload.expiry || "", location: "Central do Franqueado" };
     addStockMovement(product, "Entrada Central QR", qty, `Remessa Central ${payload.shipmentId || payload.id || ""}`.trim(), details);
     upsertStockLot(product, details.lot, details.expiry, qty);
     applied.push(`${product.description}: ${qty}`);
@@ -1071,7 +1071,7 @@ async function runImport(event) {
   const permission = type === "stock" ? "stock_adjust" : type === "sales" ? "sales" : "finance";
   if (!requirePermission(permission)) return;
   const imported = applyImport(type, rows);
-  audit("Importacao do lojista", `${imported} registro(s) em ${type}`);
+  audit("Importacao do franqueado", `${imported} registro(s) em ${type}`);
   const saved = await saveState(permission, `${imported} registro(s) importado(s).`);
   if (saved) render();
 }
@@ -1084,9 +1084,9 @@ function applyImport(type, rows) {
       customer: row.customer || row.client || "Consumidor Final",
       total: Number(String(row.total || row.value || 0).replace(",", ".")),
       status: row.status || "Importada",
-      seller: row.seller || row.operator || authUser?.username || "Lojista",
+      seller: row.seller || row.operator || authUser?.username || "Franqueado",
       payment: row.payment || row.paymentMethod || "",
-      source: row.source || "Central do Lojista",
+      source: row.source || "Central do Franqueado",
       channel: row.channel || row.source || "Importado"
     }));
   }
@@ -1097,7 +1097,7 @@ function applyImport(type, rows) {
       dueDate: row.dueDate || row.due || row.date || today(),
       value: Number(String(row.value || row.total || 0).replace(",", ".")),
       status: row.status || "Aberto",
-      history: row.history || "Importado pela Central do Lojista"
+      history: row.history || "Importado pela Central do Franqueado"
     }));
   }
   if (type === "receivables") {
@@ -1107,7 +1107,7 @@ function applyImport(type, rows) {
       dueDate: row.dueDate || row.due || row.date || today(),
       value: Number(String(row.value || row.total || 0).replace(",", ".")),
       status: row.status || "Aberto",
-      history: row.history || "Importado pela Central do Lojista"
+      history: row.history || "Importado pela Central do Franqueado"
     }));
   }
   if (type === "stock") {
@@ -1116,7 +1116,7 @@ function applyImport(type, rows) {
       const qty = Number(String(row.qty || row.quantity || 0).replace(",", "."));
       if (!product || !qty) return;
       product.stock = Number(product.stock || 0) + qty;
-      addStockMovement(product, row.type || "Importacao", qty, row.history || "Importado pela Central do Lojista", {
+      addStockMovement(product, row.type || "Importacao", qty, row.history || "Importado pela Central do Franqueado", {
         lot: row.lot || "",
         expiry: row.expiry || "",
         location: row.location || "Importacao"
@@ -1161,7 +1161,7 @@ async function addPayable(event) {
     dueDate: byId("payable-due").value,
     value: Number(byId("payable-value").value || 0),
     status: "Aberto",
-    history: "Lancado pela Central do Lojista"
+    history: "Lancado pela Central do Franqueado"
   });
   audit("Conta a pagar criada", byId("payable-supplier").value.trim());
   const saved = await saveState("finance", "Conta a pagar adicionada.");
@@ -1202,7 +1202,7 @@ async function addReceivable(event) {
     dueDate: byId("receivable-due").value,
     value: Number(byId("receivable-value").value || 0),
     status: "Aberto",
-    history: "Lancado pela Central do Lojista"
+    history: "Lancado pela Central do Franqueado"
   });
   audit("Conta a receber criada", byId("receivable-customer").value.trim());
   const saved = await saveState("finance", "Conta a receber adicionada.");
@@ -1229,7 +1229,7 @@ function restoreOrderStock(sale) {
     if (!product || qty <= 0) return;
     product.stock = Number(product.stock || 0) + qty;
     addStockMovement(product, "Estorno pedido", qty, `Cancelamento do pedido ${sale.id}`, {
-      location: "Central do Lojista",
+      location: "Central do Franqueado",
       sourceSaleId: sale.id
     });
   });
@@ -1272,7 +1272,7 @@ function renderReports() {
   }));
   const ranking = Object.entries(topProducts).sort((a, b) => b[1] - a[1]).slice(0, 10);
   return `<div class="network-module compact">
-    ${moduleTitle("Relatorios da unidade", "Indicadores resumidos para tomada de decisao do lojista.", `<button class="btn primary" id="export-report">Exportar CSV</button>`)}
+    ${moduleTitle("Relatorios da unidade", "Indicadores resumidos para tomada de decisao do franqueado.", `<button class="btn primary" id="export-report">Exportar CSV</button>`)}
     <div class="network-grid four">
       ${kpi("Vendas no mes", money(data.salesTotal))}
       ${kpi("Ticket medio", money(data.salesTotal / Math.max(1, data.sales.length)))}
@@ -1296,7 +1296,7 @@ function renderReports() {
       <h2>Fiscal e impressao</h2>
       ${table(["Configuracao", "Valor"], [
         ["Impressao PDV", escapeHtml(state.settings?.pdvPrintMode || "Ambos")],
-        ["NF-e/DANFE na Central do Lojista", state.settings?.lojistaDanfeEnabled === false ? "Nao" : "Sim"],
+        ["NF-e/DANFE na Central do Franqueado", state.settings?.lojistaDanfeEnabled === false ? "Nao" : "Sim"],
         ["Ambiente fiscal", escapeHtml(state.settings?.fiscalEnvironment || "Homologacao")],
         ["Documentos fiscais", amount(fiscalDocs.length)]
       ])}
