@@ -1277,6 +1277,14 @@ function renderPeople() {
   const activePeople = state.people.filter((person) => person.active !== false).length;
   const inactivePeople = state.people.length - activePeople;
   const selectedPerson = state.people.find((person) => Number(person.id) === Number(selectedPersonId));
+  const peopleRibbon = [
+    { title: "Cliente", text: "Venda e cadastro", icon: "people", type: "Cliente", kind: "primary" },
+    { title: "Fornecedor", text: "Compras e contas", icon: "purchases", type: "Fornecedor" },
+    { title: "Funcionario", text: "Equipe interna", icon: "settings", type: "Funcionario" },
+    { title: "Entregador", text: "Delivery e rota", icon: "sales", type: "Entregador" },
+    { title: "Motorista", text: "Transporte", icon: "stock", type: "Motorista" },
+    { title: "Contador", text: "Fiscal e notas", icon: "fiscal", type: "Contador" }
+  ];
   const peopleStats = {
     total: state.people.length,
     customers: state.people.filter((person) => person.type === "Cliente").length,
@@ -1285,144 +1293,136 @@ function renderPeople() {
     birthdays: state.people.filter((person) => String(person.birthDate || "").slice(5) >= today().slice(5)).length
   };
   return `
-    <section class="panel erp-screen people-screen didactic-screen">
-      <div class="panel-head didactic-head">
-        <div>
-          <h2>Pessoas</h2>
-          <p>Cadastre e encontre clientes, fornecedores, funcionarios, entregadores e contatos usados no PDV, compras, financeiro e fiscal.</p>
-        </div>
-        <div class="actions">
-          <button class="btn" id="copy-public-registration">Copiar link de cadastro</button>
-        </div>
+    <section class="panel erp-screen people-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Pessoas</strong>
+        <span>Clientes, fornecedores, funcionarios e contatos</span>
+        <span>${activePeople} ativos</span>
       </div>
 
-      <div class="people-quick-start">
-        <button class="quick-action-card primary" data-new-person-type="Cliente" type="button">
-          <strong>Novo cliente</strong>
-          <span>Para vender, fiar, emitir nota ou cadastrar delivery.</span>
-        </button>
-        <button class="quick-action-card" data-new-person-type="Fornecedor" type="button">
-          <strong>Novo fornecedor</strong>
-          <span>Para compras, contas a pagar e reposicao.</span>
-        </button>
-        <button class="quick-action-card" data-new-person-type="Funcionario" type="button">
-          <strong>Novo funcionario</strong>
-          <span>Para operador, entregador, motorista ou equipe interna.</span>
+      <div class="desktop-module-ribbon">
+        ${peopleRibbon.map((item) => `
+          <button class="desktop-ribbon-button ${item.kind || ""}" data-new-person-type="${item.type}" type="button">
+            <span class="dashboard-module-icon icon-${item.icon}" aria-hidden="true"></span>
+            <strong>${item.title}</strong>
+            <small>${item.text}</small>
+          </button>
+        `).join("")}
+        <button class="desktop-ribbon-button" id="copy-public-registration" type="button">
+          <span class="dashboard-module-icon icon-reports" aria-hidden="true"></span>
+          <strong>Link publico</strong>
+          <small>Cadastro do cliente</small>
         </button>
       </div>
 
-      <div class="erp-overview people-overview">
-        <div><span>Total</span><strong>${peopleStats.total}</strong></div>
-        <div><span>Clientes</span><strong>${peopleStats.customers}</strong></div>
-        <div><span>Fornecedores</span><strong>${peopleStats.suppliers}</strong></div>
-        <div><span>Alertas</span><strong>${peopleStats.alerts}</strong></div>
+      <div class="desktop-tab-strip">
+        <span class="active">Contatos</span>
+        <span>${personTypeFilter === "Todos" ? "Todos" : personTypeFilter}</span>
+        <span>${selectedPerson ? `Selecionado: ${selectedPerson.name}` : "Nenhum selecionado"}</span>
       </div>
 
-      <div class="people-workflow">
-        <div>
-          <strong>1. Localize ou filtre</strong>
-          <span>Busque antes de cadastrar para evitar duplicidade.</span>
+      <div class="desktop-work-area">
+        <div class="desktop-summary-strip">
+          <div><span>Total</span><strong>${peopleStats.total}</strong></div>
+          <div><span>Clientes</span><strong>${peopleStats.customers}</strong></div>
+          <div><span>Fornecedores</span><strong>${peopleStats.suppliers}</strong></div>
+          <div><span>Inativos</span><strong>${inactivePeople}</strong></div>
+          <div><span>Alertas</span><strong>${peopleStats.alerts}</strong></div>
         </div>
-        <div>
-          <strong>2. Selecione ou preencha</strong>
-          <span>Clique em uma linha para alterar, ou use os botoes de novo cadastro.</span>
+
+        <div class="desktop-filter-panel">
+          <div class="filter-caption">F6 | Localizar pessoa</div>
+          <div class="desktop-filter-line">
+            <input id="person-search" value="${escapeAttr(personSearch)}" placeholder="Digite nome, fantasia, CPF/CNPJ, cidade, telefone, placa ou RNTRC" />
+            <button class="btn" id="filter-people">Buscar</button>
+          </div>
+          <p>Use os filtros abaixo para separar clientes, fornecedores, funcionarios e demais contatos.</p>
         </div>
-        <div>
-          <strong>3. Salve</strong>
-          <span>O registro fica disponivel nos demais modulos do sistema.</span>
+
+        <div class="module-tabs desktop-record-tabs">
+          ${personFilters.map((type) => `<a class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}" href="#module=people&people=${encodeURIComponent(type)}" role="button">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : type}</a>`).join("")}
+        </div>
+
+        <div class="panel-body erp-body people-body desktop-record-body">
+          <div class="people-list-panel">
+            <div class="people-section-title">
+              <div>
+                <h3>Lista de pessoas</h3>
+                <p>${activePeople} ativo(s), ${inactivePeople} inativo(s), ${peopleStats.birthdays} aniversario(s) futuros.</p>
+              </div>
+              <span class="badge ${selectedPerson ? "ok" : "warn"}">${selectedPerson ? `Selecionado: ${selectedPerson.name}` : "Selecione para alterar"}</span>
+            </div>
+            ${peopleTable()}
+          </div>
+
+          <form class="form-card erp-edit-panel people-edit-panel" id="person-form">
+            <div class="people-section-title">
+              <div>
+                <h3>${editingPersonId ? "Alterar cadastro" : "Novo cadastro"}</h3>
+                <p>Dados essenciais primeiro. Endereco, fiscal e observacoes ficam em blocos separados.</p>
+              </div>
+              <span class="badge ${editingPersonId ? "warn" : "ok"}">${editingPersonId ? `Codigo ${editingPersonId}` : "Novo registro"}</span>
+            </div>
+
+            <div class="person-form-section required">
+              <h4>Dados essenciais</h4>
+              <div class="grid three">
+                <div class="field"><label>Tipo</label><select id="person-type">${personTypes.map((type) => `<option ${draft.type === type ? "selected" : ""}>${type}</option>`).join("")}</select></div>
+                <div class="field"><label>Nome/Razao social</label><input id="person-name" value="${escapeAttr(draft.name || "")}" required /></div>
+                <div class="field"><label>Fantasia/Apelido</label><input id="person-alias" value="${escapeAttr(draft.alias || "")}" /></div>
+                <div class="field"><label>CPF/CNPJ</label><input id="person-doc" value="${escapeAttr(draft.document || "")}" /></div>
+                <div class="field"><label>Telefone</label><input id="person-phone" value="${escapeAttr(draft.phone || "")}" /></div>
+                <div class="field"><label>WhatsApp</label><input id="person-whatsapp" value="${escapeAttr(draft.whatsapp || "")}" /></div>
+                <div class="field"><label>Email</label><input id="person-email" value="${escapeAttr(draft.email || "")}" /></div>
+                <div class="field"><label>Ativo</label><select id="person-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
+                <div class="field"><label>Limite de credito</label><input id="person-credit" type="number" step="0.01" value="${Number(draft.creditLimit || 0)}" /></div>
+              </div>
+            </div>
+
+            <div class="person-form-section">
+              <h4>Endereco</h4>
+              <div class="grid four">
+                <div class="field"><label>CEP</label><input id="person-cep" value="${escapeAttr(draft.cep || "")}" placeholder="01001000" /></div>
+                <div class="field wide-field"><label>Endereco</label><input id="person-address" value="${escapeAttr(draft.address || "")}" /></div>
+                <div class="field"><label>Numero</label><input id="person-number" value="${escapeAttr(draft.number || "")}" /></div>
+                <div class="field"><label>Bairro</label><input id="person-district" value="${escapeAttr(draft.district || "")}" /></div>
+                <div class="field"><label>Cidade</label><input id="person-city" value="${escapeAttr(draft.city || "")}" /></div>
+                <div class="field"><label>UF</label><input id="person-uf" value="${escapeAttr(draft.uf || "")}" maxlength="2" /></div>
+                <div class="field wide-field"><label>Complemento</label><input id="person-complement" value="${escapeAttr(draft.complement || "")}" /></div>
+              </div>
+              <span class="helper">Ao preencher o CEP, o sistema tenta completar endereco, bairro, cidade e UF automaticamente.</span>
+            </div>
+
+            <div class="person-form-section">
+              <h4>Fiscal, credito e operacao</h4>
+              <div class="grid four">
+                <div class="field"><label>RG/IE</label><input id="person-ie" value="${escapeAttr(draft.stateRegistration || "")}" /></div>
+                <div class="field"><label>Contribuinte</label><select id="person-taxpayer"><option ${draft.taxpayerType === "Nao contribuinte" ? "selected" : ""}>Nao contribuinte</option><option ${draft.taxpayerType === "Contribuinte ICMS" ? "selected" : ""}>Contribuinte ICMS</option><option ${draft.taxpayerType === "Isento" ? "selected" : ""}>Isento</option></select></div>
+                <div class="field"><label>Alerta SPC/CCF</label><select id="person-credit-alert"><option value="false">Nao</option><option value="true" ${draft.creditAlert ? "selected" : ""}>Sim</option></select></div>
+                <div class="field"><label>Tipo recebimento/frete</label><input id="person-payment-type" value="${escapeAttr(draft.paymentType || "")}" /></div>
+                <div class="field"><label>Data nascimento/aniversario</label><input id="person-birth" type="date" value="${escapeAttr(draft.birthDate || "")}" /></div>
+                <div class="field"><label>Contato responsavel</label><input id="person-contact" value="${escapeAttr(draft.contactName || "")}" /></div>
+                <div class="field"><label>CNH</label><input id="person-driver-license" value="${escapeAttr(draft.driverLicense || "")}" /></div>
+                <div class="field"><label>Placa/veiculo</label><input id="person-vehicle-plate" value="${escapeAttr(draft.vehiclePlate || "")}" /></div>
+                <div class="field"><label>RNTRC/ANTT</label><input id="person-rntrc" value="${escapeAttr(draft.rntrc || "")}" /></div>
+                <div class="field"><label>Cargo/funcao</label><input id="person-job-title" value="${escapeAttr(draft.jobTitle || "")}" /></div>
+              </div>
+            </div>
+
+            <div class="person-form-section">
+              <h4>Observacoes</h4>
+              <div class="field"><label>Notas internas</label><textarea id="person-notes" rows="3">${escapeHtml(draft.notes || "")}</textarea></div>
+            </div>
+          </form>
         </div>
       </div>
-
-      <div class="erp-search-strip people-search-strip">
-        <div>
-          <label>Localizar pessoa</label>
-          <span>Nome, fantasia, CPF/CNPJ, cidade, telefone, placa ou RNTRC.</span>
-        </div>
-        <div class="erp-search-line"><input id="person-search" value="${escapeAttr(personSearch)}" placeholder="Ex.: Maria, 12345678000190, Sao Paulo ou 11999999999" /><button class="btn" id="filter-people">Buscar</button></div>
-      </div>
-      <div class="module-tabs compact-tabs">
-        ${personFilters.map((type) => `<a class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}" href="#module=people&people=${encodeURIComponent(type)}" role="button">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : type}</a>`).join("")}
-      </div>
-
-      <div class="panel-body erp-body people-body">
-        <div class="people-list-panel">
-          <div class="people-section-title">
-            <div>
-              <h3>Lista de pessoas</h3>
-              <p>${activePeople} ativo(s), ${inactivePeople} inativo(s), ${peopleStats.birthdays} aniversario(s) futuros.</p>
-            </div>
-            <span class="badge ${selectedPerson ? "ok" : "warn"}">${selectedPerson ? `Selecionado: ${selectedPerson.name}` : "Selecione para alterar"}</span>
-          </div>
-          ${peopleTable()}
-        </div>
-
-        <form class="form-card erp-edit-panel people-edit-panel" id="person-form">
-          <div class="people-section-title">
-            <div>
-              <h3>${editingPersonId ? "Alterar cadastro" : "Novo cadastro"}</h3>
-              <p>Preencha primeiro os dados essenciais. Os demais campos ajudam no financeiro, entregas e fiscal.</p>
-            </div>
-            <span class="badge ${editingPersonId ? "warn" : "ok"}">${editingPersonId ? `Codigo ${editingPersonId}` : "Novo registro"}</span>
-          </div>
-
-          <div class="person-form-section required">
-            <h4>Dados essenciais</h4>
-            <div class="grid three">
-              <div class="field"><label>Tipo</label><select id="person-type">${personTypes.map((type) => `<option ${draft.type === type ? "selected" : ""}>${type}</option>`).join("")}</select></div>
-              <div class="field"><label>Nome/Razao social</label><input id="person-name" value="${escapeAttr(draft.name || "")}" required /></div>
-              <div class="field"><label>Fantasia/Apelido</label><input id="person-alias" value="${escapeAttr(draft.alias || "")}" /></div>
-              <div class="field"><label>CPF/CNPJ</label><input id="person-doc" value="${escapeAttr(draft.document || "")}" /></div>
-              <div class="field"><label>Telefone</label><input id="person-phone" value="${escapeAttr(draft.phone || "")}" /></div>
-              <div class="field"><label>WhatsApp</label><input id="person-whatsapp" value="${escapeAttr(draft.whatsapp || "")}" /></div>
-              <div class="field"><label>Email</label><input id="person-email" value="${escapeAttr(draft.email || "")}" /></div>
-              <div class="field"><label>Ativo</label><select id="person-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
-              <div class="field"><label>Limite de credito</label><input id="person-credit" type="number" step="0.01" value="${Number(draft.creditLimit || 0)}" /></div>
-            </div>
-          </div>
-
-          <div class="person-form-section">
-            <h4>Endereco</h4>
-            <div class="grid four">
-              <div class="field"><label>CEP</label><input id="person-cep" value="${escapeAttr(draft.cep || "")}" placeholder="01001000" /></div>
-              <div class="field wide-field"><label>Endereco</label><input id="person-address" value="${escapeAttr(draft.address || "")}" /></div>
-              <div class="field"><label>Numero</label><input id="person-number" value="${escapeAttr(draft.number || "")}" /></div>
-              <div class="field"><label>Bairro</label><input id="person-district" value="${escapeAttr(draft.district || "")}" /></div>
-              <div class="field"><label>Cidade</label><input id="person-city" value="${escapeAttr(draft.city || "")}" /></div>
-              <div class="field"><label>UF</label><input id="person-uf" value="${escapeAttr(draft.uf || "")}" maxlength="2" /></div>
-              <div class="field wide-field"><label>Complemento</label><input id="person-complement" value="${escapeAttr(draft.complement || "")}" /></div>
-            </div>
-            <span class="helper">Ao preencher o CEP, o sistema tenta completar endereco, bairro, cidade e UF automaticamente.</span>
-          </div>
-
-          <div class="person-form-section">
-            <h4>Fiscal, credito e operacao</h4>
-            <div class="grid four">
-              <div class="field"><label>RG/IE</label><input id="person-ie" value="${escapeAttr(draft.stateRegistration || "")}" /></div>
-              <div class="field"><label>Contribuinte</label><select id="person-taxpayer"><option ${draft.taxpayerType === "Nao contribuinte" ? "selected" : ""}>Nao contribuinte</option><option ${draft.taxpayerType === "Contribuinte ICMS" ? "selected" : ""}>Contribuinte ICMS</option><option ${draft.taxpayerType === "Isento" ? "selected" : ""}>Isento</option></select></div>
-              <div class="field"><label>Alerta SPC/CCF</label><select id="person-credit-alert"><option value="false">Nao</option><option value="true" ${draft.creditAlert ? "selected" : ""}>Sim</option></select></div>
-              <div class="field"><label>Tipo recebimento/frete</label><input id="person-payment-type" value="${escapeAttr(draft.paymentType || "")}" /></div>
-              <div class="field"><label>Data nascimento/aniversario</label><input id="person-birth" type="date" value="${escapeAttr(draft.birthDate || "")}" /></div>
-              <div class="field"><label>Contato responsavel</label><input id="person-contact" value="${escapeAttr(draft.contactName || "")}" /></div>
-              <div class="field"><label>CNH</label><input id="person-driver-license" value="${escapeAttr(draft.driverLicense || "")}" /></div>
-              <div class="field"><label>Placa/veiculo</label><input id="person-vehicle-plate" value="${escapeAttr(draft.vehiclePlate || "")}" /></div>
-              <div class="field"><label>RNTRC/ANTT</label><input id="person-rntrc" value="${escapeAttr(draft.rntrc || "")}" /></div>
-              <div class="field"><label>Cargo/funcao</label><input id="person-job-title" value="${escapeAttr(draft.jobTitle || "")}" /></div>
-            </div>
-          </div>
-
-          <div class="person-form-section">
-            <h4>Observacoes</h4>
-            <div class="field"><label>Notas internas</label><textarea id="person-notes" rows="3">${escapeHtml(draft.notes || "")}</textarea></div>
-          </div>
-        </form>
-      </div>
-      <div class="erp-action-bar">
-        <button class="btn primary" id="new-person" type="button">Novo</button>
-        <button class="btn" id="edit-selected-person" type="button">Alterar</button>
-        <button class="btn" id="print-people" type="button">Imprimir</button>
-        <button class="btn" id="refresh-people" type="button">Atualizar</button>
-        <button class="btn primary" id="save-person" type="button">${editingPersonId ? "Salvar alteracao" : "Salvar novo"}</button>
-        <button class="btn" id="close-people" type="button">Fechar</button>
+      <div class="desktop-action-bar erp-action-bar">
+        <button class="desktop-command primary" id="new-person" type="button"><span>+</span>F2 | Novo</button>
+        <button class="desktop-command" id="edit-selected-person" type="button"><span>=</span>F3 | Alterar</button>
+        <button class="desktop-command" id="print-people" type="button"><span>P</span>F4 | Imprimir</button>
+        <button class="desktop-command" id="refresh-people" type="button"><span>R</span>F5 | Atualizar</button>
+        <button class="desktop-command primary" id="save-person" type="button"><span>S</span>${editingPersonId ? "Salvar alteracao" : "Salvar novo"}</button>
+        <button class="desktop-command danger" id="close-people" type="button"><span>X</span>Fechar</button>
       </div>
     </section>
   `;
