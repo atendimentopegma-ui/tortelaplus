@@ -729,16 +729,9 @@ header.topbar .top-right .central-top-action:hover {
   box-shadow: 0 10px 24px rgba(17, 30, 36, 0.08);
 }
 
-.dashboard-columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
-  gap: 16px;
-  align-items: start;
-}
-
 .dashboard-alert-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -759,8 +752,8 @@ header.topbar .top-right .central-top-action:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .dashboard-columns {
-    grid-template-columns: 1fr;
+  .dashboard-alert-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

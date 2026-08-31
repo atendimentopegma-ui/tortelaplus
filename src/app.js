@@ -1167,35 +1167,7 @@ function renderDashboard() {
       </div>
 
       <div class="dashboard-work-area">
-      <div class="dashboard-hero">
-        <div>
-          <span class="dashboard-eyebrow">Painel da retaguarda</span>
-          <h2>Resumo da operacao</h2>
-          <p>Comece pelos botoes do topo e acompanhe abaixo o que precisa de atencao hoje.</p>
-        </div>
-        <div class="dashboard-status ${hasAlerts ? "warn" : "ok"}">
-          <small>Status de hoje</small>
-          <strong>${hasAlerts ? "Revisar alertas" : "Operacao em ordem"}</strong>
-        </div>
-      </div>
-
-      <section class="panel dashboard-section">
-        <div class="panel-head">
-          <div>
-            <h3>Indicadores principais</h3>
-            <p>Numeros para acompanhar caixa, vendas e financeiro.</p>
-          </div>
-        </div>
-        <div class="panel-body grid four dashboard-kpis">
-          <div class="kpi"><small>Vendido hoje</small><strong>${money(todaySales)}</strong><span>Somente vendas nao canceladas</span></div>
-          <div class="kpi"><small>Ticket medio</small><strong>${money(averageTicket)}</strong><span>Media das vendas fechadas</span></div>
-          <div class="kpi"><small>A receber aberto</small><strong>${money(receivables)}</strong><span>Valores ainda pendentes</span></div>
-          <div class="kpi"><small>A pagar aberto</small><strong>${money(payables)}</strong><span>Compromissos em aberto</span></div>
-        </div>
-      </section>
-
-      <div class="dashboard-columns">
-        <section class="panel dashboard-section">
+        <section class="panel dashboard-section dashboard-main-grid">
           <div class="panel-head">
             <div>
               <h3>Comprar da Central</h3>
@@ -1215,6 +1187,33 @@ function renderDashboard() {
           </div>
         </section>
 
+        <div class="dashboard-hero">
+          <div>
+            <span class="dashboard-eyebrow">Painel da retaguarda</span>
+            <h2>Resumo da operacao</h2>
+            <p>Comece pelos botoes do topo e acompanhe abaixo o que precisa de atencao hoje.</p>
+          </div>
+          <div class="dashboard-status ${hasAlerts ? "warn" : "ok"}">
+            <small>Status de hoje</small>
+            <strong>${hasAlerts ? "Revisar alertas" : "Operacao em ordem"}</strong>
+          </div>
+        </div>
+
+        <section class="panel dashboard-section">
+          <div class="panel-head">
+            <div>
+              <h3>Indicadores principais</h3>
+              <p>Numeros para acompanhar caixa, vendas e financeiro.</p>
+            </div>
+          </div>
+          <div class="panel-body grid four dashboard-kpis">
+            <div class="kpi"><small>Vendido hoje</small><strong>${money(todaySales)}</strong><span>Somente vendas nao canceladas</span></div>
+            <div class="kpi"><small>Ticket medio</small><strong>${money(averageTicket)}</strong><span>Media das vendas fechadas</span></div>
+            <div class="kpi"><small>A receber aberto</small><strong>${money(receivables)}</strong><span>Valores ainda pendentes</span></div>
+            <div class="kpi"><small>A pagar aberto</small><strong>${money(payables)}</strong><span>Compromissos em aberto</span></div>
+          </div>
+        </section>
+
         <section class="panel dashboard-section">
           <div class="panel-head">
             <div>
@@ -1230,7 +1229,6 @@ function renderDashboard() {
             <button class="dashboard-alert-card" data-dashboard-module="fiscal" type="button"><small>Documentos fiscais pendentes</small><strong>${pendingFiscal.length}</strong><span>${pendingFiscal.filter((row) => row.lastFiscalError).length} com falha</span></button>
           </div>
         </section>
-      </div>
       </div>
     </section>
   `;
