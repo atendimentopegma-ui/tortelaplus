@@ -568,13 +568,14 @@ function renderPermissions() {
   return `<div class="network-module compact">
     ${moduleTitle("Permissoes dos franqueados", "Bloqueio, terminais, sessoes e modulos liberados por unidade.")}
     <section class="network-card">
-      ${table(["Unidade", "Status", "Terminais", "Sessoes", "Modulos", "Acao"], summary.permissions.map((row) => [
+      ${table(["Unidade", "Status", "Licenca", "Terminais", "Sessoes", "Modulos", "Acao"], summary.permissions.map((row) => [
         escapeHtml(row.unit || row.tradeName || row.tenantCode || "-"),
         `<span class="badge ${row.blocked ? "danger" : "ok"}">${escapeHtml(row.status || (row.blocked ? "Bloqueada" : "Ativo"))}</span>`,
+        `${escapeHtml(row.licenseExpiresAt || "-")}<br><small>${amount(row.licenseRemainingDays || 0)} dia(s) | periodo ${amount(row.renewalDays || 30)}</small>`,
         `${amount(row.terminalsUsed || row.activeSessions || 0)} / ${amount(row.terminalsLimit || 0)}`,
         amount(row.activeSessions || 0),
         escapeHtml(Array.isArray(row.modules) ? row.modules.join(", ") : (row.modules || "Todos")),
-        `<button class="btn ${row.blocked ? "primary" : "danger"}" data-tenant-status="${escapeAttr(row.tenantCode)}" data-status="${row.blocked ? "Ativo" : "Inadimplente"}">${row.blocked ? "Liberar" : "Neutralizar"}</button> <button class="btn" data-clear-sessions="${escapeAttr(row.tenantCode)}">Encerrar sessoes</button>`
+        `<button class="btn primary" data-license-release="${escapeAttr(row.tenantCode)}" data-days="${Number(row.renewalDays || 30)}">Boleto pago</button> <button class="btn" data-license-counter="${escapeAttr(row.tenantCode)}" data-days="${Number(row.renewalDays || 30)}">Gerar contra-senha</button> <button class="btn" data-license-expire="${escapeAttr(row.tenantCode)}">Pedir verificacao</button> <button class="btn ${row.blocked ? "primary" : "danger"}" data-tenant-status="${escapeAttr(row.tenantCode)}" data-status="${row.blocked ? "Ativo" : "Inadimplente"}">${row.blocked ? "Liberar" : "Neutralizar"}</button> <button class="btn" data-clear-sessions="${escapeAttr(row.tenantCode)}">Encerrar sessoes</button>`
       ]))}
     </section>
   </div>`;
@@ -602,6 +603,51 @@ async function clearTenantSessions(tenantCode) {
   try {
     await api(`/api/provider/tenant/${encodeURIComponent(tenantCode)}/sessions`, { method: "DELETE" });
     alert("Sessoes encerradas.");
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function generateLicenseCounter(tenantCode, days) {
+  const challenge = (prompt(`Informe o codigo de verificacao enviado pelo lojista da unidade ${tenantCode}:`) || "").trim().toUpperCase();
+  if (!challenge) return;
+  const period = Number(prompt("Liberar por quantos dias?", String(days || 30)) || days || 30);
+  try {
+    const result = await api("/api/licenses/counter", {
+      method: "POST",
+      body: JSON.stringify({ tenantCode, challenge, days: period })
+    });
+    alert(`Contra-senha da unidade ${tenantCode}: ${result.counterPassword}\nValidade solicitada: ${amount(result.days)} dia(s).`);
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function releaseLicensePaid(tenantCode, days) {
+  const period = Number(prompt("Liberar por quantos dias?", String(days || 30)) || days || 30);
+  if (!confirm(`Confirmar pagamento e liberar a unidade ${tenantCode} por ${period} dia(s)?`)) return;
+  try {
+    const result = await api("/api/licenses/release", {
+      method: "POST",
+      body: JSON.stringify({ tenantCode, days: period, status: "Ativo" })
+    });
+    alert(`Unidade liberada ate ${result.licenseExpiresAt}.`);
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function expireLicenseNow(tenantCode) {
+  if (!confirm(`Forcar a unidade ${tenantCode} a pedir codigo de verificacao no proximo acesso?`)) return;
+  try {
+    const result = await api("/api/licenses/expire", {
+      method: "POST",
+      body: JSON.stringify({ tenantCode })
+    });
+    alert(`Verificacao solicitada. Codigo base atual: ${result.challenge}`);
     await boot();
   } catch (error) {
     alert(error.message);
@@ -747,6 +793,9 @@ function bindRender() {
   if (priceTableForm) priceTableForm.addEventListener("submit", submitPriceTable);
   const shipmentQrForm = byId("shipment-qr-form");
   if (shipmentQrForm) shipmentQrForm.addEventListener("submit", generateShipmentQr);
+  document.querySelectorAll("[data-license-counter]").forEach((button) => button.addEventListener("click", () => generateLicenseCounter(button.dataset.licenseCounter, button.dataset.days)));
+  document.querySelectorAll("[data-license-release]").forEach((button) => button.addEventListener("click", () => releaseLicensePaid(button.dataset.licenseRelease, button.dataset.days)));
+  document.querySelectorAll("[data-license-expire]").forEach((button) => button.addEventListener("click", () => expireLicenseNow(button.dataset.licenseExpire)));
   document.querySelectorAll("[data-tenant-status]").forEach((button) => button.addEventListener("click", () => updateTenantStatus(button.dataset.tenantStatus, button.dataset.status)));
   document.querySelectorAll("[data-clear-sessions]").forEach((button) => button.addEventListener("click", () => clearTenantSessions(button.dataset.clearSessions)));
   document.querySelectorAll("[data-approve-request]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.approveRequest, "approved")));

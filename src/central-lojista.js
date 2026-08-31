@@ -78,6 +78,30 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function daysUntil(date) {
+  const target = new Date(`${date || today()}T00:00:00`).getTime();
+  const current = new Date(`${today()}T00:00:00`).getTime();
+  return Math.floor((target - current) / 86400000);
+}
+
+function simpleHash(text) {
+  let hash = 2166136261;
+  for (const char of String(text || "")) {
+    hash ^= char.charCodeAt(0);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return Math.abs(hash >>> 0).toString(36).toUpperCase().padStart(7, "0").slice(0, 7);
+}
+
+function licenseChallenge() {
+  const user = authUser?.username || "Operador";
+  return `S-${simpleHash(`${tenant?.tenantCode || tenantCode}|${tenant?.document || ""}|${tenant?.licenseExpiresAt || today()}|${user}`)}`;
+}
+
+function licenseExpired() {
+  return daysUntil(tenant?.licenseExpiresAt || today()) < 0;
+}
+
 function nextId(items = []) {
   return Math.max(0, ...items.map((item) => Number(item.id) || 0)) + 1;
 }
@@ -201,6 +225,10 @@ async function login(event) {
     sessionStorage.setItem("tortela-lojista-tenant", tenantCode);
     sessionStorage.setItem("tortela-lojista-user", JSON.stringify(authUser));
     sessionStorage.setItem("tortela-lojista-tenant-info", JSON.stringify(tenant));
+    if (licenseExpired()) {
+      renderLicenseGate();
+      return;
+    }
     await boot();
   } catch (error) {
     alert(error.message);
@@ -209,6 +237,7 @@ async function login(event) {
 
 async function boot() {
   if (!sessionId) return renderLogin();
+  if (tenant && licenseExpired()) return renderLicenseGate();
   try {
     state = normalizeState(await api(`/api/tenant/${encodeURIComponent(tenantCode)}/state`));
     render();
@@ -230,6 +259,80 @@ function logout(callApi = true) {
   sessionStorage.removeItem("tortela-lojista-user");
   sessionStorage.removeItem("tortela-lojista-tenant-info");
   renderLogin();
+}
+
+function renderLicenseGate() {
+  const challenge = licenseChallenge();
+  const renewalDays = Number(tenant?.renewalDays || 30);
+  byId("app").innerHTML = `
+    <main class="login-shell tortela-login-shell">
+      <section class="login-card">
+        <div class="login-brand tortela-login-brand">
+          ${brandMarkup()}
+          <div>
+            <h1>Verificacao da unidade</h1>
+            <p>O periodo definido pela Central Administrativa venceu. Envie o codigo abaixo ao administrador para receber a contra-senha.</p>
+          </div>
+        </div>
+        <form class="login-panel" id="license-form">
+          <h2>Codigo do lojista</h2>
+          <div class="network-card kpi"><small>Enviar para a Central Administrativa</small><strong>${escapeHtml(challenge)}</strong><span>Prazo configurado: ${amount(renewalDays)} dia(s)</span></div>
+          <div class="field"><label>Contra-senha recebida</label><input id="counter-password" placeholder="AAA-0000" autocomplete="off" required /></div>
+          <button class="btn primary" type="submit">Liberar Central do Lojista</button>
+          <button class="btn ghost" id="license-refresh" type="button">Verificar liberacao da Central</button>
+          <button class="btn ghost" id="license-logout" type="button">Voltar</button>
+        </form>
+      </section>
+    </main>`;
+  byId("license-form").addEventListener("submit", redeemLicense);
+  byId("license-refresh").addEventListener("click", refreshLicenseStatus);
+  byId("license-logout").addEventListener("click", () => logout(true));
+}
+
+async function redeemLicense(event) {
+  event.preventDefault();
+  try {
+    const result = await api("/api/licenses/redeem", {
+      method: "POST",
+      body: JSON.stringify({
+        tenantCode,
+        challenge: licenseChallenge(),
+        counterPassword: byId("counter-password").value,
+        days: Number(tenant?.renewalDays || 30),
+        user: authUser?.username || "Operador"
+      })
+    });
+    tenant.licenseExpiresAt = result.licenseExpiresAt;
+    sessionStorage.setItem("tortela-lojista-tenant-info", JSON.stringify(tenant));
+    alert(`Central liberada ate ${result.licenseExpiresAt}.`);
+    await boot();
+  } catch (error) {
+    alert(error.message || "Contra-senha invalida.");
+  }
+}
+
+async function refreshLicenseStatus() {
+  try {
+    const result = await api("/api/licenses/status", {
+      method: "POST",
+      body: JSON.stringify({
+        tenantCode,
+        sessionId,
+        user: authUser?.username || "Operador"
+      })
+    });
+    tenant = result.tenant;
+    sessionStorage.setItem("tortela-lojista-tenant-info", JSON.stringify(tenant));
+    if (!result.expired) {
+      alert(`Central liberada ate ${tenant.licenseExpiresAt}.`);
+      await boot();
+      return;
+    }
+    alert("A Central Administrativa ainda nao liberou esta unidade.");
+    renderLicenseGate();
+  } catch (error) {
+    alert(error.message || "Nao foi possivel verificar a liberacao.");
+  }
 }
 
 function render() {

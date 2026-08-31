@@ -3006,6 +3006,10 @@ async function handleApi(req, res, urlPath) {
         tenantCode: tenant.tenantCode,
         status: tenant.status,
         blocked: tenant.status !== "Ativo" && tenant.status !== "Homologacao",
+        renewalDays: tenant.renewalDays,
+        licenseExpiresAt: tenant.licenseExpiresAt,
+        licenseRemainingDays: Math.floor((new Date(tenant.licenseExpiresAt || today()).getTime() - new Date(currentDay).getTime()) / 86400000),
+        licenseChallenge: licenseChallenge(tenant, tenant.adminUser || "Operador"),
         modules: tenant.modules || [],
         maxTerminals: tenant.maxTerminals,
         terminalsLimit: tenant.maxTerminals,
@@ -4620,6 +4624,54 @@ async function handleApi(req, res, urlPath) {
     writeProvider(provider);
     appendProviderAudit("Contra-senha gerada", `${tenant.tenantCode}: ${days} dias`, providerAccess(req).username, requestIp(req));
     sendJson(res, 200, { ok: true, tenantCode: tenant.tenantCode, challenge, days, counterPassword: counterPassword(tenant, challenge, days) });
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/licenses/status") {
+    const body = await readBody(req);
+    const provider = readProvider();
+    const tenant = findTenant(provider, body.tenantCode);
+    if (!tenant) {
+      sendJson(res, 404, { ok: false, error: "Cliente nao encontrado" });
+      return;
+    }
+    refreshTerminalCount(tenant);
+    const session = (tenant.activeSessions || []).find((item) => item.sessionId === body.sessionId || item.sessionId === bearerToken(req));
+    if (!session) {
+      sendJson(res, 401, { ok: false, error: "Sessao expirada" });
+      return;
+    }
+    session.lastSeenAt = new Date().toISOString();
+    refreshTerminalCount(tenant);
+    writeProvider(provider);
+    sendJson(res, 200, {
+      ok: true,
+      tenant: publicTenant(tenant),
+      expired: new Date(tenant.licenseExpiresAt || today()).getTime() < new Date(today()).getTime(),
+      challenge: licenseChallenge(tenant, session.user || body.user || "Operador")
+    });
+    return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/licenses/release") {
+    if (!providerAccessAllowed(req)) {
+      sendJson(res, 401, { ok: false, error: "Sessao administrativa obrigatoria" });
+      return;
+    }
+    const body = await readBody(req);
+    const provider = readProvider();
+    const tenant = findTenant(provider, body.tenantCode);
+    if (!tenant) {
+      sendJson(res, 404, { ok: false, error: "Cliente nao encontrado" });
+      return;
+    }
+    const days = Math.max(1, Number(body.days || tenant.renewalDays || 30));
+    tenant.renewalDays = days;
+    tenant.licenseExpiresAt = addDays(today(), days);
+    if (body.status) tenant.status = body.status;
+    writeProvider(provider);
+    appendProviderAudit("Licenca liberada pela Central", `${tenant.tenantCode}: ${days} dias`, providerAccess(req).username, requestIp(req));
+    sendJson(res, 200, { ok: true, tenantCode: tenant.tenantCode, licenseExpiresAt: tenant.licenseExpiresAt, days });
     return;
   }
 
