@@ -39,6 +39,8 @@ const delegatedClickHandler = app.slice(app.lastIndexOf('document.addEventListen
 includesAll("Handler global de navegacao", delegatedClickHandler, [
   "#open-pdv",
   "[data-dashboard-module]",
+  "[data-new-person-type]",
+  "#copy-public-registration",
   "[data-module]",
   "[data-fiscal-tab]",
   "[data-stock-tab]",

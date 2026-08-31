@@ -3635,15 +3635,7 @@ function bindCurrentModule() {
   const filterPeople = byId("filter-people");
   if (filterPeople) filterPeople.addEventListener("click", () => { personSearch = byId("person-search").value; renderShell(); });
   const copyPublicRegistration = byId("copy-public-registration");
-  if (copyPublicRegistration) copyPublicRegistration.addEventListener("click", async () => {
-    const link = `${location.origin}/cadastro-cliente.html?unidade=${encodeURIComponent(state.settings.tenantCode)}`;
-    try {
-      await copyText(link);
-      alert("Link de cadastro desta unidade copiado.");
-    } catch {
-      alert(`Nao foi possivel copiar automaticamente. Link: ${link}`);
-    }
-  });
+  if (copyPublicRegistration) copyPublicRegistration.addEventListener("click", copyPublicRegistrationLink);
   document.querySelectorAll("[data-person-filter]").forEach((button) => button.addEventListener("click", () => {
     currentPeopleTab = button.dataset.personFilter || "Todos";
     setInternalRoute({ module: "people", people: currentPeopleTab });
@@ -4633,7 +4625,21 @@ function newPersonRecord(type = "") {
   selectedPersonId = 0;
   pendingPersonDraft = type ? { type } : {};
   currentTab = "dados";
+  currentMode = "backoffice";
+  currentModule = "people";
+  if (type && personFilters.includes(type)) currentPeopleTab = type;
+  setInternalRoute({ module: "people", people: currentPeopleTab, tab: "", fiscal: "", stock: "", settings: "" });
   renderShell();
+}
+
+async function copyPublicRegistrationLink() {
+  const link = `${location.origin}/cadastro-cliente.html?unidade=${encodeURIComponent(state.settings.tenantCode)}`;
+  try {
+    await copyText(link);
+    alert("Link de cadastro desta unidade copiado.");
+  } catch {
+    alert(`Nao foi possivel copiar automaticamente. Link: ${link}`);
+  }
 }
 
 function editPersonRecord(id) {
@@ -7752,6 +7758,20 @@ document.addEventListener("click", (event) => {
     currentMode = "pdv";
     setInternalRoute({ mode: "pdv", module: "", tab: "", fiscal: "", stock: "", people: "", settings: "" });
     renderShell();
+    return;
+  }
+  const newPersonType = event.target.closest("[data-new-person-type]");
+  if (newPersonType) {
+    event.preventDefault();
+    event.stopPropagation();
+    newPersonRecord(newPersonType.dataset.newPersonType || "Cliente");
+    return;
+  }
+  const publicRegistration = event.target.closest("#copy-public-registration");
+  if (publicRegistration) {
+    event.preventDefault();
+    event.stopPropagation();
+    copyPublicRegistrationLink();
     return;
   }
   const dashboardModuleButton = event.target.closest("[data-dashboard-module]");
