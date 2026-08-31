@@ -3073,8 +3073,8 @@ header.topbar .top-right .central-top-action:hover {
 .purchases-desktop-body {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(360px, 0.48fr) minmax(520px, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(260px, 1fr);
   gap: 12px;
   overflow: auto;
 }
@@ -3088,22 +3088,20 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .purchase-document-card {
-  grid-column: 1;
-  grid-row: 1 / span 2;
   align-content: start;
   border-left: 4px solid #f2c300;
 }
 
-.purchase-items-card {
-  grid-column: 2;
-  grid-row: 1;
-}
-
 .purchase-history-card {
-  grid-column: 2;
-  grid-row: 2;
   min-height: 220px;
   overflow: auto;
+}
+
+.purchase-document-card:focus,
+.purchase-items-card:focus,
+.purchase-history-card:focus {
+  outline: 3px solid rgba(214, 169, 0, 0.32);
+  outline-offset: 2px;
 }
 
 .purchase-document-card h3,

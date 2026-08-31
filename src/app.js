@@ -2251,9 +2251,10 @@ function renderPurchases() {
       <input id="purchase-xml" type="file" accept=".xml,text/xml,application/xml" hidden />
 
       <div class="desktop-context-strip">
-        <span>Compras</span>
-        <span>Entrada</span>
-        <span>Total atual: ${money(purchaseTotal)}</span>
+        <button class="active" data-purchase-step="document" type="button">Dados da nota</button>
+        <button data-purchase-step="items" type="button">Itens da compra</button>
+        <button data-purchase-step="history" type="button">Historico</button>
+        <span class="desktop-context-metric">Total atual: ${money(purchaseTotal)}</span>
       </div>
 
       <div class="desktop-work-area purchases-work-area">
@@ -2271,7 +2272,7 @@ function renderPurchases() {
         </div>
 
         <div class="purchases-desktop-body">
-          <div class="form-card purchase-document-card">
+          <div class="form-card purchase-document-card" id="purchase-step-document" tabindex="-1">
             <h3>Dados da nota</h3>
             <div class="grid four">
               <div class="field"><label>Fornecedor</label><select id="purchase-supplier">${state.people.filter((p) => p.type === "Fornecedor").map((p) => `<option>${p.name}</option>`).join("")}</select></div>
@@ -2285,7 +2286,7 @@ function renderPurchases() {
             </div>
           </div>
 
-          <div class="form-card purchase-items-card">
+          <div class="form-card purchase-items-card" id="purchase-step-items" tabindex="-1">
             <h3>Itens da compra</h3>
             <div class="grid four">
               <div class="field"><label>Produto</label><select id="purchase-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
@@ -2305,7 +2306,7 @@ function renderPurchases() {
             </div>
           </div>
 
-          <div class="table-wrap purchase-history-card">
+          <div class="table-wrap purchase-history-card" id="purchase-step-history" tabindex="-1">
             <table><thead><tr><th>Numero</th><th>Data</th><th>Fornecedor</th><th>Documento</th><th>Itens</th><th>Total</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.purchases.map((row) => `<tr><td>${row.id}</td><td>${row.date}</td><td>${row.supplier}</td><td>${row.document || ""}</td><td>${row.items?.length || 1}</td><td>${money(row.total)}</td><td><span class="badge ${row.status === "Cancelada" ? "danger" : "ok"}">${row.status || "Confirmada"}</span></td><td>${row.status === "Cancelada" ? "-" : `<button class="btn danger" data-cancel-purchase="${row.id}">Cancelar</button>`}</td></tr>`).join("")}</tbody></table>
           </div>
         </div>
@@ -3516,6 +3517,10 @@ function bindCurrentModule() {
 
   const purchaseXml = byId("purchase-xml");
   if (purchaseXml) purchaseXml.addEventListener("change", readPurchaseXml);
+
+  document.querySelectorAll("[data-purchase-step]").forEach((button) => {
+    button.addEventListener("click", () => focusPurchaseStep(button.dataset.purchaseStep || "document"));
+  });
 
   document.querySelectorAll("[data-remove-purchase-item]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -5070,6 +5075,21 @@ function addPurchaseItemRecord() {
     serials
   });
   renderShell();
+}
+
+function focusPurchaseStep(step) {
+  const targets = {
+    document: ["purchase-step-document", "purchase-supplier"],
+    items: ["purchase-step-items", "purchase-product"],
+    history: ["purchase-step-history", ""]
+  };
+  const [sectionId, fieldId] = targets[step] || targets.document;
+  const section = byId(sectionId);
+  if (!section) return;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  section.focus({ preventScroll: true });
+  const field = fieldId ? byId(fieldId) : null;
+  if (field) setTimeout(() => field.focus(), 160);
 }
 
 function readPurchaseXml(event) {
