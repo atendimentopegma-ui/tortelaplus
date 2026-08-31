@@ -2471,19 +2471,32 @@ function renderSettings() {
   const ruleNumber = (key, fallback = 0) => Number(editingRule[key] ?? fallback);
   const ruleSelected = (key, value, fallback = "") => (editingRule[key] || fallback) === value ? "selected" : "";
   const settingsTabs = [
-    ["geral", "Empresa e fiscal"],
-    ["regras", "Regras fiscais"],
-    ["operacao", "Operacao"],
-    ["usuarios", "Usuarios"],
-    ["prontidao", "Prontidao"]
+    ["geral", "Empresa e fiscal", "Dados da unidade, certificado e ACBr"],
+    ["regras", "Regras fiscais", "CFOP, impostos, servicos e reforma"],
+    ["operacao", "Operacao", "Backup, links publicos e integracoes"],
+    ["usuarios", "Usuarios", "Acessos, perfis e permissoes"],
+    ["prontidao", "Prontidao", "Checklist para ir ao piloto"]
   ];
   if (!settingsTabs.some(([key]) => key === currentSettingsTab)) currentSettingsTab = "geral";
   const settingsPaneClass = (key) => `settings-pane ${currentSettingsTab === key ? "active" : ""}`;
+  const activeSettingsTab = settingsTabs.find(([key]) => key === currentSettingsTab) || settingsTabs[0];
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Configuracoes</h2><button class="btn primary" id="save-settings">Salvar configuracoes</button></div>
+    <section class="panel settings-screen">
+      <div class="panel-head settings-head">
+        <div>
+          <h2>Configuracoes</h2>
+          <p>${activeSettingsTab[2]}</p>
+        </div>
+        <button class="btn primary" id="save-settings">Salvar configuracoes</button>
+      </div>
       <div class="settings-tabs" role="tablist" aria-label="Assuntos das configuracoes">
-        ${settingsTabs.map(([key, label]) => `<a class="${currentSettingsTab === key ? "active" : ""}" data-settings-tab="${key}" href="#module=settings&settings=${key}" role="tab" aria-selected="${currentSettingsTab === key}">${label}</a>`).join("")}
+        ${settingsTabs.map(([key, label, description]) => `<a class="${currentSettingsTab === key ? "active" : ""}" data-settings-tab="${key}" href="#module=settings&settings=${key}" role="tab" aria-selected="${currentSettingsTab === key}"><strong>${label}</strong><small>${description}</small></a>`).join("")}
+      </div>
+      <div class="settings-overview">
+        <div><span>Unidade</span><strong>${escapeHtml(state.settings.company || "Tortela")}</strong></div>
+        <div><span>Fiscal</span><strong>${escapeHtml(state.settings.fiscalEnvironment || "Homologacao")}</strong></div>
+        <div><span>Prontidao</span><strong>${readiness.ready}/${readiness.items.length}</strong></div>
+        <div><span>Usuarios</span><strong>${users.length}</strong></div>
       </div>
       <div class="panel-body settings-body">
         <form class="form-card ${settingsPaneClass("geral")}" id="settings-form" data-settings-pane="geral">
