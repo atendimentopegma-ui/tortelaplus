@@ -369,6 +369,169 @@ header.topbar .top-right .central-top-action:hover {
   padding: 16px;
 }
 
+.dashboard-screen {
+  display: grid;
+  gap: 16px;
+}
+
+.dashboard-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 18px;
+  align-items: stretch;
+  padding: 22px;
+  border: 1px solid #e8d69f;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(250, 204, 21, 0.22), rgba(255, 255, 255, 0.96) 44%),
+    #fff;
+  box-shadow: 0 14px 34px rgba(17, 30, 36, 0.08);
+}
+
+.dashboard-eyebrow {
+  display: inline-flex;
+  margin-bottom: 8px;
+  color: #00738a;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.dashboard-hero h2 {
+  margin: 0;
+  font-size: 32px;
+}
+
+.dashboard-hero p,
+.dashboard-section .panel-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.dashboard-status {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+}
+
+.dashboard-status.ok {
+  border-color: #b7ebc8;
+  background: #ecfdf3;
+}
+
+.dashboard-status.warn {
+  border-color: #f2d38a;
+  background: #fff7d6;
+}
+
+.dashboard-status small,
+.dashboard-action-card span,
+.dashboard-alert-card small,
+.dashboard-alert-card span,
+.dashboard-kpis .kpi span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.dashboard-status strong {
+  font-size: 22px;
+}
+
+.dashboard-guide {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.dashboard-action-card,
+.dashboard-alert-card {
+  min-height: 96px;
+  display: grid;
+  gap: 8px;
+  align-content: center;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dashboard-action-card:hover,
+.dashboard-alert-card:hover {
+  border-color: #d8b23a;
+  box-shadow: 0 10px 24px rgba(17, 30, 36, 0.08);
+}
+
+.dashboard-action-card.primary {
+  background: #0f7891;
+  color: #fff;
+  border-color: #0f7891;
+}
+
+.dashboard-action-card.primary span {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.dashboard-action-card strong {
+  font-size: 19px;
+}
+
+.dashboard-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard-alert-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.dashboard-alert-card strong {
+  font-size: 28px;
+}
+
+.dashboard-kpis .kpi {
+  min-height: 126px;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-guide,
+  .dashboard-kpis.grid.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-hero,
+  .dashboard-guide,
+  .dashboard-kpis.grid.four,
+  .dashboard-alert-list {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-hero {
+    padding: 18px;
+  }
+
+  .dashboard-hero h2 {
+    font-size: 26px;
+  }
+}
+
 /* Totem Tortela - fluxo de autoatendimento */
 .tortela-kiosk-page {
   min-height: 100vh;

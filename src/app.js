@@ -1110,33 +1110,69 @@ function renderDashboard() {
   const payables = state.payables.filter((item) => !item.paid && !item.cancelled).reduce((sum, item) => sum + financeBalance(item), 0);
   const receivables = state.receivables.filter((item) => !item.paid && !item.cancelled).reduce((sum, item) => sum + financeBalance(item), 0);
   const sales = state.sales.reduce((sum, sale) => sum + sale.total, 0);
+  const todaySales = state.sales.filter((sale) => sale.date === today() && !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status)).reduce((sum, sale) => sum + Number(sale.total || 0), 0);
   const closedSales = state.sales.filter((sale) => !["Cancelado", "Cancelada", "Devolvido"].includes(sale.status));
   const averageTicket = closedSales.length ? sales / closedSales.length : 0;
   const overduePayables = state.payables.filter((item) => !item.paid && !item.cancelled && item.due < today());
   const overdueReceivables = state.receivables.filter((item) => !item.paid && !item.cancelled && item.due < today());
   const expiringLots = (state.stockLots || []).filter((lot) => Number(lot.qty || 0) > 0 && lot.expiry && daysUntil(lot.expiry) <= 30);
   const pendingFiscal = state.fiscalQueue.filter((row) => !["Autorizada", "Cancelada"].includes(row.status));
+  const hasAlerts = overduePayables.length || overdueReceivables.length || expiringLots.length || pendingFiscal.length;
+  const actionCards = [
+    ["Abrir PDV", "Comecar uma venda no caixa.", "primary", "open-pdv", ""],
+    ["Pessoas", "Cadastrar cliente, fornecedor ou funcionario.", "", "", "people"],
+    ["Produtos", "Cadastrar produto, preco, estoque e etiqueta.", "", "", "products"],
+    ["Estoque", "Produzir, ajustar, inventariar e transferir.", "", "", "stock"]
+  ];
 
   return `
-    <div class="grid">
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Painel da retaguarda</h2>
-          <button class="btn primary" id="open-pdv">Abrir PDV</button>
+    <section class="dashboard-screen">
+      <div class="dashboard-hero">
+        <div>
+          <span class="dashboard-eyebrow">Painel da retaguarda</span>
+          <h2>Resumo da operacao</h2>
+          <p>Use este painel para saber o que precisa de atencao agora e entrar rapidamente nas principais rotinas.</p>
         </div>
-        <div class="panel-body grid four">
-          <div class="kpi"><small>Faturamento</small><strong>${money(sales)}</strong></div>
-          <div class="kpi"><small>Ticket medio</small><strong>${money(averageTicket)}</strong></div>
-          <div class="kpi"><small>A receber</small><strong>${money(receivables)}</strong></div>
-          <div class="kpi"><small>A pagar</small><strong>${money(payables)}</strong></div>
+        <div class="dashboard-status ${hasAlerts ? "warn" : "ok"}">
+          <small>Status de hoje</small>
+          <strong>${hasAlerts ? "Revisar alertas" : "Operacao em ordem"}</strong>
+        </div>
+      </div>
+
+      <div class="dashboard-guide">
+        ${actionCards.map(([title, text, kind, id, module]) => `
+          <button class="dashboard-action-card ${kind}" ${id ? `id="${id}"` : ""} ${module ? `data-dashboard-module="${module}"` : ""} type="button">
+            <strong>${title}</strong>
+            <span>${text}</span>
+          </button>
+        `).join("")}
+      </div>
+
+      <section class="panel dashboard-section">
+        <div class="panel-head">
+          <div>
+            <h3>Indicadores principais</h3>
+            <p>Numeros para acompanhar caixa, vendas e financeiro.</p>
+          </div>
+        </div>
+        <div class="panel-body grid four dashboard-kpis">
+          <div class="kpi"><small>Vendido hoje</small><strong>${money(todaySales)}</strong><span>Somente vendas nao canceladas</span></div>
+          <div class="kpi"><small>Ticket medio</small><strong>${money(averageTicket)}</strong><span>Media das vendas fechadas</span></div>
+          <div class="kpi"><small>A receber aberto</small><strong>${money(receivables)}</strong><span>Valores ainda pendentes</span></div>
+          <div class="kpi"><small>A pagar aberto</small><strong>${money(payables)}</strong><span>Compromissos em aberto</span></div>
         </div>
       </section>
-      <section class="panel">
-        <div class="panel-head">
-          <h3>Pedido automatico semanal para Central</h3>
-          <span class="badge ${lowStock.length ? "warn" : "ok"}">${lowStock.length ? "Enviado automaticamente" : "Sem necessidade"}</span>
-        </div>
-        <div class="panel-body">
+
+      <div class="dashboard-columns">
+        <section class="panel dashboard-section">
+          <div class="panel-head">
+            <div>
+              <h3>Comprar da Central</h3>
+              <p>Produtos abaixo do estoque minimo entram na sugestao semanal.</p>
+            </div>
+            <span class="badge ${lowStock.length ? "warn" : "ok"}">${lowStock.length ? `${lowStock.length} item(ns)` : "Sem necessidade"}</span>
+          </div>
+          <div class="panel-body">
           ${lowStock.length ? `
             <div class="table-wrap">
               <table>
@@ -1145,18 +1181,26 @@ function renderDashboard() {
               </table>
             </div>
           ` : `<div class="empty">Nenhum item abaixo do estoque minimo.</div>`}
-        </div>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><h3>Alertas operacionais</h3><span class="badge ${overduePayables.length || overdueReceivables.length || expiringLots.length || pendingFiscal.length ? "warn" : "ok"}">Acao necessaria</span></div>
-        <div class="panel-body grid four">
-          <div class="kpi"><small>Contas a pagar atrasadas</small><strong>${overduePayables.length}</strong><span>${money(overduePayables.reduce((sum, row) => sum + financeBalance(row), 0))}</span></div>
-          <div class="kpi"><small>Contas a receber atrasadas</small><strong>${overdueReceivables.length}</strong><span>${money(overdueReceivables.reduce((sum, row) => sum + financeBalance(row), 0))}</span></div>
-          <div class="kpi"><small>Lotes vencidos/ate 30 dias</small><strong>${expiringLots.length}</strong><span>${expiringLots.slice(0, 2).map((row) => row.product).join(", ") || "Nenhum"}</span></div>
-          <div class="kpi"><small>Documentos fiscais pendentes</small><strong>${pendingFiscal.length}</strong><span>${pendingFiscal.filter((row) => row.lastFiscalError).length} com falha</span></div>
-        </div>
-      </section>
-    </div>
+          </div>
+        </section>
+
+        <section class="panel dashboard-section">
+          <div class="panel-head">
+            <div>
+              <h3>Alertas operacionais</h3>
+              <p>Priorize estes pontos antes de iniciar ou fechar o dia.</p>
+            </div>
+            <span class="badge ${hasAlerts ? "warn" : "ok"}">${hasAlerts ? "Acao necessaria" : "Tudo certo"}</span>
+          </div>
+          <div class="panel-body dashboard-alert-list">
+            <button class="dashboard-alert-card" data-dashboard-module="finance" type="button"><small>Contas a pagar atrasadas</small><strong>${overduePayables.length}</strong><span>${money(overduePayables.reduce((sum, row) => sum + financeBalance(row), 0))}</span></button>
+            <button class="dashboard-alert-card" data-dashboard-module="finance" type="button"><small>Contas a receber atrasadas</small><strong>${overdueReceivables.length}</strong><span>${money(overdueReceivables.reduce((sum, row) => sum + financeBalance(row), 0))}</span></button>
+            <button class="dashboard-alert-card" data-dashboard-module="stock" type="button"><small>Lotes vencidos/ate 30 dias</small><strong>${expiringLots.length}</strong><span>${expiringLots.slice(0, 2).map((row) => row.product).join(", ") || "Nenhum"}</span></button>
+            <button class="dashboard-alert-card" data-dashboard-module="fiscal" type="button"><small>Documentos fiscais pendentes</small><strong>${pendingFiscal.length}</strong><span>${pendingFiscal.filter((row) => row.lastFiscalError).length} com falha</span></button>
+          </div>
+        </section>
+      </div>
+    </section>
   `;
 }
 
@@ -3025,6 +3069,9 @@ function bindCurrentModule() {
 
   const openPdv = byId("open-pdv");
   if (openPdv) openPdv.addEventListener("click", () => { currentMode = "pdv"; renderShell(); });
+  document.querySelectorAll("[data-dashboard-module]").forEach((button) => {
+    button.addEventListener("click", () => navigateBackofficeModule(button.dataset.dashboardModule || "dashboard"));
+  });
 
   bindCepAutocomplete("person-cep", lookupPersonCep);
   bindCepAutocomplete("set-cep", lookupSettingsCep);
