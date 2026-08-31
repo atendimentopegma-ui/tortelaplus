@@ -46,6 +46,12 @@ includesAll("Handler global de navegacao", delegatedClickHandler, [
   "[data-tab]",
   "renderShell()"
 ]);
+const hashChangeHandler = app.slice(app.lastIndexOf('window.addEventListener("hashchange"'), app.indexOf('document.addEventListener("click"'));
+includesAll("Hash de navegacao", hashChangeHandler, [
+  '.querySelector(".app-shell")',
+  "renderShell()"
+]);
+assert(!hashChangeHandler.includes("if (sessionId)"), "Hash de navegacao: nao pode depender de sessao online para atualizar modulo.");
 
 const routeHandler = extractFunction("applyInternalRoute");
 includesAll("Rotas internas", routeHandler, [
@@ -158,9 +164,9 @@ includesAll("Links publicos do totem em desenvolvimento", app, [
 assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
 assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
 includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
-  "login-feedback-fix-v7",
-  "tortelaplus-operacao-v7",
-  'navigator.serviceWorker.register("/sw.js?v=login-feedback-fix-v7")'
+  "hash-navigation-fix-v8",
+  "tortelaplus-operacao-v8",
+  'navigator.serviceWorker.register("/sw.js?v=hash-navigation-fix-v8")'
 ]);
 
 console.log("OK - navegacao da retaguarda validada: modulos, abas e paineis principais estao conectados.");

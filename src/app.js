@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "login-feedback-fix-v7";
+window.TORTELA_BUILD = "hash-navigation-fix-v8";
 
 let state = load();
 let apiOnline = false;
@@ -6809,7 +6809,7 @@ window.addEventListener("online", () => {
 });
 
 window.addEventListener("hashchange", () => {
-  if (sessionId) renderShell();
+  if (byId("app")?.querySelector(".app-shell")) renderShell();
 });
 
 document.addEventListener("click", (event) => {
@@ -6905,7 +6905,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=login-feedback-fix-v7").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=hash-navigation-fix-v8").catch(() => undefined);
 }
 
 boot();
