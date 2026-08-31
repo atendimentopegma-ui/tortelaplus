@@ -2887,32 +2887,61 @@ function renderReports() {
     ["Clientes", "Consumo por cliente, recorrencia e inatividade."],
     ["Mesas e Delivery", "Vendas por mesa, delivery, retirada e balcao."]
   ];
+  const currentReport = reportTitle();
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Relatorios</h2><div class="actions"><button class="btn" id="print-report">Imprimir / PDF</button><button class="btn primary" id="export-report">Exportar CSV</button></div></div>
-      <div class="panel-body grid">
-        <div class="form-card grid four">
+    <section class="panel reports-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Relatorios</strong>
+        <span>${currentReport}</span>
+        <span>${reportPeriod.from} a ${reportPeriod.to}</span>
+      </div>
+
+      <div class="desktop-module-ribbon reports-ribbon">
+        ${groups.map(([title, text]) => `
+          <button class="desktop-ribbon-button ${currentTab === title ? "primary" : ""}" data-report="${title}" type="button">
+            <span class="dashboard-module-icon icon-reports" aria-hidden="true"></span>
+            <strong>${title}</strong>
+            <small>${text.split(",")[0]}</small>
+          </button>
+        `).join("")}
+      </div>
+
+      <div class="desktop-context-strip reports-context-strip">
+        <button class="active" data-report-step="period" type="button">Periodo</button>
+        <button data-report-step="preview" type="button">Previa</button>
+        <button data-report-step="audit" type="button">Auditoria</button>
+        <span class="desktop-context-metric">${currentReport}</span>
+      </div>
+
+      <div class="desktop-work-area reports-work-area">
+        <div class="desktop-summary-strip">
+          <div><span>Vendas</span><strong>${money(salesTotal)}</strong></div>
+          <div><span>Estoque a custo</span><strong>${money(stockCost)}</strong></div>
+          <div><span>A receber aberto</span><strong>${money(receivableOpen)}</strong></div>
+          <div><span>A pagar aberto</span><strong>${money(payableOpen)}</strong></div>
+        </div>
+
+        <div class="form-card grid four report-period-card" id="report-step-period" tabindex="-1">
           <div class="field"><label>Periodo inicial</label><input id="report-from" type="date" value="${reportPeriod.from}" /></div>
           <div class="field"><label>Periodo final</label><input id="report-to" type="date" value="${reportPeriod.to}" /></div>
           <button class="btn primary" id="apply-report-period" type="button">Aplicar periodo</button>
         </div>
-        <div class="grid four">
-          <div class="kpi"><small>Vendas</small><strong>${money(salesTotal)}</strong></div>
-          <div class="kpi"><small>Estoque a custo</small><strong>${money(stockCost)}</strong></div>
-          <div class="kpi"><small>A receber aberto</small><strong>${money(receivableOpen)}</strong></div>
-          <div class="kpi"><small>A pagar aberto</small><strong>${money(payableOpen)}</strong></div>
-        </div>
-        <div class="grid two">
-          ${groups.map(([title, text]) => `<div class="form-card"><h3>${title}</h3><p class="muted">${text}</p><button class="btn" data-report="${title}">Abrir relatorio</button></div>`).join("")}
-        </div>
-        <div class="form-card" style="grid-column: 1 / -1">
-          <h3>${reportTitle()}</h3>
+
+        <div class="form-card report-preview-card" id="report-step-preview" tabindex="-1">
+          <h3>${currentReport}</h3>
           ${reportTable()}
         </div>
-        <div class="form-card">
+
+        <div class="form-card report-audit-card" id="report-step-audit" tabindex="-1">
           <h3>Auditoria recente</h3>
           <div class="table-wrap"><table><thead><tr><th>Data</th><th>Usuario</th><th>Acao</th><th>Detalhe</th></tr></thead><tbody>${(state.auditLogs || []).slice(0, 12).map((log) => `<tr><td>${new Date(log.date).toLocaleString("pt-BR")}</td><td>${log.user}</td><td>${log.action}</td><td>${log.detail}</td></tr>`).join("")}</tbody></table></div>
         </div>
+      </div>
+
+      <div class="desktop-action-bar erp-action-bar">
+        <button class="desktop-command" id="apply-report-period-footer" type="button"><span>A</span>Aplicar periodo</button>
+        <button class="desktop-command" id="print-report" type="button"><span>P</span>Imprimir / PDF</button>
+        <button class="desktop-command primary" id="export-report" type="button"><span>C</span>Exportar CSV</button>
       </div>
     </section>
   `;
@@ -3951,12 +3980,20 @@ function bindCurrentModule() {
     reportPeriod = { from: byId("report-from").value, to: byId("report-to").value };
     renderShell();
   });
+  const applyReportPeriodFooter = byId("apply-report-period-footer");
+  if (applyReportPeriodFooter) applyReportPeriodFooter.addEventListener("click", () => {
+    reportPeriod = { from: byId("report-from").value, to: byId("report-to").value };
+    renderShell();
+  });
 
   document.querySelectorAll("[data-report]").forEach((button) => {
     button.addEventListener("click", () => {
       currentTab = button.dataset.report;
       renderShell();
     });
+  });
+  document.querySelectorAll("[data-report-step]").forEach((button) => {
+    button.addEventListener("click", () => focusReportStep(button.dataset.reportStep || "preview"));
   });
 
   const exportBackup = byId("export-backup");
@@ -5557,6 +5594,18 @@ function focusFiscalStep(step) {
     queue: "fiscal-step-queue"
   };
   const section = byId(targets[step] || targets.form);
+  if (!section) return;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  section.focus({ preventScroll: true });
+}
+
+function focusReportStep(step) {
+  const targets = {
+    period: "report-step-period",
+    preview: "report-step-preview",
+    audit: "report-step-audit"
+  };
+  const section = byId(targets[step] || targets.preview);
   if (!section) return;
   section.scrollIntoView({ behavior: "smooth", block: "start" });
   section.focus({ preventScroll: true });
