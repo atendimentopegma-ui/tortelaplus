@@ -3214,18 +3214,31 @@ function renderSettings() {
   const settingsPaneClass = (key) => `settings-pane ${currentSettingsTab === key ? "active" : ""}`;
   const activeSettingsTab = settingsTabs.find(([key]) => key === currentSettingsTab) || settingsTabs[0];
   return `
-    <section class="panel settings-screen">
-      <div class="panel-head settings-head">
-        <div>
-          <h2>Configuracoes</h2>
-          <p>${activeSettingsTab[2]}</p>
-        </div>
-        <button class="btn primary" id="save-settings">Salvar configuracoes</button>
+    <section class="panel settings-screen desktop-module-screen">
+      <div class="desktop-module-titlebar settings-head">
+        <strong>Configuracoes</strong>
+        <span>${activeSettingsTab[1]}: ${activeSettingsTab[2]}</span>
+        <span>${readiness.ready}/${readiness.items.length} pronto(s)</span>
       </div>
-      <div class="settings-tabs" role="tablist" aria-label="Assuntos das configuracoes">
-        ${settingsTabs.map(([key, label, description]) => `<a class="${currentSettingsTab === key ? "active" : ""}" data-settings-tab="${key}" href="#module=settings&settings=${key}" role="tab" aria-selected="${currentSettingsTab === key}"><strong>${label}</strong><small>${description}</small></a>`).join("")}
+
+      <div class="desktop-module-ribbon settings-tabs" role="tablist" aria-label="Assuntos das configuracoes">
+        ${settingsTabs.map(([key, label, description]) => `
+          <button class="desktop-ribbon-button ${currentSettingsTab === key ? "primary active" : ""}" data-settings-tab="${key}" type="button" role="tab" aria-selected="${currentSettingsTab === key}">
+            <span class="dashboard-module-icon icon-settings" aria-hidden="true"></span>
+            <strong>${label}</strong>
+            <small>${description}</small>
+          </button>
+        `).join("")}
       </div>
-      <div class="settings-overview">
+
+      <div class="desktop-context-strip settings-context-strip">
+        <button class="active" data-settings-focus="current" type="button">${activeSettingsTab[1]}</button>
+        <span class="desktop-context-metric">Fiscal: ${escapeHtml(state.settings.fiscalEnvironment || "Homologacao")}</span>
+        <span class="desktop-context-metric">Usuarios: ${users.length}</span>
+      </div>
+
+      <div class="desktop-work-area settings-work-area">
+      <div class="settings-overview desktop-summary-strip">
         <div><span>Unidade</span><strong>${escapeHtml(state.settings.company || "Tortela")}</strong></div>
         <div><span>Fiscal</span><strong>${escapeHtml(state.settings.fiscalEnvironment || "Homologacao")}</strong></div>
         <div><span>Prontidao</span><strong>${readiness.ready}/${readiness.items.length}</strong></div>
@@ -3436,6 +3449,13 @@ function renderSettings() {
             <tbody>${users.map((user) => `<tr><td>${user.username}</td><td>${user.name}</td><td>${user.role}</td><td>${(user.permissions || rolePermissions[user.role] || []).map(permissionLabel).join(", ")}</td><td>${user.screenPermissions ? "CRUD por tela" : "Padrao perfil"}</td><td><span class="badge ${user.active === false ? "danger" : "ok"}">${user.active === false ? "Bloqueado" : "Ativo"}</span></td><td><button class="btn ${user.active === false ? "" : "danger"}" data-toggle-user="${user.id}">${user.active === false ? "Ativar" : "Bloquear"}</button></td></tr>`).join("")}</tbody>
           </table>
         </div>
+      </div>
+      </div>
+      <div class="desktop-action-bar erp-action-bar">
+        <button class="desktop-command primary" id="save-settings" type="button"><span>S</span>Salvar configuracoes</button>
+        <button class="desktop-command" id="validate-fiscal-setup-footer" type="button"><span>V</span>Validar fiscal</button>
+        <button class="desktop-command" id="export-backup-footer" type="button"><span>B</span>Baixar backup</button>
+        <button class="desktop-command" id="export-complete-csv-footer" type="button"><span>C</span>Exportar CSV</button>
       </div>
     </section>
   `;
@@ -3892,6 +3912,13 @@ function bindCurrentModule() {
 
   const validateFiscalSetup = byId("validate-fiscal-setup");
   if (validateFiscalSetup) validateFiscalSetup.addEventListener("click", showFiscalReadiness);
+  const validateFiscalSetupFooter = byId("validate-fiscal-setup-footer");
+  if (validateFiscalSetupFooter) validateFiscalSetupFooter.addEventListener("click", showFiscalReadiness);
+  const settingsFocusCurrent = byId("settings-focus-current");
+  if (settingsFocusCurrent) settingsFocusCurrent.addEventListener("click", focusCurrentSettingsPane);
+  document.querySelectorAll("[data-settings-focus]").forEach((button) => {
+    button.addEventListener("click", focusCurrentSettingsPane);
+  });
   const copyPublicToken = byId("copy-public-terminal-token");
   if (copyPublicToken) copyPublicToken.addEventListener("click", copyPublicTerminalToken);
   const rotatePublicToken = byId("rotate-public-terminal-token");
@@ -3998,8 +4025,12 @@ function bindCurrentModule() {
 
   const exportBackup = byId("export-backup");
   if (exportBackup) exportBackup.addEventListener("click", exportBackupJson);
+  const exportBackupFooter = byId("export-backup-footer");
+  if (exportBackupFooter) exportBackupFooter.addEventListener("click", exportBackupJson);
   const exportCompleteCsv = byId("export-complete-csv");
   if (exportCompleteCsv) exportCompleteCsv.addEventListener("click", exportCompleteCsvRecord);
+  const exportCompleteCsvFooter = byId("export-complete-csv-footer");
+  if (exportCompleteCsvFooter) exportCompleteCsvFooter.addEventListener("click", exportCompleteCsvRecord);
   const importMasterCsv = byId("import-master-csv");
   if (importMasterCsv) importMasterCsv.addEventListener("change", importMasterCsvRecord);
   const generateAlerts = byId("generate-alerts");
@@ -5609,6 +5640,14 @@ function focusReportStep(step) {
   if (!section) return;
   section.scrollIntoView({ behavior: "smooth", block: "start" });
   section.focus({ preventScroll: true });
+}
+
+function focusCurrentSettingsPane() {
+  const pane = document.querySelector(`.settings-pane[data-settings-pane="${currentSettingsTab}"]`);
+  if (!pane) return;
+  pane.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (!pane.hasAttribute("tabindex")) pane.setAttribute("tabindex", "-1");
+  pane.focus({ preventScroll: true });
 }
 
 function saveOrderRecord() {

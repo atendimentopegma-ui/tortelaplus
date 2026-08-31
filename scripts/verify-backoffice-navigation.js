@@ -151,7 +151,6 @@ const settingsRenderer = extractFunction("renderSettings");
 includesAll("Abas de configuracoes", settingsRenderer, [
   "data-settings-tab",
   "data-settings-pane",
-  "href=\"#module=settings&settings=",
   "settingsPaneClass"
 ]);
 ["geral", "endereco", "fiscal", "regras", "operacao", "integracoes", "usuarios", "prontidao"].forEach((key) => {
