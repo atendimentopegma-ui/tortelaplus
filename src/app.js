@@ -1119,33 +1119,53 @@ function renderDashboard() {
   const pendingFiscal = state.fiscalQueue.filter((row) => !["Autorizada", "Cancelada"].includes(row.status));
   const hasAlerts = overduePayables.length || overdueReceivables.length || expiringLots.length || pendingFiscal.length;
   const actionCards = [
-    ["Abrir PDV", "Comecar uma venda no caixa.", "primary", "open-pdv", ""],
-    ["Pessoas", "Cadastrar cliente, fornecedor ou funcionario.", "", "", "people"],
-    ["Produtos", "Cadastrar produto, preco, estoque e etiqueta.", "", "", "products"],
-    ["Estoque", "Produzir, ajustar, inventariar e transferir.", "", "", "stock"]
+    { title: "PDV", text: "Abrir caixa de venda", icon: "pdv", kind: "primary", id: "open-pdv" },
+    { title: "Pessoas", text: "Clientes e fornecedores", icon: "people", module: "people" },
+    { title: "Produtos", text: "Cadastro e etiquetas", icon: "products", module: "products" },
+    { title: "Estoque", text: "Ajustes e producao", icon: "stock", module: "stock" },
+    { title: "Compras", text: "Entrada de mercadoria", icon: "purchases", module: "purchases" },
+    { title: "Vendas", text: "Orcamentos e pedidos", icon: "sales", module: "sales" },
+    { title: "Financeiro", text: "Caixa, pagar e receber", icon: "finance", module: "finance" },
+    { title: "Fiscal", text: "NFC-e, NF-e e NFSe", icon: "fiscal", module: "fiscal" },
+    { title: "Relatorios", text: "Analises da operacao", icon: "reports", module: "reports" },
+    { title: "Configuracoes", text: "Unidade e sistema", icon: "settings", module: "settings" }
   ];
 
   return `
-    <section class="dashboard-screen">
+    <section class="dashboard-screen dashboard-desktop">
+      <div class="dashboard-titlebar">
+        <strong>Tortela Plus</strong>
+        <span>Retaguarda e PDV</span>
+        <span>Internet ON</span>
+      </div>
+
+      <div class="dashboard-module-ribbon" aria-label="Atalhos principais">
+        ${actionCards.map((card) => `
+          <button class="dashboard-ribbon-button ${card.kind || ""}" ${card.id ? `id="${card.id}"` : ""} ${card.module ? `data-dashboard-module="${card.module}"` : ""} type="button">
+            <span class="dashboard-module-icon icon-${card.icon}" aria-hidden="true"></span>
+            <strong>${card.title}</strong>
+            <small>${card.text}</small>
+          </button>
+        `).join("")}
+      </div>
+
+      <div class="dashboard-tab-strip">
+        <span class="active">Inicio</span>
+        <span>Painel</span>
+        <span>Resumo operacional</span>
+      </div>
+
+      <div class="dashboard-work-area">
       <div class="dashboard-hero">
         <div>
           <span class="dashboard-eyebrow">Painel da retaguarda</span>
           <h2>Resumo da operacao</h2>
-          <p>Use este painel para saber o que precisa de atencao agora e entrar rapidamente nas principais rotinas.</p>
+          <p>Comece pelos botoes do topo e acompanhe abaixo o que precisa de atencao hoje.</p>
         </div>
         <div class="dashboard-status ${hasAlerts ? "warn" : "ok"}">
           <small>Status de hoje</small>
           <strong>${hasAlerts ? "Revisar alertas" : "Operacao em ordem"}</strong>
         </div>
-      </div>
-
-      <div class="dashboard-guide">
-        ${actionCards.map(([title, text, kind, id, module]) => `
-          <button class="dashboard-action-card ${kind}" ${id ? `id="${id}"` : ""} ${module ? `data-dashboard-module="${module}"` : ""} type="button">
-            <strong>${title}</strong>
-            <span>${text}</span>
-          </button>
-        `).join("")}
       </div>
 
       <section class="panel dashboard-section">
@@ -1199,6 +1219,7 @@ function renderDashboard() {
             <button class="dashboard-alert-card" data-dashboard-module="fiscal" type="button"><small>Documentos fiscais pendentes</small><strong>${pendingFiscal.length}</strong><span>${pendingFiscal.filter((row) => row.lastFiscalError).length} com falha</span></button>
           </div>
         </section>
+      </div>
       </div>
     </section>
   `;
