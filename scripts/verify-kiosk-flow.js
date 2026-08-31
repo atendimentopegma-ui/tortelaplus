@@ -148,12 +148,37 @@ function assert(condition, message) {
     const updatedOrder = updatedBoard.orders.find((item) => Number(item.id) === Number(order.orderId));
     assert(updatedOrder && updatedOrder.status === "Pronto", "Cozinha nao atualizou o pedido para Pronto.");
 
+    await requestJson(baseUrl, "POST", "/api/public/kiosk/orders/status", {
+      tenantCode: "cliente-exemplo",
+      orderId: order.orderId,
+      status: "Entregue"
+    });
+
+    const cancelOrder = await requestJson(baseUrl, "POST", "/api/public/kiosk/orders", {
+      tenantCode: "cliente-exemplo",
+      customerDocument: "52998224725",
+      orderMode: "Retirada no balcao",
+      paymentMethod: "PIX",
+      items: [{ productId: product.id, qty: 1 }]
+    });
+    await requestJson(baseUrl, "POST", "/api/public/kiosk/orders/status", {
+      tenantCode: "cliente-exemplo",
+      orderId: cancelOrder.orderId,
+      status: "Cancelado"
+    });
+
     const tenantState = JSON.parse(fs.readFileSync(path.join(dataDir, "tenants", "cliente-exemplo.json"), "utf8"));
     const isolatedTenantState = JSON.parse(fs.readFileSync(path.join(dataDir, "tenants", "unidade-isolada.json"), "utf8"));
     const sale = tenantState.sales.find((item) => Number(item.id) === Number(order.orderId));
+    const cancelledSale = tenantState.sales.find((item) => Number(item.id) === Number(cancelOrder.orderId));
     assert(sale && sale.deliveryStore?.tenantCode === "cliente-exemplo", "Venda nao ficou vinculada a unidade correta.");
+    assert(sale.status === "Entregue" && sale.deliveredAt, "Pedido entregue nao registrou data de entrega.");
     assert((tenantState.stockMovements || []).some((item) => item.history === `Pedido online ${order.orderId}`), "Pedido nao gerou movimento de baixa no estoque.");
     assert((tenantState.fiscalQueue || []).some((item) => Number(item.saleId) === Number(order.orderId) && item.model === "NFC-e"), "Pedido nao entrou na fila fiscal NFC-e.");
+    assert(cancelledSale && cancelledSale.status === "Cancelado" && cancelledSale.cancelledAt, "Pedido cancelado nao registrou cancelamento.");
+    assert((tenantState.stockMovements || []).some((item) => item.history === `Cancelamento pedido online ${cancelOrder.orderId}` && Number(item.qty || 0) > 0), "Cancelamento do totem nao gerou estorno de estoque.");
+    assert((tenantState.receivables || []).some((item) => Number(item.sourceSaleId) === Number(cancelOrder.orderId) && item.cancelled && item.paid), "Cancelamento do totem nao baixou o recebivel aberto.");
+    assert((tenantState.fiscalQueue || []).some((item) => Number(item.saleId) === Number(cancelOrder.orderId) && String(item.status || "").startsWith("Cancelada")), "Cancelamento do totem nao cancelou a fila fiscal pendente.");
     assert((isolatedTenantState.sales || []).length === 0, "Venda de uma unidade foi gravada no arquivo de outra unidade.");
     assert((isolatedTenantState.stockMovements || []).every((item) => item.history !== `Pedido online ${order.orderId}`), "Baixa de estoque de uma unidade apareceu em outra unidade.");
     assert((isolatedTenantState.fiscalQueue || []).every((item) => Number(item.saleId) !== Number(order.orderId)), "Fila fiscal de uma unidade apareceu em outra unidade.");
@@ -166,7 +191,7 @@ function assert(condition, message) {
     }
     assert(otherTenantBlocked, "Unidade inexistente conseguiu consultar fila do totem.");
 
-    console.log("OK - fluxo totem/cozinha/telao validado com CPF, estoque, fila fiscal e isolamento entre unidades ativas.");
+    console.log("OK - fluxo totem/cozinha/telao validado com CPF, entrega, cancelamento, estoque, fila fiscal e isolamento entre unidades ativas.");
   } finally {
     child.kill();
     fs.rmSync(dataDir, { recursive: true, force: true });

@@ -1519,6 +1519,27 @@ function applyOnlineOrderStock(tenantState, items, saleId) {
   return [];
 }
 
+function restoreOnlineOrderStock(tenantState, items, saleId) {
+  tenantState.stockMovements = Array.isArray(tenantState.stockMovements) ? tenantState.stockMovements : [];
+  const products = tenantState.products || [];
+  const requirements = onlineOrderRequirements(items, products);
+  requirements.forEach((requirement) => {
+    const product = products.find((row) => Number(row.id) === Number(requirement.productId));
+    if (!product) return;
+    product.stock = Number(product.stock || 0) + Number(requirement.qty || 0);
+    tenantState.stockMovements.push({
+      id: Math.max(0, ...tenantState.stockMovements.map((row) => Number(row.id) || 0)) + 1,
+      date: today(),
+      productId: product.id,
+      product: product.description,
+      type: "Estorno pedido online",
+      qty: Number(requirement.qty || 0),
+      balance: product.stock,
+      history: `Cancelamento pedido online ${saleId}`
+    });
+  });
+}
+
 function nextKioskTicketNumber(tenantState) {
   const currentDay = today();
   const numbers = (tenantState.sales || [])
@@ -2702,6 +2723,22 @@ async function handleApi(req, res, urlPath) {
     if (!allowedStatuses.includes(status)) {
       sendJson(res, 400, { ok: false, error: "Status invalido para pedido do totem." });
       return;
+    }
+    const previousStatus = sale.status;
+    if (status === "Cancelado" && previousStatus !== "Cancelado") {
+      restoreOnlineOrderStock(tenantState, sale.items || [], sale.id);
+      (tenantState.receivables || []).forEach((row) => {
+        if (Number(row.sourceSaleId) !== Number(sale.id) || row.paid) return;
+        row.cancelled = true;
+        row.paid = true;
+        row.paidValue = Number(row.paidValue || 0);
+        row.balance = 0;
+      });
+      (tenantState.fiscalQueue || []).forEach((row) => {
+        if (Number(row.saleId) !== Number(sale.id) || row.status === "Autorizada" || String(row.status || "").startsWith("Cancelada")) return;
+        row.status = "Cancelada antes da transmissao";
+        row.cancelledAt = new Date().toISOString();
+      });
     }
     sale.status = status;
     sale.updatedAt = new Date().toISOString();
