@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "hash-navigation-fix-v8";
+window.TORTELA_BUILD = "settings-login-fix-v9";
 
 let state = load();
 let apiOnline = false;
@@ -1646,6 +1646,13 @@ function escapeAttr(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 }
@@ -6905,7 +6912,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=hash-navigation-fix-v8").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=settings-login-fix-v9").catch(() => undefined);
 }
 
 boot();

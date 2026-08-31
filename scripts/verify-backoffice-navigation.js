@@ -164,9 +164,9 @@ includesAll("Links publicos do totem em desenvolvimento", app, [
 assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
 assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
 includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
-  "hash-navigation-fix-v8",
-  "tortelaplus-operacao-v8",
-  'navigator.serviceWorker.register("/sw.js?v=hash-navigation-fix-v8")'
+  "settings-login-fix-v9",
+  "tortelaplus-operacao-v9",
+  'navigator.serviceWorker.register("/sw.js?v=settings-login-fix-v9")'
 ]);
 
 console.log("OK - navegacao da retaguarda validada: modulos, abas e paineis principais estao conectados.");

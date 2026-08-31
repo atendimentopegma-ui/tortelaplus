@@ -1,4 +1,4 @@
-const CACHE_NAME = "tortelaplus-operacao-v8";
+const CACHE_NAME = "tortelaplus-operacao-v9";
 const ASSETS = ["/assets/tortela/logo-tortela.gif"];
 
 self.addEventListener("install", (event) => {
