@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "login-submit-fix-v5";
+window.TORTELA_BUILD = "navigation-settings-fix-v6";
 
 let state = load();
 let apiOnline = false;
@@ -1043,24 +1043,6 @@ function renderShell() {
       </section>
     </main>
   `);
-
-  document.querySelectorAll("[data-mode]").forEach((button) => {
-    button.addEventListener("click", () => {
-      currentMode = button.dataset.mode;
-      if (currentMode === "pdv") setInternalRoute({ mode: "pdv", module: "", tab: "", fiscal: "", stock: "", people: "", settings: "" });
-      else setInternalRoute({ mode: "", module: currentModule });
-      renderShell();
-    });
-  });
-
-  document.querySelectorAll("[data-module]").forEach((button) => {
-    button.addEventListener("click", () => {
-      currentModule = button.dataset.module;
-      currentTab = "dados";
-      setInternalRoute({ mode: "", module: currentModule, fiscal: currentModule === "fiscal" ? currentFiscalTab : "", stock: currentModule === "stock" ? currentStockTab : "", people: currentModule === "people" ? currentPeopleTab : "" });
-      renderShell();
-    });
-  });
 
   byId("logout").addEventListener("click", () => {
     endSession();
@@ -6890,7 +6872,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=login-submit-fix-v5").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=navigation-settings-fix-v6").catch(() => undefined);
 }
 
 boot();

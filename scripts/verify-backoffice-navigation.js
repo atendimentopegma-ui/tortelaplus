@@ -3,6 +3,8 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "src", "app.js"), "utf8");
+const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
+const serviceWorker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -61,6 +63,8 @@ includesAll("Menu lateral", shellRenderer, [
   'href="#module=${key}"',
   "renderModule()"
 ]);
+assert(!shellRenderer.includes('document.querySelectorAll("[data-module]")'), "Menu lateral: clique deve ser tratado apenas pelo handler global.");
+assert(!shellRenderer.includes('document.querySelectorAll("[data-mode]")'), "Modo PDV/Retaguarda: clique deve ser tratado apenas pelo handler global.");
 
 const moduleRenderer = extractFunction("renderModule");
 includesAll("Renderizadores dos modulos", moduleRenderer, [
@@ -142,5 +146,10 @@ includesAll("Links publicos do totem em desenvolvimento", app, [
 ]);
 assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
 assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
+includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
+  "navigation-settings-fix-v6",
+  "tortelaplus-operacao-v6",
+  'navigator.serviceWorker.register("/sw.js?v=navigation-settings-fix-v6")'
+]);
 
 console.log("OK - navegacao da retaguarda validada: modulos, abas e paineis principais estao conectados.");
