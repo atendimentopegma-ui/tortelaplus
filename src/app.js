@@ -4794,6 +4794,9 @@ function newProductRecord(type = "") {
   pendingComposition = [];
   pendingProductDraft = type ? { type, manufactured: type === "Produto fabricado" } : {};
   currentTab = "dados";
+  currentMode = "backoffice";
+  currentModule = "products";
+  setInternalRoute({ module: "products", tab: currentTab, fiscal: "", stock: "", people: "", settings: "" });
   renderShell();
 }
 
@@ -7772,6 +7775,13 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     copyPublicRegistrationLink();
+    return;
+  }
+  const newProductType = event.target.closest("[data-new-product-type]");
+  if (newProductType) {
+    event.preventDefault();
+    event.stopPropagation();
+    newProductRecord(newProductType.dataset.newProductType || "Mercadoria para revenda");
     return;
   }
   const dashboardModuleButton = event.target.closest("[data-dashboard-module]");

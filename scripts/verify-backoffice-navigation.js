@@ -41,6 +41,7 @@ includesAll("Handler global de navegacao", delegatedClickHandler, [
   "[data-dashboard-module]",
   "[data-new-person-type]",
   "#copy-public-registration",
+  "[data-new-product-type]",
   "[data-module]",
   "[data-fiscal-tab]",
   "[data-stock-tab]",
