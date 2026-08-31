@@ -5343,14 +5343,31 @@ th {
   background:
     radial-gradient(circle at top left, rgba(250, 204, 21, 0.28), transparent 32rem),
     linear-gradient(135deg, #fff8d7 0%, #f8fbfc 46%, #edf8f6 100%);
+  height: auto;
+  min-height: 100vh;
+  overflow: visible;
+  padding-bottom: 96px;
 }
 
 .store-central-shell .network-dashboard {
   grid-template-columns: 250px minmax(0, 1fr);
+  height: auto;
+  min-height: 0;
 }
 
 .store-central-shell .network-stage {
   border-color: rgba(212, 161, 0, 0.32);
+  overflow: visible;
+}
+
+.store-central-theme {
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
+.store-central-theme .network-module {
+  height: auto;
+  min-height: 0;
 }
 
 .store-action-grid {
