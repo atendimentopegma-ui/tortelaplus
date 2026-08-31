@@ -320,6 +320,7 @@ window.TORTELA_BUILD = "login-submit-fix-v5";
 let state = load();
 let apiOnline = false;
 const licenseGateDisabled = true;
+const publicTerminalGateDisabled = true;
 let currentMode = "backoffice";
 let currentModule = "dashboard";
 let currentTab = "dados";
@@ -749,17 +750,18 @@ function counterPassword(tenant, challenge, days = tenant.renewalDays) {
 
 function publicUnitLink(page, absolute = false) {
   const params = new URLSearchParams({ unidade: state.settings.tenantCode });
-  if (state.settings.publicTerminalToken) params.set("terminalToken", state.settings.publicTerminalToken);
+  if (!publicTerminalGateDisabled && state.settings.publicTerminalToken) params.set("terminalToken", state.settings.publicTerminalToken);
   const path = `${page}?${params.toString()}`;
   return absolute ? `${location.origin}/${path}` : `./${path}`;
 }
 
 function onlineUnitLinks() {
+  const terminalSecure = !publicTerminalGateDisabled;
   return [
     { key: "store", label: "Loja online", description: "Link publico de venda por entrega ou retirada.", url: `${location.origin}/loja.html?unidade=${encodeURIComponent(state.settings.tenantCode)}`, secure: false },
-    { key: "kiosk", label: "Totem de vendas", description: "Tela vertical usada no autoatendimento da unidade.", url: publicUnitLink("totem.html", true), secure: true },
-    { key: "kitchen", label: "Cozinha do totem", description: "Fila operacional para preparar e marcar pedido pronto.", url: publicUnitLink("cozinha", true), secure: true },
-    { key: "display", label: "Telao de pedidos", description: "Painel para chamar a senha do cliente.", url: publicUnitLink("telao.html", true), secure: true }
+    { key: "kiosk", label: "Totem de vendas", description: "Tela vertical usada no autoatendimento da unidade.", url: publicUnitLink("totem.html", true), secure: terminalSecure },
+    { key: "kitchen", label: "Cozinha do totem", description: "Fila operacional para preparar e marcar pedido pronto.", url: publicUnitLink("cozinha", true), secure: terminalSecure },
+    { key: "display", label: "Telao de pedidos", description: "Painel para chamar a senha do cliente.", url: publicUnitLink("telao.html", true), secure: terminalSecure }
   ];
 }
 
@@ -1966,7 +1968,7 @@ function renderOnlineOrders() {
           ${unitLinks.map((link) => `
             <article class="unit-link-card">
               <div>
-                <span class="badge ${link.secure ? "ok" : "warn"}">${link.secure ? "Com token" : "Publico"}</span>
+                <span class="badge ${link.secure ? "ok" : "warn"}">${link.secure ? "Com token" : "Direto"}</span>
                 <h3>${link.label}</h3>
                 <p>${link.description}</p>
                 <input value="${escapeAttr(link.url)}" readonly />
@@ -2664,12 +2666,12 @@ function renderSettings() {
             <div class="field"><label>Raio entrega online km</label><input id="set-delivery-radius-km" type="number" step="0.1" value="${Number(state.settings.deliveryRadiusKm || 10)}" /></div>
             <div class="field terminal-token-field">
               <label>Token totem/cozinha/telao</label>
-              <input id="set-public-terminal-token" value="${escapeAttr(state.settings.publicTerminalToken || "")}" placeholder="Gerado pelo servidor da unidade" />
+              <input id="set-public-terminal-token" value="${escapeAttr(state.settings.publicTerminalToken || "")}" placeholder="Desativado durante desenvolvimento" ${publicTerminalGateDisabled ? "readonly" : ""} />
               <div class="actions">
-                <button class="btn" id="copy-public-terminal-token" type="button">Copiar token</button>
-                <button class="btn danger" id="rotate-public-terminal-token" type="button">Gerar novo token</button>
+                <button class="btn" id="copy-public-terminal-token" type="button" ${publicTerminalGateDisabled ? "disabled" : ""}>Copiar token</button>
+                <button class="btn danger" id="rotate-public-terminal-token" type="button" ${publicTerminalGateDisabled ? "disabled" : ""}>Gerar novo token</button>
               </div>
-              <small>Ao gerar e salvar um novo token, os links antigos do totem, cozinha e telao deixam de funcionar.</small>
+              <small>${publicTerminalGateDisabled ? "Durante o desenvolvimento, os links do totem, cozinha e telao abrem direto por unidade." : "Ao gerar e salvar um novo token, os links antigos do totem, cozinha e telao deixam de funcionar."}</small>
             </div>
             <div class="field"><label>Webhook geral de alertas</label><input id="set-alert-webhook" value="${escapeAttr(state.settings.alertWebhookUrl || "")}" placeholder="https://..." /></div>
             <div class="field"><label>Token webhook de alertas</label><input id="set-alert-webhook-token" type="password" placeholder="${state.settings.alertWebhookTokenConfigured ? "Token protegido configurado" : "Informe se o provedor exigir"}" /></div>

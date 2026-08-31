@@ -135,4 +135,12 @@ includesAll("Abas de configuracoes", settingsRenderer, [
   assert(settingsRenderer.includes(`data-settings-pane="${key}"`), `Configuracoes: faltando painel ${key}`);
 });
 
+const publicUnitLink = extractFunction("publicUnitLink");
+includesAll("Links publicos do totem em desenvolvimento", app, [
+  "const publicTerminalGateDisabled = true",
+  "Durante o desenvolvimento, os links do totem, cozinha e telao abrem direto por unidade."
+]);
+assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
+assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
+
 console.log("OK - navegacao da retaguarda validada: modulos, abas e paineis principais estao conectados.");
