@@ -2057,6 +2057,14 @@ function renderStock() {
   const producedProducts = state.products.filter((p) => (p.composition || []).some((component) => component.mode === "production" || component.mode === "both"));
   const productOptions = state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("");
   const productionOptions = producedProducts.map((p) => `<option value="${p.id}">${p.description}</option>`).join("");
+  const stockRibbon = [
+    { key: "producao", title: "Producao", text: "Ordem da cozinha", icon: "purchases", kind: "primary" },
+    { key: "movimento", title: "Movimento", text: "Entrada, saida e perda", icon: "stock" },
+    { key: "qr", title: "QR Central", text: "Receber remessa", icon: "pdv" },
+    { key: "inventario", title: "Inventario", text: "Contagem fisica", icon: "reports" },
+    { key: "transferencia", title: "Transferencia", text: "Depositos e loja", icon: "sales" },
+    { key: "saldos", title: "Saldos", text: "Consulta geral", icon: "products" }
+  ];
   const plannedOptions = (state.productions || [])
     .filter((row) => row.status === "Planejada")
     .map((row) => `<option value="${row.id}">Ordem ${row.id} - ${row.product} (${row.plannedQty})</option>`)
@@ -2154,22 +2162,47 @@ function renderStock() {
     saldos: saldoPanel
   };
   return `
-    <section class="panel stock-screen">
-      <div class="panel-head">
-        <div>
-          <h2>Estoque e producao</h2>
-          <p>${activeStockTab[1]} da unidade, com baixa por venda, producao e ajustes autorizados.</p>
+    <section class="panel stock-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Estoque e producao</strong>
+        <span>${activeStockTab[1]} da unidade, com baixa por venda, producao e ajustes autorizados</span>
+        <span>${lowStock.length} item(ns) no minimo</span>
+      </div>
+
+      <div class="desktop-module-ribbon">
+        ${stockRibbon.map((item) => `
+          <button class="desktop-ribbon-button ${currentStockTab === item.key ? "primary" : ""}" data-stock-tab="${item.key}" type="button">
+            <span class="dashboard-module-icon icon-${item.icon}" aria-hidden="true"></span>
+            <strong>${item.title}</strong>
+            <small>${item.text}</small>
+          </button>
+        `).join("")}
+      </div>
+
+      <div class="desktop-tab-strip">
+        <span class="active">Estoque</span>
+        <span>${activeStockTab[1]}</span>
+        <span>${money(stockValue)} a custo</span>
+      </div>
+
+      <div class="desktop-work-area stock-work-area">
+        <div class="desktop-summary-strip stock-overview">
+          <div><span>Produtos</span><strong>${state.products.length}</strong></div>
+          <div><span>Estoque minimo</span><strong>${lowStock.length}</strong></div>
+          <div><span>Validade alerta</span><strong>${expiringLots.length}</strong></div>
+          <div><span>Estoque a custo</span><strong>${money(stockValue)}</strong></div>
         </div>
-      </div>
-      <div class="erp-overview stock-overview">
-        <div><span>Produtos</span><strong>${state.products.length}</strong></div>
-        <div><span>Estoque minimo</span><strong>${lowStock.length}</strong></div>
-        <div><span>Validade alerta</span><strong>${expiringLots.length}</strong></div>
-        <div><span>Estoque a custo</span><strong>${money(stockValue)}</strong></div>
-      </div>
-      <div class="module-tabs">${stockTabs.map(([key, label]) => `<a class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}" href="#module=stock&stock=${key}" role="button">${label}</a>`).join("")}</div>
-      <div class="panel-body grid">
-        ${panels[currentStockTab]}
+
+        <div class="desktop-filter-panel">
+          <div class="filter-caption">Rotina atual | ${activeStockTab[1]}</div>
+          <p>Escolha no topo se vai produzir, movimentar estoque, receber por QR, inventariar, transferir ou consultar saldos.</p>
+        </div>
+
+        <div class="module-tabs desktop-record-tabs">${stockTabs.map(([key, label]) => `<a class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}" href="#module=stock&stock=${key}" role="button">${label}</a>`).join("")}</div>
+
+        <div class="panel-body grid stock-desktop-body">
+          ${panels[currentStockTab]}
+        </div>
       </div>
     </section>
   `;
