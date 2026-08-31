@@ -120,7 +120,6 @@ includesAll("Aba de etiquetas", productTabsRenderer, [
 const stockRenderer = extractFunction("renderStock");
 includesAll("Abas de estoque", stockRenderer, [
   "data-stock-tab",
-  "href=\"#module=stock&stock=",
   "currentStockTab"
 ]);
 ["producao", "movimento", "qr", "inventario", "transferencia", "saldos"].forEach((key) => {

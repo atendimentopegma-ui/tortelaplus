@@ -2448,6 +2448,16 @@ header.topbar .top-right .central-top-action:hover {
   background: rgba(255, 248, 213, 0.72);
 }
 
+.desktop-context-strip .desktop-context-metric {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  border-bottom-color: transparent;
+  color: #061733;
+  background: rgba(255, 255, 255, 0.58);
+  cursor: default;
+}
+
 .desktop-work-area {
   min-height: 0;
   display: grid;
@@ -3012,7 +3022,7 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .stock-work-area {
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .stock-desktop-body {

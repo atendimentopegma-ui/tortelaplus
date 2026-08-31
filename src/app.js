@@ -2187,9 +2187,8 @@ function renderStock() {
       </div>
 
       <div class="desktop-context-strip">
-        <span>Estoque</span>
-        <span>${activeStockTab[1]}</span>
-        <span>${money(stockValue)} a custo</span>
+        ${stockTabs.map(([key, label]) => `<button class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}" type="button">${label}</button>`).join("")}
+        <span class="desktop-context-metric">${money(stockValue)} a custo</span>
       </div>
 
       <div class="desktop-work-area stock-work-area">
@@ -2204,8 +2203,6 @@ function renderStock() {
           <div class="filter-caption">Rotina atual | ${activeStockTab[1]}</div>
           <p>Escolha no topo se vai produzir, movimentar estoque, receber por QR, inventariar, transferir ou consultar saldos.</p>
         </div>
-
-        <div class="module-tabs desktop-record-tabs">${stockTabs.map(([key, label]) => `<a class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}" href="#module=stock&stock=${key}" role="button">${label}</a>`).join("")}</div>
 
         <div class="panel-body grid stock-desktop-body">
           ${panels[currentStockTab]}
