@@ -37,6 +37,8 @@ function extractFunction(name) {
 
 const delegatedClickHandler = app.slice(app.lastIndexOf('document.addEventListener("click"'));
 includesAll("Handler global de navegacao", delegatedClickHandler, [
+  "#open-pdv",
+  "[data-dashboard-module]",
   "[data-module]",
   "[data-fiscal-tab]",
   "[data-stock-tab]",

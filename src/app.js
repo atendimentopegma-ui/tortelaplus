@@ -7745,6 +7745,22 @@ window.addEventListener("hashchange", () => {
 });
 
 document.addEventListener("click", (event) => {
+  const dashboardPdv = event.target.closest("#open-pdv");
+  if (dashboardPdv) {
+    event.preventDefault();
+    event.stopPropagation();
+    currentMode = "pdv";
+    setInternalRoute({ mode: "pdv", module: "", tab: "", fiscal: "", stock: "", people: "", settings: "" });
+    renderShell();
+    return;
+  }
+  const dashboardModuleButton = event.target.closest("[data-dashboard-module]");
+  if (dashboardModuleButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    navigateBackofficeModule(dashboardModuleButton.dataset.dashboardModule || "dashboard");
+    return;
+  }
   const modeButton = event.target.closest("[data-mode]");
   if (modeButton) {
     event.preventDefault();
