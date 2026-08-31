@@ -3783,20 +3783,11 @@ function bindCurrentModule() {
   const addOrderItemFooter = byId("add-order-item-footer");
   if (addOrderItemFooter) addOrderItemFooter.addEventListener("click", addOrderItemRecord);
   const clearOrderItems = byId("clear-order-items");
-  if (clearOrderItems) clearOrderItems.addEventListener("click", () => {
-    orderItems = [];
-    renderShell();
-  });
+  if (clearOrderItems) clearOrderItems.addEventListener("click", clearOrderItemsRecord);
   const clearOrderItemsRibbon = byId("clear-order-items-ribbon");
-  if (clearOrderItemsRibbon) clearOrderItemsRibbon.addEventListener("click", () => {
-    orderItems = [];
-    renderShell();
-  });
+  if (clearOrderItemsRibbon) clearOrderItemsRibbon.addEventListener("click", clearOrderItemsRecord);
   const clearOrderItemsFooter = byId("clear-order-items-footer");
-  if (clearOrderItemsFooter) clearOrderItemsFooter.addEventListener("click", () => {
-    orderItems = [];
-    renderShell();
-  });
+  if (clearOrderItemsFooter) clearOrderItemsFooter.addEventListener("click", clearOrderItemsRecord);
   document.querySelectorAll("[data-sales-step]").forEach((button) => {
     button.addEventListener("click", () => focusSalesStep(button.dataset.salesStep || "order"));
   });
@@ -5607,6 +5598,11 @@ function addOrderItemRecord() {
   const existing = orderItems.find((item) => item.id === product.id);
   if (existing) existing.qty += qty;
   else orderItems.push({ id: product.id, description: product.description, qty, unit: product.unit, price: effectiveProductPrice(product, qty) });
+  renderShell();
+}
+
+function clearOrderItemsRecord() {
+  orderItems = [];
   renderShell();
 }
 
@@ -7867,6 +7863,34 @@ document.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     focusPurchaseStep(purchaseStep.dataset.purchaseStep || "document");
+    return;
+  }
+  const addOrderShortcut = event.target.closest("#add-order-item-ribbon, #add-order-item-footer");
+  if (addOrderShortcut) {
+    event.preventDefault();
+    event.stopPropagation();
+    addOrderItemRecord();
+    return;
+  }
+  const clearOrderShortcut = event.target.closest("#clear-order-items-ribbon, #clear-order-items-footer");
+  if (clearOrderShortcut) {
+    event.preventDefault();
+    event.stopPropagation();
+    clearOrderItemsRecord();
+    return;
+  }
+  const saveOrderShortcut = event.target.closest("#save-order-ribbon, #save-order");
+  if (saveOrderShortcut) {
+    event.preventDefault();
+    event.stopPropagation();
+    saveOrderRecord();
+    return;
+  }
+  const salesStep = event.target.closest("[data-sales-step]");
+  if (salesStep) {
+    event.preventDefault();
+    event.stopPropagation();
+    focusSalesStep(salesStep.dataset.salesStep || "order");
     return;
   }
   const personFilter = event.target.closest("[data-person-filter]");
