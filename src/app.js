@@ -2210,42 +2210,108 @@ function renderStock() {
 
 function renderPurchases() {
   const purchaseTotal = purchaseItems.reduce((sum, item) => sum + item.qty * item.cost, 0);
+  const monthPurchases = state.purchases.filter((row) => String(row.date || "").slice(0, 7) === today().slice(0, 7) && row.status !== "Cancelada");
+  const monthTotal = monthPurchases.reduce((sum, row) => sum + Number(row.total || 0), 0);
+  const cancelledPurchases = state.purchases.filter((row) => row.status === "Cancelada").length;
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Compras</h2><div class="actions"><label class="btn" for="purchase-xml">Ler XML</label><input id="purchase-xml" type="file" accept=".xml,text/xml,application/xml" hidden /><button class="btn primary" id="new-purchase">Lancar compra</button></div></div>
-      <div class="panel-body grid">
-        <div class="form-card grid four">
-          <div class="field"><label>Fornecedor</label><select id="purchase-supplier">${state.people.filter((p) => p.type === "Fornecedor").map((p) => `<option>${p.name}</option>`).join("")}</select></div>
-          <div class="field"><label>Nota/Documento</label><input id="purchase-doc" /></div>
-          <div class="field"><label>Entrada</label><input id="purchase-date" type="date" value="${today()}" /></div>
-          <div class="field"><label>Vencimento</label><input id="purchase-due" type="date" value="${today()}" /></div>
-          <div class="field"><label>Gerar</label><select id="purchase-generate"><option>Estoque e financeiro</option><option>Somente estoque</option><option>Somente financeiro</option></select></div>
-          <div class="field"><label>Preco de venda</label><select id="purchase-price-update"><option value="keep">Manter atual</option><option value="margin">Recalcular mantendo margem</option></select></div>
-          <div class="field"><label>Parcelas</label><input id="purchase-installments" type="number" min="1" value="1" /></div>
-          <div class="field"><label>Intervalo das parcelas</label><input id="purchase-interval" type="number" min="1" value="30" /></div>
+    <section class="panel purchases-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Compras</strong>
+        <span>Entrada de mercadoria, XML, estoque e financeiro</span>
+        <span>${monthPurchases.length} compra(s) no mes</span>
+      </div>
+
+      <div class="desktop-module-ribbon">
+        <label class="desktop-ribbon-button primary" for="purchase-xml">
+          <span class="dashboard-module-icon icon-fiscal" aria-hidden="true"></span>
+          <strong>Ler XML</strong>
+          <small>Importar nota</small>
+        </label>
+        <button class="desktop-ribbon-button" id="add-purchase-item-ribbon" type="button">
+          <span class="dashboard-module-icon icon-products" aria-hidden="true"></span>
+          <strong>Adicionar item</strong>
+          <small>Produto na nota</small>
+        </button>
+        <button class="desktop-ribbon-button" id="clear-purchase-items-ribbon" type="button">
+          <span class="dashboard-module-icon icon-settings" aria-hidden="true"></span>
+          <strong>Limpar itens</strong>
+          <small>Recomecar nota</small>
+        </button>
+        <button class="desktop-ribbon-button primary" id="new-purchase-ribbon" type="button">
+          <span class="dashboard-module-icon icon-purchases" aria-hidden="true"></span>
+          <strong>Gravar compra</strong>
+          <small>Estoque/financeiro</small>
+        </button>
+      </div>
+
+      <input id="purchase-xml" type="file" accept=".xml,text/xml,application/xml" hidden />
+
+      <div class="desktop-tab-strip">
+        <span class="active">Compras</span>
+        <span>Entrada</span>
+        <span>Total atual: ${money(purchaseTotal)}</span>
+      </div>
+
+      <div class="desktop-work-area purchases-work-area">
+        <div class="desktop-summary-strip">
+          <div><span>Itens na nota</span><strong>${purchaseItems.length}</strong></div>
+          <div><span>Total atual</span><strong>${money(purchaseTotal)}</strong></div>
+          <div><span>Compras no mes</span><strong>${monthPurchases.length}</strong></div>
+          <div><span>Total do mes</span><strong>${money(monthTotal)}</strong></div>
+          <div><span>Canceladas</span><strong>${cancelledPurchases}</strong></div>
         </div>
-        <div class="form-card">
-          <h3>Itens da compra</h3>
-          <div class="grid four">
-            <div class="field"><label>Produto</label><select id="purchase-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
-            <div class="field"><label>Quantidade</label><input id="purchase-qty" type="number" step="0.001" value="1" /></div>
-            <div class="field"><label>Custo unitario</label><input id="purchase-cost" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Lote</label><input id="purchase-lot" /></div>
-            <div class="field"><label>Validade</label><input id="purchase-expiry" type="date" /></div>
-            <div class="field"><label>Numeros de serie</label><textarea id="purchase-serials" placeholder="Um por linha"></textarea></div>
-            <div class="field"><label>CFOP entrada</label><input id="purchase-cfop" value="1102" /></div>
-            <div class="field"><label>CST/CSOSN</label><input id="purchase-cst" value="102" /></div>
-            <div class="field"><label>ICMS</label><input id="purchase-icms" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Total da nota</label><input readonly value="${money(purchaseTotal)}" /></div>
+
+        <div class="desktop-filter-panel">
+          <div class="filter-caption">Fluxo de compra</div>
+          <p>Informe o fornecedor e documento, adicione os itens ou importe XML, depois grave para gerar estoque e financeiro conforme a opcao escolhida.</p>
+        </div>
+
+        <div class="purchases-desktop-body">
+          <div class="form-card purchase-document-card">
+            <h3>Dados da nota</h3>
+            <div class="grid four">
+              <div class="field"><label>Fornecedor</label><select id="purchase-supplier">${state.people.filter((p) => p.type === "Fornecedor").map((p) => `<option>${p.name}</option>`).join("")}</select></div>
+              <div class="field"><label>Nota/Documento</label><input id="purchase-doc" /></div>
+              <div class="field"><label>Entrada</label><input id="purchase-date" type="date" value="${today()}" /></div>
+              <div class="field"><label>Vencimento</label><input id="purchase-due" type="date" value="${today()}" /></div>
+              <div class="field"><label>Gerar</label><select id="purchase-generate"><option>Estoque e financeiro</option><option>Somente estoque</option><option>Somente financeiro</option></select></div>
+              <div class="field"><label>Preco de venda</label><select id="purchase-price-update"><option value="keep">Manter atual</option><option value="margin">Recalcular mantendo margem</option></select></div>
+              <div class="field"><label>Parcelas</label><input id="purchase-installments" type="number" min="1" value="1" /></div>
+              <div class="field"><label>Intervalo parcelas</label><input id="purchase-interval" type="number" min="1" value="30" /></div>
+            </div>
           </div>
-          <div class="actions"><button class="btn primary" id="add-purchase-item" type="button">Adicionar item</button><button class="btn danger" id="clear-purchase-items" type="button">Limpar itens</button></div>
-          <div class="table-wrap">
-            <table><thead><tr><th>Produto</th><th>Qtd</th><th>Custo</th><th>CFOP</th><th>CST</th><th>ICMS</th><th>Lote</th><th>Total</th><th>Acao</th></tr></thead><tbody>${purchaseItems.length ? purchaseItems.map((item, index) => `<tr><td>${item.product}</td><td>${item.qty}</td><td>${money(item.cost)}</td><td>${item.cfop || "-"}</td><td>${item.cst || "-"}</td><td>${money(item.icmsValue || 0)}</td><td>${item.lot || "-"}</td><td>${money(item.qty * item.cost)}</td><td><button class="btn danger" data-remove-purchase-item="${index}" type="button">Remover</button></td></tr>`).join("") : `<tr><td colspan="9">Nenhum item adicionado.</td></tr>`}</tbody></table>
+
+          <div class="form-card purchase-items-card">
+            <h3>Itens da compra</h3>
+            <div class="grid four">
+              <div class="field"><label>Produto</label><select id="purchase-product">${state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("")}</select></div>
+              <div class="field"><label>Quantidade</label><input id="purchase-qty" type="number" step="0.001" value="1" /></div>
+              <div class="field"><label>Custo unitario</label><input id="purchase-cost" type="number" step="0.01" value="0" /></div>
+              <div class="field"><label>Lote</label><input id="purchase-lot" /></div>
+              <div class="field"><label>Validade</label><input id="purchase-expiry" type="date" /></div>
+              <div class="field"><label>Numeros de serie</label><textarea id="purchase-serials" placeholder="Um por linha"></textarea></div>
+              <div class="field"><label>CFOP entrada</label><input id="purchase-cfop" value="1102" /></div>
+              <div class="field"><label>CST/CSOSN</label><input id="purchase-cst" value="102" /></div>
+              <div class="field"><label>ICMS %</label><input id="purchase-icms" type="number" step="0.01" value="0" /></div>
+              <div class="field"><label>Total da nota</label><input readonly value="${money(purchaseTotal)}" /></div>
+            </div>
+            <div class="actions"><button class="btn primary" id="add-purchase-item" type="button">Adicionar item</button><button class="btn danger" id="clear-purchase-items" type="button">Limpar itens</button></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Produto</th><th>Qtd</th><th>Custo</th><th>CFOP</th><th>CST</th><th>ICMS</th><th>Lote</th><th>Total</th><th>Acao</th></tr></thead><tbody>${purchaseItems.length ? purchaseItems.map((item, index) => `<tr><td>${item.product}</td><td>${item.qty}</td><td>${money(item.cost)}</td><td>${item.cfop || "-"}</td><td>${item.cst || "-"}</td><td>${money(item.icmsValue || 0)}</td><td>${item.lot || "-"}</td><td>${money(item.qty * item.cost)}</td><td><button class="btn danger" data-remove-purchase-item="${index}" type="button">Remover</button></td></tr>`).join("") : `<tr><td colspan="9">Nenhum item adicionado.</td></tr>`}</tbody></table>
+            </div>
+          </div>
+
+          <div class="table-wrap purchase-history-card">
+            <table><thead><tr><th>Numero</th><th>Data</th><th>Fornecedor</th><th>Documento</th><th>Itens</th><th>Total</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.purchases.map((row) => `<tr><td>${row.id}</td><td>${row.date}</td><td>${row.supplier}</td><td>${row.document || ""}</td><td>${row.items?.length || 1}</td><td>${money(row.total)}</td><td><span class="badge ${row.status === "Cancelada" ? "danger" : "ok"}">${row.status || "Confirmada"}</span></td><td>${row.status === "Cancelada" ? "-" : `<button class="btn danger" data-cancel-purchase="${row.id}">Cancelar</button>`}</td></tr>`).join("")}</tbody></table>
           </div>
         </div>
-        <div class="table-wrap">
-          <table><thead><tr><th>Numero</th><th>Data</th><th>Fornecedor</th><th>Documento</th><th>Itens</th><th>Total</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.purchases.map((row) => `<tr><td>${row.id}</td><td>${row.date}</td><td>${row.supplier}</td><td>${row.document || ""}</td><td>${row.items?.length || 1}</td><td>${money(row.total)}</td><td><span class="badge ${row.status === "Cancelada" ? "danger" : "ok"}">${row.status || "Confirmada"}</span></td><td>${row.status === "Cancelada" ? "-" : `<button class="btn danger" data-cancel-purchase="${row.id}">Cancelar</button>`}</td></tr>`).join("")}</tbody></table>
-        </div>
+      </div>
+
+      <div class="desktop-action-bar erp-action-bar">
+        <label class="desktop-command primary" for="purchase-xml"><span>X</span>Ler XML</label>
+        <button class="desktop-command" id="add-purchase-item-footer" type="button"><span>+</span>Adicionar item</button>
+        <button class="desktop-command" id="clear-purchase-items-footer" type="button"><span>L</span>Limpar itens</button>
+        <button class="desktop-command primary" id="new-purchase" type="button"><span>S</span>Gravar compra</button>
       </div>
     </section>
   `;
@@ -3418,12 +3484,28 @@ function bindCurrentModule() {
 
   const newPurchase = byId("new-purchase");
   if (newPurchase) newPurchase.addEventListener("click", savePurchaseRecord);
+  const newPurchaseRibbon = byId("new-purchase-ribbon");
+  if (newPurchaseRibbon) newPurchaseRibbon.addEventListener("click", savePurchaseRecord);
 
   const addPurchaseItem = byId("add-purchase-item");
   if (addPurchaseItem) addPurchaseItem.addEventListener("click", addPurchaseItemRecord);
+  const addPurchaseItemRibbon = byId("add-purchase-item-ribbon");
+  if (addPurchaseItemRibbon) addPurchaseItemRibbon.addEventListener("click", addPurchaseItemRecord);
+  const addPurchaseItemFooter = byId("add-purchase-item-footer");
+  if (addPurchaseItemFooter) addPurchaseItemFooter.addEventListener("click", addPurchaseItemRecord);
 
   const clearPurchaseItems = byId("clear-purchase-items");
   if (clearPurchaseItems) clearPurchaseItems.addEventListener("click", () => {
+    purchaseItems = [];
+    renderShell();
+  });
+  const clearPurchaseItemsRibbon = byId("clear-purchase-items-ribbon");
+  if (clearPurchaseItemsRibbon) clearPurchaseItemsRibbon.addEventListener("click", () => {
+    purchaseItems = [];
+    renderShell();
+  });
+  const clearPurchaseItemsFooter = byId("clear-purchase-items-footer");
+  if (clearPurchaseItemsFooter) clearPurchaseItemsFooter.addEventListener("click", () => {
     purchaseItems = [];
     renderShell();
   });

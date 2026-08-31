@@ -3044,6 +3044,70 @@ header.topbar .top-right .central-top-action:hover {
   }
 }
 
+.purchases-screen {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.purchases-work-area {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.purchases-desktop-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.48fr) minmax(520px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  overflow: auto;
+}
+
+.purchase-document-card,
+.purchase-items-card,
+.purchase-history-card {
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.purchase-document-card {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-content: start;
+  border-left: 4px solid #f2c300;
+}
+
+.purchase-items-card {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.purchase-history-card {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 220px;
+  overflow: auto;
+}
+
+.purchase-document-card h3,
+.purchase-items-card h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 1180px) {
+  .purchases-desktop-body,
+  .purchase-document-card,
+  .purchase-items-card,
+  .purchase-history-card {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .purchases-desktop-body {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1100px) {
   .erp-overview {
     grid-template-columns: repeat(2, minmax(140px, 1fr));
