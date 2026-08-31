@@ -69,30 +69,43 @@ function render() {
       <div class="store-topbar">
         <div class="store-brand">
           <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+          <div>
+            <strong>Tortela Online</strong>
+            <span>Pedidos para entrega e retirada</span>
+          </div>
         </div>
         <button class="store-location" id="store-focus-cep">
           <span>Entregar em</span>
           <strong>${currentCep ? escapeHtml(currentCep) : "Informe seu CEP"}</strong>
         </button>
         <div class="store-searchbar">
-          <span>Buscar</span>
+          <span>Produto</span>
           <input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="O que voce quer comer hoje?" />
         </div>
-        <button class="store-chip" id="store-jump-cart">${itemCount} item(ns) - ${money(total)}</button>
+        <button class="store-chip" id="store-jump-cart">
+          <span>Sacola</span>
+          <strong>${itemCount} item(ns) - ${money(total)}</strong>
+        </button>
       </div>
     </header>
 
     <main class="store-main">
       <section class="store-delivery-panel">
         <div>
-          <span class="store-kicker">Tortela delivery</span>
-          <h1>Escolha sua Tortela e finalize como em um app de delivery.</h1>
+          <span class="store-kicker">Loja Tortela</span>
+          <h1>Escolha, confira a sacola e envie seu pedido.</h1>
           <p>${catalog.nearest ? `${escapeHtml(publicUnitName(catalog.nearest))} recebe o pedido, baixa o estoque e acompanha a entrega.` : "Informe o CEP para localizar a loja Tortela mais proxima."}</p>
+          <div class="store-service-strip" aria-label="Informacoes do pedido">
+            <span>Entrega ou retirada</span>
+            <span>Pagamento no pedido</span>
+            <span>Preparo acompanhado</span>
+          </div>
           <div class="store-delivery-status ${deliveryBlocked ? "blocked" : deliveryKnown ? "ok" : ""}">
             ${escapeHtml(catalog.deliveryMessage || "Informe o CEP para localizar sua loja Tortela.")}
           </div>
         </div>
         <div class="store-delivery-actions">
+          <strong>Encontre a unidade de atendimento</strong>
           <div class="field"><label>CEP de entrega</label><input id="store-cep" inputmode="numeric" value="${escapeHtml(currentCep)}" placeholder="Digite seu CEP" /></div>
           <button class="btn primary" id="store-refresh">Encontrar loja</button>
         </div>
@@ -106,10 +119,10 @@ function render() {
         <section class="store-menu" id="store-products-area">
           <div class="store-section-title">
             <div>
-              <span>Cardapio Tortela</span>
-              <h2>Mais pedidos da loja</h2>
+              <span>Cardapio</span>
+              <h2>Produtos disponiveis</h2>
             </div>
-            <small>${catalog.products.length} item(ns) disponiveis</small>
+            <small>${catalog.products.length} item(ns)</small>
           </div>
           <div class="store-products">
             ${catalog.products.map(productCard).join("") || `<div class="store-empty">Nenhum produto disponivel para venda online.</div>`}
@@ -118,7 +131,10 @@ function render() {
 
         <aside class="store-cart" id="store-cart">
           <div class="store-cart-title">
-            <span>Sacola</span>
+            <div>
+              <span>Sacola</span>
+              <small>${itemCount} item(ns) selecionado(s)</small>
+            </div>
             <strong>${money(total)}</strong>
           </div>
           ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<p class="muted">Sua sacola esta vazia.</p>`}
@@ -173,12 +189,12 @@ function paymentOption(value, title, detail, selected) {
 function productCard(product) {
   const img = product.photo
     ? `<img src="${product.photo}" alt="${escapeHtml(product.description)}" />`
-    : `<div class="store-product-placeholder">Tortela</div>`;
+    : `<div class="store-product-placeholder"><strong>Tortela</strong><span>Produto fresco</span></div>`;
   return `<article class="store-product" data-category="${escapeHtml(productCategory(product))}">
     <div class="store-product-body">
       <small>${escapeHtml(productCategory(product))}</small>
       <h2>${escapeHtml(product.description)}</h2>
-      <p>Preparado pela unidade Tortela selecionada para entrega ou retirada.</p>
+      <p>Preparado pela unidade Tortela selecionada.</p>
       ${product.hasCoverage ? `<div class="field compact"><label>Cobertura</label><select data-coverage="${product.id}">${(product.coverageOptions || []).map((option) => `<option>${escapeHtml(option)}</option>`).join("")}</select></div>` : ""}
       <div class="store-price"><strong>${money(product.price)}</strong><button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}">Adicionar</button></div>
     </div>
