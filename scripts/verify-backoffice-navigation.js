@@ -102,7 +102,6 @@ includesAll("Renderizadores dos modulos", moduleRenderer, [
 const peopleRenderer = extractFunction("renderPeople");
 includesAll("Abas de pessoas", peopleRenderer, [
   "data-person-filter",
-  "href=\"#module=people&people=",
   "peopleTable()"
 ]);
 

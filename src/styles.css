@@ -2412,19 +2412,40 @@ header.topbar .top-right .central-top-action:hover {
 .desktop-context-strip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 2px;
+  padding: 0 12px;
   border-bottom: 1px solid #c8ced4;
-  background: #e4e7ea;
+  background: #edf1f5;
+  overflow-x: auto;
 }
 
+.desktop-context-strip button,
 .desktop-context-strip span {
-  padding: 5px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.66);
-  color: #273341;
-  font-size: 12px;
-  font-weight: 800;
+  min-height: 48px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #566476;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.desktop-context-strip button {
+  cursor: pointer;
+}
+
+.desktop-context-strip button:hover {
+  color: #061733;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.desktop-context-strip button.active {
+  color: #9a6d00;
+  border-bottom-color: #d6a900;
+  background: rgba(255, 248, 213, 0.72);
 }
 
 .desktop-work-area {
@@ -2753,8 +2774,8 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .people-body {
-  grid-template-columns: minmax(480px, 1fr) minmax(440px, 0.82fr);
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(300px, 0.9fr) auto;
   align-items: stretch;
 }
 

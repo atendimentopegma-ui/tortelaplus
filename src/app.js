@@ -395,6 +395,17 @@ function permissionLabel(permission) {
   return permissionLabels[permission] || permission;
 }
 
+function personFilterLabel(type) {
+  const labels = {
+    Cliente: "Clientes",
+    Fornecedor: "Fornecedores",
+    Funcionario: "Funcionarios",
+    Parceiro: "Parceiros",
+    "SPC/CCF": "SPC/CCF"
+  };
+  return labels[type] || type;
+}
+
 function screenPermissionValue(user, screen, action) {
   const matrix = user?.screenPermissions;
   if (!matrix || !matrix[screen]) return true;
@@ -1316,9 +1327,7 @@ function renderPeople() {
       </div>
 
       <div class="desktop-context-strip">
-        <span>Contatos</span>
-        <span>${personTypeFilter === "Todos" ? "Todos" : personTypeFilter}</span>
-        <span>${selectedPerson ? `Selecionado: ${selectedPerson.name}` : "Nenhum selecionado"}</span>
+        ${personFilters.map((type) => `<button class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}" type="button">${personFilterLabel(type)}</button>`).join("")}
       </div>
 
       <div class="desktop-work-area">
@@ -1336,11 +1345,7 @@ function renderPeople() {
             <input id="person-search" value="${escapeAttr(personSearch)}" placeholder="Digite nome, fantasia, CPF/CNPJ, cidade, telefone, placa ou RNTRC" />
             <button class="btn" id="filter-people">Buscar</button>
           </div>
-          <p>Use os filtros abaixo para separar clientes, fornecedores, funcionarios e demais contatos.</p>
-        </div>
-
-        <div class="module-tabs desktop-record-tabs">
-          ${personFilters.map((type) => `<a class="${personTypeFilter === type ? "active" : ""}" data-person-filter="${type}" href="#module=people&people=${encodeURIComponent(type)}" role="button">${type === "Funcionario" ? "Funcionarios" : type === "Fornecedor" ? "Fornecedores" : type === "Parceiro" ? "Parceiros" : type === "Cliente" ? "Clientes" : type}</a>`).join("")}
+          <p>Filtro atual: <strong>${personFilterLabel(personTypeFilter)}</strong>. Clique em Todos para exibir todos os cadastros.</p>
         </div>
 
         <div class="panel-body erp-body people-body desktop-record-body">
@@ -1430,10 +1435,12 @@ function renderPeople() {
 
 function peopleTable() {
   const query = personSearch.trim().toLowerCase();
-  const filter = personTypes.includes(currentPeopleTab) ? currentPeopleTab : "";
+  const filter = personTypes.includes(currentPeopleTab) && currentPeopleTab !== "SPC/CCF" ? currentPeopleTab : "";
+  const creditAlert = currentPeopleTab === "SPC/CCF";
   const aniversariantes = currentPeopleTab === "Aniversariantes";
   const monthDay = today().slice(5);
   const rows = state.people.filter((person) => (!filter || person.type === filter)
+    && (!creditAlert || person.creditAlert || person.type === "SPC/CCF")
     && (!aniversariantes || String(person.birthDate || "").slice(5) >= monthDay)
     && (!query || [person.name, person.alias, person.document, person.city, person.phone, person.vehiclePlate, person.rntrc].some((value) => String(value || "").toLowerCase().includes(query))));
   return `
