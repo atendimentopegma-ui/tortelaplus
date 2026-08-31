@@ -3022,8 +3022,8 @@ header.topbar .top-right .central-top-action:hover {
 
 .stock-desktop-body {
   min-height: 0;
-  grid-template-columns: minmax(360px, 0.46fr) minmax(520px, 1fr);
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
   padding: 0;
   overflow: auto;
 }
@@ -3038,6 +3038,7 @@ header.topbar .top-right .central-top-action:hover {
 }
 
 .stock-desktop-body > .table-wrap {
+  min-height: 180px;
   overflow: auto;
 }
 
@@ -3048,12 +3049,6 @@ header.topbar .top-right .central-top-action:hover {
 .stock-desktop-body .grid:has(.erp-table) {
   border: 0;
   background: transparent;
-}
-
-@media (max-width: 1180px) {
-  .stock-desktop-body {
-    grid-template-columns: 1fr;
-  }
 }
 
 .purchases-screen {

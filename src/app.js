@@ -2078,6 +2078,9 @@ function renderStock() {
     .map((row) => `<option value="${row.id}">Ordem ${row.id} - ${row.product} (${row.plannedQty})</option>`)
     .join("");
   const productionPanel = `
+    <div class="table-wrap">
+      <table><thead><tr><th>Ordem</th><th>Data</th><th>Produto</th><th>Planejado</th><th>Produzido</th><th>Perda</th><th>Custo</th><th>Status</th></tr></thead><tbody>${(state.productions || []).slice().reverse().map((row) => `<tr><td>${row.id}</td><td>${row.date}</td><td>${row.product}</td><td>${row.plannedQty}</td><td>${row.actualQty || 0}</td><td>${row.loss || 0}</td><td>${money(row.productionCost || 0)}</td><td><span class="badge ${row.status === "Concluida" ? "ok" : "warn"}">${row.status || "Concluida"}</span></td></tr>`).join("") || `<tr><td colspan="8">Nenhuma ordem registrada.</td></tr>`}</tbody></table>
+    </div>
     <div class="form-card">
       <h3>Ordem de producao da cozinha</h3>
       <p class="muted">Ao concluir, o sistema da entrada no produto final e baixa as materias-primas pela ficha tecnica.</p>
@@ -2091,11 +2094,14 @@ function renderStock() {
         <div class="field"><label>Series produzidas</label><textarea id="production-serials" placeholder="Uma por linha, quando o produto controlar serie"></textarea></div>
       </div>
       <div class="actions"><button class="btn" id="plan-production" type="button">Programar ordem</button><button class="btn primary" id="make-production" type="button">Concluir producao</button></div>
-    </div>
-    <div class="table-wrap">
-      <table><thead><tr><th>Ordem</th><th>Data</th><th>Produto</th><th>Planejado</th><th>Produzido</th><th>Perda</th><th>Custo</th><th>Status</th></tr></thead><tbody>${(state.productions || []).slice().reverse().map((row) => `<tr><td>${row.id}</td><td>${row.date}</td><td>${row.product}</td><td>${row.plannedQty}</td><td>${row.actualQty || 0}</td><td>${row.loss || 0}</td><td>${money(row.productionCost || 0)}</td><td><span class="badge ${row.status === "Concluida" ? "ok" : "warn"}">${row.status || "Concluida"}</span></td></tr>`).join("") || `<tr><td colspan="8">Nenhuma ordem registrada.</td></tr>`}</tbody></table>
     </div>`;
   const movementPanel = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th></tr></thead>
+        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td></tr>`).join("") || `<tr><td colspan="7">Nenhum movimento registrado.</td></tr>`}</tbody>
+      </table>
+    </div>
     <div class="form-card">
       <h3>Ajuste de estoque</h3>
       <p class="muted">Ajustes manuais exigem autorizacao da Central. Entradas por QR da Central podem ser aplicadas automaticamente.</p>
@@ -2112,12 +2118,6 @@ function renderStock() {
         <div class="field"><label>Numeros de serie</label><textarea id="stock-serials" placeholder="Um por linha"></textarea></div>
       </div>
       <button class="btn primary" id="save-stock-move" type="button">Gravar movimento</button>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th></tr></thead>
-        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td></tr>`).join("") || `<tr><td colspan="7">Nenhum movimento registrado.</td></tr>`}</tbody>
-      </table>
     </div>`;
   const qrPanel = `
     <div class="form-card">
@@ -2127,6 +2127,12 @@ function renderStock() {
       <button class="btn primary" id="receive-central-qr" type="button">Dar entrada por QR</button>
     </div>`;
   const inventoryPanel = `
+    <div class="table-wrap">
+      <table><thead><tr><th>Produto</th><th>Lote</th><th>Validade</th><th>Quantidade</th><th>Situacao</th></tr></thead><tbody>${(state.stockLots || []).filter((row) => Number(row.qty || 0) > 0).map((row) => `<tr><td>${row.product}</td><td>${row.lot}</td><td>${row.expiry || "-"}</td><td>${row.qty}</td><td><span class="badge ${row.expiry && daysUntil(row.expiry) <= 30 ? "warn" : "ok"}">${row.expiry && daysUntil(row.expiry) <= 30 ? "Proximo do vencimento" : "Regular"}</span></td></tr>`).join("") || `<tr><td colspan="5">Nenhum lote aberto.</td></tr>`}</tbody></table>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Produto</th><th>Serie</th><th>Lote</th><th>Status</th><th>Referencia</th></tr></thead><tbody>${(state.stockSerials || []).slice().reverse().map((row) => `<tr><td>${row.product}</td><td>${row.serial}</td><td>${row.lot || "-"}</td><td><span class="badge ${row.status === "Disponivel" ? "ok" : "warn"}">${row.status}</span></td><td>${row.reference || "-"}</td></tr>`).join("") || `<tr><td colspan="5">Nenhuma serie registrada.</td></tr>`}</tbody></table>
+    </div>
     <div class="form-card">
       <h3>Inventario</h3>
       <div class="field"><label>Leitor de codigo de barras</label><input id="inventory-barcode" placeholder="Leia o codigo e pressione Enter" /></div>
@@ -2135,14 +2141,11 @@ function renderStock() {
       <div class="grid two"><div class="field"><label>Lote contado</label><input id="inventory-lot" /></div><div class="field"><label>Numero de serie</label><input id="inventory-serial" /></div></div>
       <div class="field"><label>Motivo</label><input id="inventory-reason" value="Contagem fisica" /></div>
       <button class="btn primary" id="save-inventory" type="button">Aplicar inventario</button>
-    </div>
-    <div class="table-wrap">
-      <table><thead><tr><th>Produto</th><th>Lote</th><th>Validade</th><th>Quantidade</th><th>Situacao</th></tr></thead><tbody>${(state.stockLots || []).filter((row) => Number(row.qty || 0) > 0).map((row) => `<tr><td>${row.product}</td><td>${row.lot}</td><td>${row.expiry || "-"}</td><td>${row.qty}</td><td><span class="badge ${row.expiry && daysUntil(row.expiry) <= 30 ? "warn" : "ok"}">${row.expiry && daysUntil(row.expiry) <= 30 ? "Proximo do vencimento" : "Regular"}</span></td></tr>`).join("") || `<tr><td colspan="5">Nenhum lote aberto.</td></tr>`}</tbody></table>
-    </div>
-    <div class="table-wrap">
-      <table><thead><tr><th>Produto</th><th>Serie</th><th>Lote</th><th>Status</th><th>Referencia</th></tr></thead><tbody>${(state.stockSerials || []).slice().reverse().map((row) => `<tr><td>${row.product}</td><td>${row.serial}</td><td>${row.lot || "-"}</td><td><span class="badge ${row.status === "Disponivel" ? "ok" : "warn"}">${row.status}</span></td><td>${row.reference || "-"}</td></tr>`).join("") || `<tr><td colspan="5">Nenhuma serie registrada.</td></tr>`}</tbody></table>
     </div>`;
   const transferPanel = `
+    <div class="table-wrap">
+      <table><thead><tr><th>Deposito</th><th>Produto</th><th>Saldo</th></tr></thead><tbody>${(state.warehouseStocks || []).filter((row) => Number(row.qty || 0) !== 0).map((row) => `<tr><td>${row.warehouse}</td><td>${row.product}</td><td>${row.qty}</td></tr>`).join("") || `<tr><td colspan="3">Nenhum saldo por deposito.</td></tr>`}</tbody></table>
+    </div>
     <div class="form-card">
       <h3>Transferencia interna</h3>
       <div class="field"><label>Produto</label><select id="transfer-product">${productOptions}</select></div>
@@ -2152,9 +2155,6 @@ function renderStock() {
         <div class="field"><label>Destino</label><input id="transfer-to" value="Loja" /></div>
       </div>
       <button class="btn primary" id="save-transfer" type="button">Registrar transferencia</button>
-    </div>
-    <div class="table-wrap">
-      <table><thead><tr><th>Deposito</th><th>Produto</th><th>Saldo</th></tr></thead><tbody>${(state.warehouseStocks || []).filter((row) => Number(row.qty || 0) !== 0).map((row) => `<tr><td>${row.warehouse}</td><td>${row.product}</td><td>${row.qty}</td></tr>`).join("") || `<tr><td colspan="3">Nenhum saldo por deposito.</td></tr>`}</tbody></table>
     </div>`;
   const saldoPanel = `
     <div class="grid">${productsTable()}</div>
