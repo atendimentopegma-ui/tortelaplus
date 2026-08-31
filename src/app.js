@@ -1312,7 +1312,7 @@ function findPersonByName(name) {
 }
 
 function renderProducts() {
-  const tabs = ["dados", "impostos", "composicao", "grade", "balanca", "tabelas"];
+  const tabs = ["dados", "impostos", "composicao", "grade", "balanca", "etiquetas", "tabelas"];
   if (!tabs.includes(currentTab)) currentTab = "dados";
   const formHtml = productForm();
   const bodyHtml = currentTab === "dados"
@@ -1348,6 +1348,7 @@ function tabLabel(tab) {
     composicao: "Composicao",
     grade: "Grade/Lote",
     balanca: "Balanca",
+    etiquetas: "Etiquetas",
     tabelas: "Tabela de precos"
   }[tab];
 }
@@ -1562,6 +1563,9 @@ function productTab() {
       </div>
     `;
   }
+  if (currentTab === "etiquetas") {
+    return renderProductLabelsTab();
+  }
   if (currentTab === "grade") {
     return `
       <div class="form-card">
@@ -1619,6 +1623,95 @@ function compositionModeLabel(mode) {
     production: "Ordem de producao/cozinha",
     both: "Producao e venda"
   }[mode] || "Venda";
+}
+
+function currentLabelConfig() {
+  const previous = pendingProductDraft.labelConfig || {};
+  return {
+    model: previous.model || state.settings.labelModel || "EAN13",
+    copies: Number(previous.copies || 1),
+    width: Number(previous.width || 60),
+    height: Number(previous.height || 35),
+    columns: Number(previous.columns || 2),
+    showPrice: previous.showPrice !== false,
+    showSku: Boolean(previous.showSku),
+    showCompany: previous.showCompany !== false
+  };
+}
+
+function productForLabelPreview() {
+  const selected = state.products.find((product) => Number(product.id) === Number(selectedProductId || editingProductId));
+  const draft = pendingProductDraft.description ? pendingProductDraft : {};
+  return selected || {
+    id: editingProductId || "novo",
+    description: draft.description || "Produto selecionado",
+    barcode: draft.barcode || "7890000000011",
+    price: Number(draft.price || 0),
+    sku: draft.sku || draft.reference || "",
+    reference: draft.reference || "",
+    unit: draft.unit || "UN"
+  };
+}
+
+function barcodeValue(product) {
+  return String(product?.barcode || product?.id || "").replace(/\D/g, "") || String(product?.id || "0000000000000");
+}
+
+function barcodeBars(value) {
+  const digitsOnly = barcodeValue({ barcode: value }).padStart(12, "0").slice(0, 13);
+  return digitsOnly.split("").map((digit, index) => {
+    const height = 26 + ((Number(digit) + index) % 4) * 6;
+    const width = 2 + ((Number(digit) + index) % 3);
+    return `<i style="height:${height}px;width:${width}px"></i>`;
+  }).join("");
+}
+
+function labelPreviewHtml(product, config) {
+  const code = barcodeValue(product);
+  return `
+    <div class="product-label-preview" style="width:${config.width * 3}px;min-height:${config.height * 3}px">
+      ${config.showCompany ? `<small>${escapeHtml(state.settings.company || "Tortela")}</small>` : ""}
+      <strong>${escapeHtml(product.description || "Produto selecionado")}</strong>
+      ${config.showPrice ? `<b>${money(effectiveProductPrice(product, 1))}</b>` : ""}
+      <div class="barcode-art" aria-label="Codigo de barras ${escapeAttr(code)}">${barcodeBars(code)}</div>
+      <em>${escapeHtml(code)}</em>
+      ${config.showSku ? `<small>SKU ${escapeHtml(product.sku || product.reference || product.id || "-")}</small>` : ""}
+    </div>
+  `;
+}
+
+function renderProductLabelsTab() {
+  const product = productForLabelPreview();
+  const config = currentLabelConfig();
+  return `
+    <div class="form-card product-labels-pane">
+      <div>
+        <h3>Etiquetas de produto</h3>
+        <p class="muted">Configure o modelo antes de gerar a etiqueta. A etiqueta usa o codigo de barras do cadastro do produto.</p>
+      </div>
+      <div class="label-workbench">
+        <div class="label-config-grid">
+          <div class="field"><label>Produto da etiqueta</label><select id="label-product">${state.products.map((item) => `<option value="${item.id}" ${Number(item.id) === Number(product.id) ? "selected" : ""}>${item.description}</option>`).join("")}</select></div>
+          <div class="field"><label>Modelo</label><select id="label-model">${["EAN13", "CODE128", "Balanca", "Gondola"].map((item) => `<option ${config.model === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+          <div class="field"><label>Quantidade</label><input id="label-copies" type="number" min="1" max="99" value="${config.copies}" /></div>
+          <div class="field"><label>Colunas por folha</label><input id="label-columns" type="number" min="1" max="4" value="${config.columns}" /></div>
+          <div class="field"><label>Largura mm</label><input id="label-width" type="number" min="30" max="120" value="${config.width}" /></div>
+          <div class="field"><label>Altura mm</label><input id="label-height" type="number" min="20" max="80" value="${config.height}" /></div>
+          <label class="check-row"><input id="label-show-price" type="checkbox" ${config.showPrice ? "checked" : ""} /> Mostrar preco</label>
+          <label class="check-row"><input id="label-show-company" type="checkbox" ${config.showCompany ? "checked" : ""} /> Mostrar empresa</label>
+          <label class="check-row"><input id="label-show-sku" type="checkbox" ${config.showSku ? "checked" : ""} /> Mostrar SKU/referencia</label>
+        </div>
+        <div class="label-preview-wrap">
+          <span class="badge ok">Previa</span>
+          ${labelPreviewHtml(product, config)}
+          <div class="actions">
+            <button class="btn" id="refresh-label-preview" type="button">Atualizar previa</button>
+            <button class="btn primary" id="generate-product-labels" type="button">Gerar etiquetas</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function formatQty(value) {
@@ -2980,7 +3073,7 @@ function bindCurrentModule() {
   const editSelectedProduct = byId("edit-selected-product");
   if (editSelectedProduct) editSelectedProduct.addEventListener("click", () => editProductRecord(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
   const labelSelectedProduct = byId("label-selected-product");
-  if (labelSelectedProduct) labelSelectedProduct.addEventListener("click", () => printProductLabel(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
+  if (labelSelectedProduct) labelSelectedProduct.addEventListener("click", () => openProductLabelTab(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
   const printProducts = byId("print-products");
   if (printProducts) printProducts.addEventListener("click", printProductsList);
   const refreshProducts = byId("refresh-products");
@@ -2996,7 +3089,23 @@ function bindCurrentModule() {
   }));
   document.querySelectorAll("[data-edit-product]").forEach((button) => button.addEventListener("click", () => editProductRecord(Number(button.dataset.editProduct))));
   document.querySelectorAll("[data-toggle-product]").forEach((button) => button.addEventListener("click", () => toggleProductRecord(Number(button.dataset.toggleProduct))));
-  document.querySelectorAll("[data-label-product]").forEach((button) => button.addEventListener("click", () => printProductLabel(Number(button.dataset.labelProduct))));
+  document.querySelectorAll("[data-label-product]").forEach((button) => button.addEventListener("click", () => openProductLabelTab(Number(button.dataset.labelProduct))));
+  const refreshLabelPreview = byId("refresh-label-preview");
+  if (refreshLabelPreview) refreshLabelPreview.addEventListener("click", () => {
+    captureProductDraft();
+    renderShell();
+  });
+  const generateProductLabels = byId("generate-product-labels");
+  if (generateProductLabels) generateProductLabels.addEventListener("click", () => {
+    captureProductDraft();
+    printProductLabel(Number(byId("label-product")?.value || selectedProductId || editingProductId || 0));
+  });
+  const labelProduct = byId("label-product");
+  if (labelProduct) labelProduct.addEventListener("change", () => {
+    selectedProductId = Number(labelProduct.value || 0);
+    captureProductDraft();
+    renderShell();
+  });
 
   document.querySelectorAll("[data-stock-tab]").forEach((button) => button.addEventListener("click", () => {
     currentStockTab = button.dataset.stockTab || "producao";
@@ -3989,6 +4098,7 @@ function saveProductRecord() {
     promotion: structuredClone(pendingProductDraft.promotion || {}),
     priceTables: structuredClone(pendingProductDraft.priceTables || {}),
     commissionRate: Number(pendingProductDraft.commissionRate || 0),
+    labelConfig: structuredClone(pendingProductDraft.labelConfig || {}),
     active: byId("product-active").value === "true"
   };
   if (editingProductId) Object.assign(state.products.find((product) => product.id === editingProductId), record);
@@ -4090,7 +4200,18 @@ function captureProductDraft() {
     nutritionProtein: previous.nutritionProtein || "",
     promotion: structuredClone(previous.promotion || {}),
     priceTables: structuredClone(previous.priceTables || {}),
-    commissionRate: previous.commissionRate || 0
+    commissionRate: previous.commissionRate || 0,
+    labelConfig: structuredClone(previous.labelConfig || {})
+  };
+  pendingProductDraft.labelConfig = {
+    model: byId("label-model")?.value ?? pendingProductDraft.labelConfig?.model ?? state.settings.labelModel ?? "EAN13",
+    copies: Number(byId("label-copies")?.value ?? pendingProductDraft.labelConfig?.copies ?? 1),
+    width: Number(byId("label-width")?.value ?? pendingProductDraft.labelConfig?.width ?? 60),
+    height: Number(byId("label-height")?.value ?? pendingProductDraft.labelConfig?.height ?? 35),
+    columns: Number(byId("label-columns")?.value ?? pendingProductDraft.labelConfig?.columns ?? 2),
+    showPrice: byId("label-show-price") ? byId("label-show-price").checked : pendingProductDraft.labelConfig?.showPrice !== false,
+    showCompany: byId("label-show-company") ? byId("label-show-company").checked : pendingProductDraft.labelConfig?.showCompany !== false,
+    showSku: byId("label-show-sku") ? byId("label-show-sku").checked : Boolean(pendingProductDraft.labelConfig?.showSku)
   };
   pendingProductDraft.variantColor = byId("product-variant-color")?.value ?? pendingProductDraft.variantColor ?? "";
   pendingProductDraft.variantSize = byId("product-variant-size")?.value ?? pendingProductDraft.variantSize ?? "";
@@ -4179,10 +4300,41 @@ function toggleProductRecord(id) {
   renderShell();
 }
 
+function openProductLabelTab(id) {
+  if (id) selectedProductId = Number(id);
+  const product = state.products.find((row) => Number(row.id) === Number(selectedProductId));
+  if (product && !editingProductId) pendingProductDraft = { ...pendingProductDraft, labelConfig: structuredClone(product.labelConfig || pendingProductDraft.labelConfig || {}) };
+  currentTab = "etiquetas";
+  setInternalRoute({ module: "products", tab: currentTab });
+  renderShell();
+}
+
 function printProductLabel(id) {
   const product = state.products.find((row) => row.id === id);
-  if (!product) return;
-  downloadText(`etiqueta-${product.id}.txt`, `${state.settings.company}\n${product.description}\nCodigo: ${product.id}\nBarras: ${product.barcode || "-"}\nPreco: ${money(effectiveProductPrice(product, 1))}`);
+  if (!product) return alert("Selecione um produto para gerar a etiqueta.");
+  const config = currentLabelConfig();
+  const copies = Math.max(1, Math.min(99, Number(config.copies || 1)));
+  const columns = Math.max(1, Math.min(4, Number(config.columns || 2)));
+  const labels = Array.from({ length: copies }, () => labelPreviewHtml(product, config)).join("");
+  downloadText(`etiquetas-${product.id}.html`, `<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Etiquetas ${escapeHtml(product.description)}</title>
+<style>
+body{font-family:Arial,sans-serif;margin:12px;color:#07162f}
+.sheet{display:grid;grid-template-columns:repeat(${columns}, ${config.width}mm);gap:4mm;align-items:start}
+.product-label-preview{box-sizing:border-box;width:${config.width}mm;min-height:${config.height}mm;border:1px solid #111;padding:3mm;display:grid;gap:1.5mm;align-content:center;text-align:center;page-break-inside:avoid}
+.product-label-preview strong{font-size:10pt;line-height:1.1}
+.product-label-preview b{font-size:14pt}
+.product-label-preview small,.product-label-preview em{font-size:8pt;color:#111;font-style:normal}
+.barcode-art{height:12mm;display:flex;align-items:end;justify-content:center;gap:.45mm;margin-top:1mm}
+.barcode-art i{display:block;background:#000;min-height:5mm}
+@media print{body{margin:0}.product-label-preview{break-inside:avoid}}
+</style>
+</head>
+<body><div class="sheet">${labels}</div></body>
+</html>`);
   audit("Etiqueta gerada", product.description);
   save();
 }

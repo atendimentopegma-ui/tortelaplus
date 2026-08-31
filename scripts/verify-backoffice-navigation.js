@@ -110,7 +110,12 @@ const productsRenderer = extractFunction("renderProducts");
 includesAll("Abas de produtos", productsRenderer, [
   "data-product-tab",
   "href=\"#module=products&tab=",
-  "productTab()"
+  "productTab()",
+  "etiquetas"
+]);
+const productTabsRenderer = extractFunction("productTab");
+includesAll("Aba de etiquetas", productTabsRenderer, [
+  "renderProductLabelsTab()"
 ]);
 
 const stockRenderer = extractFunction("renderStock");
