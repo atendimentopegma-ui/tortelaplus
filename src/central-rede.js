@@ -107,6 +107,8 @@ function normalizeSummary(payload = {}) {
     lowStockItems: [],
     automaticOrders: [],
     approvalRequests: [],
+    manualStockDrops: [],
+    fiscalSettings: [],
     finance: [],
     permissions: [],
     productionCapacity: [],
@@ -241,14 +243,25 @@ function unitRegistrationUrl(unit = {}) {
 
 function renderOverview() {
   const totals = summary.totals || {};
+  const pendingApprovals = (summary.approvalRequests || []).filter((row) => row.status === "Pendente");
   return `<div class="network-module">
     ${moduleTitle("Painel da Central Tortela", "Resumo operacional das unidades sem misturar os bancos de dados.")}
     <div class="network-grid four">
       ${kpi("Faturamento", money(totals.salesTotal))}
       ${kpi("Vendas", amount(totals.salesCount))}
       ${kpi("Ticket medio rede", money((totals.salesTotal || 0) / Math.max(1, totals.salesCount || 0)))}
-      ${kpi("Notas autorizadas", amount(totals.fiscalAuthorized))}
+      ${kpi("Aprovacoes pendentes", amount(pendingApprovals.length), pendingApprovals.length ? "acao da Central" : "sem pendencia")}
     </div>
+    ${pendingApprovals.length ? `<section class="network-card">
+      <h2>Alertas automaticos das lojas</h2>
+      ${table(["Unidade", "Tipo", "Detalhe", "Justificativa", "Solicitado por"], pendingApprovals.slice(0, 8).map((row) => [
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        escapeHtml(row.title || row.type || "-"),
+        escapeHtml(row.detail || "-"),
+        escapeHtml(row.justification || "-"),
+        `${escapeHtml(row.requestedBy || "-")}<br><small>${escapeHtml(String(row.requestedAt || "").slice(0, 16).replace("T", " "))}</small>`
+      ]))}
+    </section>` : ""}
     <section class="network-card">
       <h2>Unidades e links de cadastro</h2>
       ${table(["Unidade", "Vendas", "Ticket medio", "Notas", "Clientes", "Produtos", "Estoque baixo", "Cadastro publico", "Loja online"], summary.units.map((unit) => [
@@ -718,6 +731,8 @@ function renderReports() {
   const byChannel = groupedSales((sale) => saleChannelLabel(sale));
   const bySeller = groupedSales((sale) => sale.seller || sale.operator || "Sem vendedor");
   const fiscalPending = (summary.units || []).reduce((sum, unit) => sum + Number(unit.fiscalPending || 0), 0);
+  const fiscalRows = summary.fiscalSettings || [];
+  const manualDrops = summary.manualStockDrops || [];
   const financeOpen = (summary.finance || []).map((row) => [
     escapeHtml(row.unit || row.tradeName || row.tenantCode || "-"),
     money(row.receivableOpen || row.receivables || 0),
@@ -751,6 +766,28 @@ function renderReports() {
     <section class="network-card">
       <h2>Financeiro por unidade</h2>
       ${table(["Unidade", "A receber", "A pagar", "Taxas abertas"], financeOpen)}
+    </section>
+    <section class="network-card">
+      <h2>Configuracao fiscal e impressao por loja</h2>
+      ${table(["Unidade", "PDV imprime", "DANFE lojista", "Ambiente", "Serie", "Fila fiscal"], fiscalRows.map((row) => [
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        escapeHtml(row.pdvPrintMode || "Ambos"),
+        row.lojistaDanfeEnabled ? "Sim" : "Nao",
+        escapeHtml(row.fiscalEnvironment || "-"),
+        escapeHtml(row.nfeSerie || "1"),
+        `${amount(row.fiscalQueueTotal || 0)}<br><small>${amount(row.fiscalPending || 0)} pendente(s)</small>`
+      ]), "Nenhuma configuracao fiscal localizada.")}
+    </section>
+    <section class="network-card">
+      <h2>Baixas manuais das lojas</h2>
+      ${table(["Unidade", "Data", "Produto", "Qtd.", "Usuario", "Justificativa"], manualDrops.map((row) => [
+        escapeHtml(row.unit || row.tenantCode || "-"),
+        escapeHtml(String(row.createdAt || row.date || "").slice(0, 16).replace("T", " ") || "-"),
+        escapeHtml(row.product || "-"),
+        amount(row.qty || 0),
+        escapeHtml(row.user || "-"),
+        escapeHtml(row.history || "-")
+      ]), "Nenhuma baixa manual registrada.")}
     </section>
     <section class="network-card">
       <h2>Estoque que precisa de remessa QR</h2>

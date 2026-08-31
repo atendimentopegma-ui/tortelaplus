@@ -7409,14 +7409,20 @@ function printLastPdvSale() {
     return;
   }
   const fiscal = state.fiscalQueue.find((row) => row.saleId === sale.id && row.model === "NFC-e" && row.status === "Autorizada");
+  const printMode = state.settings.pdvPrintMode || "Ambos";
+  if (printMode === "Cupom fiscal" && !fiscal) {
+    alert("O PDV esta configurado para imprimir somente cupom fiscal. Autorize a NFC-e antes de imprimir.");
+    return;
+  }
+  const useFiscal = printMode !== "Recibo simples" && Boolean(fiscal);
   const content = [
     state.settings.company,
-    fiscal ? "CUPOM FISCAL ELETRONICO - NFC-e" : "SIMPLES RECIBO - NAO E DOCUMENTO FISCAL",
+    useFiscal ? "CUPOM FISCAL ELETRONICO - NFC-e" : "SIMPLES RECIBO - NAO E DOCUMENTO FISCAL",
     `Venda: ${sale.id} Data: ${sale.date}`,
     `Cliente: ${sale.customer}`,
     `CPF Clube Tortela: ${sale.clubCpf || sale.customerDocument || "-"}`,
     `Operador: ${sale.seller}`,
-    fiscal ? `Chave NFC-e: ${fiscal.key || "-"}` : "NFC-e nao autorizada para este comprovante",
+    useFiscal ? `Chave NFC-e: ${fiscal.key || "-"}` : "NFC-e nao autorizada para este comprovante",
     "",
     ...sale.items.map((item) => `${item.qty} ${item.unit} ${item.description} ${money(item.qty * item.price)}`),
     "",

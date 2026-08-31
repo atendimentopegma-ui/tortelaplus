@@ -41,6 +41,8 @@ const modules = [
   ["overview", "Painel", "Resumo da loja"],
   ["channels", "Pedidos", "PDV, totem e loja"],
   ["qr", "Entrada QR", "Remessa da Central"],
+  ["stock", "Estoque", "Baixas e aprovacao"],
+  ["fiscal", "Fiscal", "NF-e e impressao"],
   ["imports", "Importacoes", "Vendas, financeiro e estoque"],
   ["payables", "A pagar", "Fornecedores e despesas"],
   ["receivables", "A receber", "Clientes e boletos"],
@@ -144,6 +146,8 @@ function normalizeState(payload = {}) {
     purchases: [],
     payables: [],
     receivables: [],
+    fiscalQueue: [],
+    approvalRequests: [],
     users: [],
     auditLogs: [],
     settings: { tenantCode },
@@ -156,6 +160,8 @@ function normalizeState(payload = {}) {
     purchases: data.purchases || [],
     payables: data.payables || [],
     receivables: data.receivables || [],
+    fiscalQueue: data.fiscalQueue || [],
+    approvalRequests: data.approvalRequests || [],
     users: data.users || [],
     auditLogs: data.auditLogs || []
   };
@@ -368,6 +374,8 @@ function renderCurrentModule() {
     overview: renderOverview,
     channels: renderChannels,
     qr: renderQr,
+    stock: renderStock,
+    fiscal: renderFiscal,
     imports: renderImports,
     payables: renderPayables,
     receivables: renderReceivables,
@@ -457,6 +465,8 @@ function renderOverview() {
       <h2>Controles da unidade</h2>
       <div class="store-action-grid">
         <button class="desktop-ribbon-button primary" data-store-module="qr" type="button"><span class="dashboard-module-icon icon-pdv"></span><strong>Entrada QR</strong><small>Receber remessa</small></button>
+        <button class="desktop-ribbon-button" data-store-module="stock" type="button"><span class="dashboard-module-icon icon-stock"></span><strong>Estoque</strong><small>Baixa auditada</small></button>
+        <button class="desktop-ribbon-button" data-store-module="fiscal" type="button"><span class="dashboard-module-icon icon-fiscal"></span><strong>Fiscal</strong><small>NF-e e impressao</small></button>
         <button class="desktop-ribbon-button" data-store-module="imports" type="button"><span class="dashboard-module-icon icon-fiscal"></span><strong>Importar dados</strong><small>Venda, estoque e contas</small></button>
         <button class="desktop-ribbon-button" data-store-module="payables" type="button"><span class="dashboard-module-icon icon-finance"></span><strong>A pagar</strong><small>Despesas abertas</small></button>
         <button class="desktop-ribbon-button" data-store-module="receivables" type="button"><span class="dashboard-module-icon icon-sales"></span><strong>A receber</strong><small>Clientes e boletos</small></button>
@@ -582,6 +592,179 @@ function renderQr() {
       ]), "Nenhuma entrada por QR registrada.")}
     </section>
   </div>`;
+}
+
+function manualStockDropsThisMonth() {
+  const month = today().slice(0, 7);
+  return (state.stockMovements || []).filter((row) =>
+    row.manualDrop
+    && Number(row.qty || 0) < 0
+    && String(row.date || row.createdAt || "").slice(0, 7) === month
+  );
+}
+
+function pendingManualDropRequests() {
+  return (state.approvalRequests || []).filter((row) => row.type === "stock_adjustment" && row.status === "Pendente");
+}
+
+function renderStock() {
+  const drops = manualStockDropsThisMonth();
+  const pending = pendingManualDropRequests();
+  return `<div class="network-module compact">
+    ${moduleTitle("Estoque local", "Receba remessas por QR e controle baixas manuais com rastreabilidade para a Central Administrativa.")}
+    <div class="network-grid four">
+      ${kpi("Baixas manuais no mes", amount(drops.length), drops.length >= 2 ? "proximas exigem aprovacao" : "limite local: 2")}
+      ${kpi("Aprovacoes pendentes", amount(pending.length))}
+      ${kpi("Produtos cadastrados", amount(state.products.length))}
+      ${kpi("Entradas QR", amount((state.stockMovements || []).filter((row) => row.type === "Entrada Central QR").length))}
+    </div>
+    <section class="network-card">
+      <h2>Baixa manual justificada</h2>
+      <form class="network-form" id="manual-stock-form">
+        <div class="field wide"><label>Produto</label><select id="manual-stock-product" required>${productOptions()}</select></div>
+        <div class="field"><label>Quantidade a baixar</label><input id="manual-stock-qty" type="number" step="0.001" min="0.001" required /></div>
+        <div class="field"><label>Motivo</label><select id="manual-stock-reason"><option>Perda</option><option>Quebra</option><option>Uso interno</option><option>Validade vencida</option><option>Ajuste conferido</option></select></div>
+        <div class="field full"><label>Justificativa obrigatoria</label><textarea id="manual-stock-note" rows="4" required placeholder="Explique o motivo da baixa para auditoria da Central Administrativa"></textarea></div>
+        <button class="btn primary full" type="submit">${drops.length >= 2 ? "Solicitar aprovacao da Central" : "Registrar baixa"}</button>
+      </form>
+    </section>
+    <section class="network-card">
+      <h2>Solicitacoes pendentes da Central</h2>
+      ${table(["Data", "Produto", "Quantidade", "Justificativa", "Status"], pending.map((row) => [
+        escapeHtml(String(row.requestedAt || "").slice(0, 16).replace("T", " ") || "-"),
+        escapeHtml(row.payload?.product || row.detail || "-"),
+        amount(Math.abs(Number(row.payload?.direction || 0))),
+        escapeHtml(row.justification || row.payload?.history || "-"),
+        `<span class="badge warn">${escapeHtml(row.status || "Pendente")}</span>`
+      ]), "Nenhuma baixa aguardando aprovacao.")}
+    </section>
+    <section class="network-card">
+      <h2>Ultimas movimentacoes</h2>
+      ${table(["Data", "Produto", "Tipo", "Qtd.", "Historico"], (state.stockMovements || []).slice(-30).reverse().map((row) => [
+        escapeHtml(row.date || "-"),
+        escapeHtml(row.product || "-"),
+        escapeHtml(row.type || "-"),
+        amount(row.qty || 0),
+        escapeHtml(row.history || "-")
+      ]), "Nenhuma movimentacao registrada.")}
+    </section>
+  </div>`;
+}
+
+async function submitManualStockDrop(event) {
+  event.preventDefault();
+  if (!requirePermission("stock_adjust")) return;
+  const product = state.products.find((row) => Number(row.id) === Number(byId("manual-stock-product").value));
+  const qty = Number(byId("manual-stock-qty").value || 0);
+  const reason = byId("manual-stock-reason").value;
+  const note = byId("manual-stock-note").value.trim();
+  if (!product || qty <= 0) return alert("Informe produto e quantidade.");
+  if (note.length < 10) return alert("Justifique a baixa com pelo menos 10 caracteres.");
+  const direction = -Math.abs(qty);
+  if (manualStockDropsThisMonth().length >= 2) {
+    state.approvalRequests = state.approvalRequests || [];
+    state.approvalRequests.unshift({
+      id: nextId(state.approvalRequests),
+      type: "stock_adjustment",
+      title: "Baixa manual de estoque",
+      detail: `${product.description} - ${amount(qty)}`,
+      justification: note,
+      requestedBy: authUser?.username || "lojista",
+      requestedAt: new Date().toISOString(),
+      status: "Pendente",
+      priority: "Alta",
+      payload: {
+        productId: product.id,
+        product: product.description,
+        direction,
+        type: "Baixa manual autorizada",
+        history: `${reason}: ${note}`,
+        details: { location: "Central do Lojista", manualDrop: true, reason }
+      }
+    });
+    audit("Baixa manual enviada para aprovacao", `${product.description}: ${amount(qty)} - ${reason}`);
+    const saved = await saveState("stock_adjust", "Solicitacao enviada para a Central Administrativa.");
+    if (saved) render();
+    return;
+  }
+  product.stock = Number(product.stock || 0) + direction;
+  addStockMovement(product, "Baixa manual", direction, `${reason}: ${note}`, {
+    location: "Central do Lojista",
+    manualDrop: true,
+    reason,
+    requestedBy: authUser?.username || "lojista",
+    createdAt: new Date().toISOString()
+  });
+  audit("Baixa manual registrada", `${product.description}: ${amount(qty)} - ${reason}`);
+  const saved = await saveState("stock_adjust", "Baixa manual registrada e informada para a Central Administrativa.");
+  if (saved) render();
+}
+
+function renderFiscal() {
+  const printMode = state.settings?.pdvPrintMode || "Ambos";
+  return `<div class="network-module compact">
+    ${moduleTitle("Fiscal e impressao da loja", "NF-e/DANFE ficam na Central do Lojista. O PDV imprime recibo simples ou cupom fiscal conforme configuracao local.")}
+    <section class="network-card">
+      <h2>Configuracao do PDV</h2>
+      <form class="network-form" id="print-settings-form">
+        <div class="field"><label>Impressao permitida no PDV</label><select id="pdv-print-mode">
+          ${["Ambos", "Recibo simples", "Cupom fiscal"].map((item) => `<option ${printMode === item ? "selected" : ""}>${item}</option>`).join("")}
+        </select></div>
+        <div class="field"><label>NF-e / DANFE pela Central do Lojista</label><select id="lojista-danfe-enabled"><option value="true">Sim</option><option value="false" ${state.settings?.lojistaDanfeEnabled === false ? "selected" : ""}>Nao</option></select></div>
+        <div class="field"><label>Ambiente fiscal</label><select id="fiscal-environment"><option ${state.settings?.fiscalEnvironment === "Homologacao" ? "selected" : ""}>Homologacao</option><option ${state.settings?.fiscalEnvironment === "Producao" ? "selected" : ""}>Producao</option></select></div>
+        <div class="field"><label>Serie NF-e</label><input id="nfe-serie" value="${escapeAttr(state.settings?.nfeSerie || "1")}" /></div>
+        <button class="btn primary full" type="submit">Salvar configuracao fiscal</button>
+      </form>
+    </section>
+    <section class="network-card">
+      <h2>Fila fiscal da unidade</h2>
+      ${table(["Modelo", "Data", "Cliente", "Total", "Status", "PDF/XML", "Acao"], (state.fiscalQueue || []).slice(-40).reverse().map((row) => [
+        escapeHtml(row.model || "-"),
+        escapeHtml(String(row.issuedAt || row.date || "").slice(0, 10) || "-"),
+        escapeHtml(row.customer || "Consumidor Final"),
+        money(row.total || 0),
+        `<span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${escapeHtml(row.status || "Pendente")}</span>`,
+        `${row.pdfUrl ? `<a class="btn" href="${escapeAttr(row.pdfUrl)}">DANFE</a>` : "-"} ${row.xmlUrl ? `<a class="btn" href="${escapeAttr(row.xmlUrl)}">XML</a>` : ""}`,
+        row.status === "Autorizada" || row.status === "Cancelada" ? "-" : `<button class="btn primary" data-fiscal-transmit="${row.id}">Transmitir</button>`
+      ]), "Nenhum documento fiscal na fila.")}
+    </section>
+  </div>`;
+}
+
+async function savePrintSettings(event) {
+  event.preventDefault();
+  if (!requirePermission("fiscal_transmit")) return;
+  state.settings = state.settings || {};
+  state.settings.pdvPrintMode = byId("pdv-print-mode").value;
+  state.settings.lojistaDanfeEnabled = byId("lojista-danfe-enabled").value === "true";
+  state.settings.fiscalEnvironment = byId("fiscal-environment").value;
+  state.settings.nfeSerie = byId("nfe-serie").value.trim() || "1";
+  audit("Configuracao fiscal/impressao alterada", `PDV: ${state.settings.pdvPrintMode}; DANFE lojista: ${state.settings.lojistaDanfeEnabled ? "sim" : "nao"}`);
+  const saved = await saveState("fiscal_transmit", "Configuracao fiscal salva e visivel para a Central Administrativa.");
+  if (saved) render();
+}
+
+async function transmitFiscalRow(id) {
+  if (!requirePermission("fiscal_transmit")) return;
+  const row = (state.fiscalQueue || []).find((item) => Number(item.id) === Number(id));
+  if (!row) return alert("Documento fiscal nao encontrado.");
+  if (row.model === "NFC-e" && state.settings?.pdvPrintMode === "Recibo simples") {
+    return alert("O PDV esta configurado para recibo simples. Altere a configuracao fiscal antes de transmitir NFC-e.");
+  }
+  if (row.model === "NF-e" && state.settings?.lojistaDanfeEnabled === false) {
+    return alert("NF-e/DANFE esta desativado para a Central do Lojista.");
+  }
+  try {
+    const result = await api(`/api/tenant/${encodeURIComponent(tenantCode)}/fiscal/transmit`, {
+      method: "POST",
+      body: JSON.stringify({ document: row })
+    });
+    Object.assign(row, result.document);
+    audit("Documento fiscal transmitido pela Central do Lojista", `${row.model} ${row.id}`);
+    await saveState("fiscal_transmit", "Documento fiscal transmitido.");
+  } catch (error) {
+    alert(error.message || "Nao foi possivel transmitir o documento fiscal.");
+  }
 }
 
 async function receiveQr(event) {
@@ -870,6 +1053,8 @@ async function updateOrderStatus(id, status) {
 
 function renderReports() {
   const data = totals();
+  const manualDrops = (state.stockMovements || []).filter((row) => row.manualDrop);
+  const fiscalDocs = state.fiscalQueue || [];
   const topProducts = {};
   state.sales.forEach((sale) => (sale.items || []).forEach((item) => {
     const name = item.description || item.product || `Produto ${item.productId || ""}`;
@@ -882,7 +1067,7 @@ function renderReports() {
       ${kpi("Vendas no mes", money(data.salesTotal))}
       ${kpi("Ticket medio", money(data.salesTotal / Math.max(1, data.sales.length)))}
       ${kpi("A pagar", money(data.payableOpen))}
-      ${kpi("A receber", money(data.receivableOpen))}
+      ${kpi("Baixas manuais", amount(manualDrops.length))}
     </div>
     <section class="network-card">
       <h2>Ultimas vendas</h2>
@@ -896,6 +1081,24 @@ function renderReports() {
     <section class="network-card">
       <h2>Produtos mais vendidos</h2>
       ${table(["Produto", "Qtd."], ranking.map(([name, qty]) => [escapeHtml(name), amount(qty)]), "As vendas importadas sem itens aparecem apenas no total financeiro.")}
+    </section>
+    <section class="network-card">
+      <h2>Fiscal e impressao</h2>
+      ${table(["Configuracao", "Valor"], [
+        ["Impressao PDV", escapeHtml(state.settings?.pdvPrintMode || "Ambos")],
+        ["NF-e/DANFE na Central do Lojista", state.settings?.lojistaDanfeEnabled === false ? "Nao" : "Sim"],
+        ["Ambiente fiscal", escapeHtml(state.settings?.fiscalEnvironment || "Homologacao")],
+        ["Documentos fiscais", amount(fiscalDocs.length)]
+      ])}
+    </section>
+    <section class="network-card">
+      <h2>Baixas manuais auditadas</h2>
+      ${table(["Data", "Produto", "Qtd.", "Justificativa"], manualDrops.slice(-20).reverse().map((row) => [
+        escapeHtml(row.date || "-"),
+        escapeHtml(row.product || "-"),
+        amount(row.qty || 0),
+        escapeHtml(row.history || "-")
+      ]), "Nenhuma baixa manual registrada.")}
     </section>
   </div>`;
 }
@@ -1005,6 +1208,9 @@ function bind() {
   byId("refresh")?.addEventListener("click", boot);
   byId("logout")?.addEventListener("click", () => logout(true));
   byId("qr-form")?.addEventListener("submit", receiveQr);
+  byId("manual-stock-form")?.addEventListener("submit", submitManualStockDrop);
+  byId("print-settings-form")?.addEventListener("submit", savePrintSettings);
+  document.querySelectorAll("[data-fiscal-transmit]").forEach((button) => button.addEventListener("click", () => transmitFiscalRow(button.dataset.fiscalTransmit)));
   byId("import-file")?.addEventListener("change", loadImportFile);
   byId("import-form")?.addEventListener("submit", runImport);
   byId("payable-form")?.addEventListener("submit", addPayable);

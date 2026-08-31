@@ -2805,6 +2805,8 @@ async function handleApi(req, res, urlPath) {
     const lowStockItems = [];
     const automaticOrders = [];
     const approvalRequests = [];
+    const manualStockDrops = [];
+    const fiscalSettings = [];
     const whatsappGroupLeads = [];
     const finance = [];
     const royalties = [];
@@ -2992,6 +2994,24 @@ async function handleApi(req, res, urlPath) {
       }));
       orders.forEach((order) => automaticOrders.push({ ...order, unit: tenant.tradeName, tenantCode: tenant.tenantCode }));
       (tenantState.approvalRequests || []).forEach((request) => approvalRequests.push({ ...request, unit: tenant.tradeName, tenantCode: tenant.tenantCode }));
+      (tenantState.stockMovements || [])
+        .filter((movement) => movement.manualDrop || String(movement.type || "").toLowerCase().includes("baixa manual"))
+        .forEach((movement) => manualStockDrops.push({
+          ...movement,
+          unit: tenant.tradeName,
+          tenantCode: tenant.tenantCode,
+          user: movement.requestedBy || movement.user || movement.operator || ""
+        }));
+      fiscalSettings.push({
+        unit: tenant.tradeName,
+        tenantCode: tenant.tenantCode,
+        pdvPrintMode: tenantState.settings?.pdvPrintMode || "Ambos",
+        lojistaDanfeEnabled: tenantState.settings?.lojistaDanfeEnabled !== false,
+        fiscalEnvironment: tenantState.settings?.fiscalEnvironment || "Homologacao",
+        nfeSerie: tenantState.settings?.nfeSerie || tenantState.settings?.serieNfe || "1",
+        fiscalQueueTotal: (tenantState.fiscalQueue || []).length,
+        fiscalPending: (tenantState.fiscalQueue || []).filter((row) => !["Autorizada", "Cancelada"].includes(row.status)).length
+      });
       tenantPromotions.forEach((promotion) => promotions.push({ product: promotion.product || "Campanha geral", unit: tenant.tradeName, value: Number(promotion.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: promotion.from, to: promotion.to, scope: promotion.scope || "Unidade" }));
       products.filter((product) => activePromotion(product.promotion)).forEach((product) => promotions.push({ product: product.description, unit: tenant.tradeName, value: Number(effectiveProductPrice(product, 1)).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }), from: product.promotion.from, to: product.promotion.to, scope: "Produto" }));
       finance.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, payableOpen, receivableOpen, purchasesTotal, franchiseOpen, franchisePaid });
@@ -3092,6 +3112,8 @@ async function handleApi(req, res, urlPath) {
       finance,
       royalties,
       permissions,
+      manualStockDrops: manualStockDrops.sort((a, b) => String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || ""))).slice(0, 120),
+      fiscalSettings,
       productionCapacity: productionCapacity.slice(0, 80),
       customerConsumption: customerConsumption.slice(0, 120),
       inactiveCustomers: inactiveCustomers.slice(0, 120)
@@ -3185,7 +3207,10 @@ async function handleApi(req, res, urlPath) {
             balance: product.stock,
             history: `${request.payload.history || ""} - autorizado pela Central`,
             location: request.payload.details?.location || "",
-            lot: request.payload.details?.lot || ""
+            lot: request.payload.details?.lot || "",
+            manualDrop: Boolean(request.payload.details?.manualDrop),
+            reason: request.payload.details?.reason || "",
+            requestedBy: request.requestedBy || ""
           });
         }
       }
