@@ -1922,6 +1922,51 @@ header.topbar .top-right .central-top-action:hover {
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 }
 
+.erp-screen .panel-head p,
+.stock-screen .panel-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.erp-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 16px 20px 0;
+  background: #fff;
+}
+
+.erp-overview div {
+  min-height: 78px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff, #fbfdfe);
+}
+
+.erp-overview span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.erp-overview strong {
+  display: block;
+  margin-top: 7px;
+  color: #061733;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.stock-overview div:nth-child(2) strong,
+.people-overview div:nth-child(4) strong {
+  color: #9a6d00;
+}
+
 .erp-search-strip {
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
@@ -1952,6 +1997,7 @@ header.topbar .top-right .central-top-action:hover {
   grid-template-rows: minmax(260px, 1fr) auto;
   gap: 12px;
   overflow: hidden;
+  background: #fffdf7;
 }
 
 .erp-table {
@@ -1976,6 +2022,32 @@ header.topbar .top-right .central-top-action:hover {
 .erp-edit-panel {
   max-height: 340px;
   overflow: auto;
+}
+
+.people-screen .erp-edit-panel,
+.stock-screen .form-card {
+  border-color: #e9d9aa;
+  background: #ffffff;
+}
+
+.stock-screen .panel-body {
+  background: #fffdf7;
+}
+
+.stock-screen .panel-body > .form-card:first-child {
+  border-left: 4px solid #f2c300;
+}
+
+@media (max-width: 1100px) {
+  .erp-overview {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .erp-overview {
+    grid-template-columns: 1fr;
+  }
 }
 
 .erp-action-bar {

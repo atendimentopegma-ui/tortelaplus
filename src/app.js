@@ -1192,11 +1192,26 @@ function ensureAutomaticStockOrder() {
 function renderPeople() {
   const draft = pendingPersonDraft;
   const personTypeFilter = personFilters.includes(currentPeopleTab) ? currentPeopleTab : "Todos";
+  const peopleStats = {
+    total: state.people.length,
+    customers: state.people.filter((person) => person.type === "Cliente").length,
+    suppliers: state.people.filter((person) => person.type === "Fornecedor").length,
+    alerts: state.people.filter((person) => person.active === false || person.creditAlert).length
+  };
   return `
-    <section class="panel erp-screen">
+    <section class="panel erp-screen people-screen">
       <div class="panel-head">
-        <h2>Pessoas</h2>
+        <div>
+          <h2>Pessoas</h2>
+          <p>Clientes, fornecedores, funcionarios e contatos da unidade.</p>
+        </div>
         <div class="actions"><button class="btn" id="copy-public-registration">Copiar link de cadastro</button></div>
+      </div>
+      <div class="erp-overview people-overview">
+        <div><span>Total</span><strong>${peopleStats.total}</strong></div>
+        <div><span>Clientes</span><strong>${peopleStats.customers}</strong></div>
+        <div><span>Fornecedores</span><strong>${peopleStats.suppliers}</strong></div>
+        <div><span>Alertas</span><strong>${peopleStats.alerts}</strong></div>
       </div>
       <div class="erp-search-strip">
         <label>Localizar</label>
@@ -1684,6 +1699,10 @@ function renderStock() {
     ["saldos", "Saldos"]
   ];
   if (!stockTabs.some(([key]) => key === currentStockTab)) currentStockTab = "producao";
+  const lowStock = state.products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0));
+  const stockValue = state.products.reduce((sum, product) => sum + Number(product.stock || 0) * Number(product.cost || 0), 0);
+  const expiringLots = (state.stockLots || []).filter((lot) => Number(lot.qty || 0) > 0 && lot.expiry && daysUntil(lot.expiry) <= 30);
+  const activeStockTab = stockTabs.find(([key]) => key === currentStockTab) || stockTabs[0];
   const producedProducts = state.products.filter((p) => (p.composition || []).some((component) => component.mode === "production" || component.mode === "both"));
   const productOptions = state.products.map((p) => `<option value="${p.id}">${p.description}</option>`).join("");
   const productionOptions = producedProducts.map((p) => `<option value="${p.id}">${p.description}</option>`).join("");
@@ -1784,8 +1803,19 @@ function renderStock() {
     saldos: saldoPanel
   };
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Estoque e producao</h2></div>
+    <section class="panel stock-screen">
+      <div class="panel-head">
+        <div>
+          <h2>Estoque e producao</h2>
+          <p>${activeStockTab[1]} da unidade, com baixa por venda, producao e ajustes autorizados.</p>
+        </div>
+      </div>
+      <div class="erp-overview stock-overview">
+        <div><span>Produtos</span><strong>${state.products.length}</strong></div>
+        <div><span>Estoque minimo</span><strong>${lowStock.length}</strong></div>
+        <div><span>Validade alerta</span><strong>${expiringLots.length}</strong></div>
+        <div><span>Estoque a custo</span><strong>${money(stockValue)}</strong></div>
+      </div>
       <div class="module-tabs">${stockTabs.map(([key, label]) => `<a class="${currentStockTab === key ? "active" : ""}" data-stock-tab="${key}" href="#module=stock&stock=${key}" role="button">${label}</a>`).join("")}</div>
       <div class="panel-body grid">
         ${panels[currentStockTab]}
