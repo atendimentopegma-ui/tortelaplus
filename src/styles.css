@@ -2382,6 +2382,7 @@ header.topbar .top-right .central-top-action:hover {
   background: linear-gradient(180deg, #ffffff, #f4f7fa);
   color: #061733;
   text-align: center;
+  text-decoration: none;
   cursor: pointer;
   box-shadow: 0 3px 8px rgba(21, 32, 43, 0.06);
 }
@@ -3832,6 +3833,22 @@ header.topbar .top-right .central-top-action:hover {
   display: grid;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: 12px;
+}
+
+.online-orders-screen {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.online-orders-work-area {
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+}
+
+.online-board:focus,
+.unit-link-grid:focus,
+.online-history-card:focus {
+  outline: 3px solid rgba(214, 169, 0, 0.32);
+  outline-offset: 2px;
 }
 
 .online-lane {

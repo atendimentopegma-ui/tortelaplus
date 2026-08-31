@@ -2435,26 +2435,60 @@ function renderOnlineOrders() {
     ["Pronto", orders.filter((sale) => sale.status === "Pronto")],
     ["Saiu / entrega", orders.filter((sale) => ["Saiu para entrega", "Entregue"].includes(sale.status))]
   ];
+  const onlineTotal = orders.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
   return `
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Pedidos online / Totem</h2>
-        <div class="actions">
-          <a class="btn" href="./loja.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">Abrir loja online</a>
-          <a class="btn" href="${publicUnitLink("totem.html")}" target="_blank" rel="noopener">Abrir totem</a>
-          <a class="btn" href="${publicUnitLink("cozinha")}" target="_blank" rel="noopener">Abrir cozinha</a>
-          <a class="btn" href="${publicUnitLink("telao.html")}" target="_blank" rel="noopener">Abrir telao</a>
-        </div>
+    <section class="panel online-orders-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Pedidos online / Totem</strong>
+        <span>Pedidos recebidos da loja, totem, cozinha e telao</span>
+        <span>${pending.length} em andamento</span>
       </div>
-      <div class="panel-body grid">
-        <div class="grid five">
-          <div class="kpi"><small>Em andamento</small><strong>${pending.length}</strong></div>
-          <div class="kpi"><small>Recebidos</small><strong>${orders.filter((sale) => ["Aberto", "Conferido"].includes(sale.status || "Aberto")).length}</strong></div>
-          <div class="kpi"><small>Em preparo</small><strong>${orders.filter((sale) => sale.status === "Preparando").length}</strong></div>
-          <div class="kpi"><small>Prontos/entrega</small><strong>${orders.filter((sale) => ["Pronto", "Saiu para entrega"].includes(sale.status)).length}</strong></div>
-          <div class="kpi"><small>Total online</small><strong>${money(orders.reduce((sum, sale) => sum + Number(sale.total || 0), 0))}</strong></div>
+
+      <div class="desktop-module-ribbon">
+        <a class="desktop-ribbon-button primary" href="./loja.html?unidade=${encodeURIComponent(state.settings.tenantCode)}" target="_blank" rel="noopener">
+          <span class="dashboard-module-icon icon-sales" aria-hidden="true"></span>
+          <strong>Loja online</strong>
+          <small>Abrir vendas</small>
+        </a>
+        <a class="desktop-ribbon-button" href="${publicUnitLink("totem.html")}" target="_blank" rel="noopener">
+          <span class="dashboard-module-icon icon-pdv" aria-hidden="true"></span>
+          <strong>Totem</strong>
+          <small>Autoatendimento</small>
+        </a>
+        <a class="desktop-ribbon-button" href="${publicUnitLink("cozinha")}" target="_blank" rel="noopener">
+          <span class="dashboard-module-icon icon-purchases" aria-hidden="true"></span>
+          <strong>Cozinha</strong>
+          <small>Preparacao</small>
+        </a>
+        <a class="desktop-ribbon-button" href="${publicUnitLink("telao.html")}" target="_blank" rel="noopener">
+          <span class="dashboard-module-icon icon-reports" aria-hidden="true"></span>
+          <strong>Telao</strong>
+          <small>Retirada</small>
+        </a>
+      </div>
+
+      <div class="desktop-context-strip">
+        <button class="active" data-online-step="board" type="button">Quadro operacional</button>
+        <button data-online-step="links" type="button">Links da unidade</button>
+        <button data-online-step="history" type="button">Historico</button>
+        <span class="desktop-context-metric">Total online: ${money(onlineTotal)}</span>
+      </div>
+
+      <div class="desktop-work-area online-orders-work-area">
+        <div class="desktop-summary-strip">
+          <div><span>Em andamento</span><strong>${pending.length}</strong></div>
+          <div><span>Recebidos</span><strong>${orders.filter((sale) => ["Aberto", "Conferido"].includes(sale.status || "Aberto")).length}</strong></div>
+          <div><span>Em preparo</span><strong>${orders.filter((sale) => sale.status === "Preparando").length}</strong></div>
+          <div><span>Prontos/entrega</span><strong>${orders.filter((sale) => ["Pronto", "Saiu para entrega"].includes(sale.status)).length}</strong></div>
+          <div><span>Total online</span><strong>${money(onlineTotal)}</strong></div>
         </div>
-        <div class="online-board">
+
+        <div class="desktop-filter-panel">
+          <div class="filter-caption">Operacao online</div>
+          <p>Use o quadro para mudar status dos pedidos. Os atalhos superiores abrem as telas reais de loja, totem, cozinha e telao.</p>
+        </div>
+
+        <div class="online-board" id="online-step-board" tabindex="-1">
           ${operationalColumns.map(([label, rows]) => `
             <section class="online-lane">
               <header>
@@ -2482,7 +2516,8 @@ function renderOnlineOrders() {
             </section>
           `).join("")}
         </div>
-        <div class="unit-link-grid">
+
+        <div class="unit-link-grid" id="online-step-links" tabindex="-1">
           ${unitLinks.map((link) => `
             <article class="unit-link-card">
               <div>
@@ -2498,7 +2533,8 @@ function renderOnlineOrders() {
             </article>
           `).join("")}
         </div>
-        <div class="table-wrap">
+
+        <div class="table-wrap online-history-card" id="online-step-history" tabindex="-1">
           <table>
             <thead><tr><th>Pedido</th><th>Cliente</th><th>Endereco</th><th>Entrega</th><th>Itens</th><th>Pagamento</th><th>Total</th><th>Status</th><th>Acoes</th></tr></thead>
             <tbody>${orders.map((sale) => {
@@ -3648,6 +3684,9 @@ function bindCurrentModule() {
   });
   document.querySelectorAll("[data-online-status]").forEach((button) => {
     button.addEventListener("click", () => updateOnlineOrderStatus(Number(button.dataset.onlineStatus), button.dataset.status));
+  });
+  document.querySelectorAll("[data-online-step]").forEach((button) => {
+    button.addEventListener("click", () => focusOnlineStep(button.dataset.onlineStep || "board"));
   });
   document.querySelectorAll("[data-copy-public-link]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -5387,6 +5426,18 @@ function focusSalesStep(step) {
   section.focus({ preventScroll: true });
   const field = fieldId ? byId(fieldId) : null;
   if (field) setTimeout(() => field.focus(), 160);
+}
+
+function focusOnlineStep(step) {
+  const targets = {
+    board: "online-step-board",
+    links: "online-step-links",
+    history: "online-step-history"
+  };
+  const section = byId(targets[step] || targets.board);
+  if (!section) return;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  section.focus({ preventScroll: true });
 }
 
 function saveOrderRecord() {
