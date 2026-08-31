@@ -5376,6 +5376,45 @@ th {
   grid-template-columns: repeat(5, minmax(150px, 1fr));
 }
 
+.store-metric-grid {
+  align-items: stretch;
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 0;
+}
+
+.store-metric-grid .kpi {
+  background: linear-gradient(180deg, #fff7c7 0%, #ffffff 100%);
+  border-color: #ddb600;
+  box-shadow: 0 10px 24px rgba(112, 83, 0, 0.08);
+  cursor: default;
+  min-height: 126px;
+  padding: 18px 20px;
+}
+
+.store-metric-grid .kpi::before {
+  color: #9a6b00;
+  content: "Indicador";
+  display: block;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.store-metric-grid .kpi small {
+  color: #45556d;
+  display: block;
+  font-size: 15px;
+}
+
+.store-metric-grid .kpi strong {
+  color: #0f7795;
+  font-size: 31px;
+  margin-top: 12px;
+}
+
 .store-permission-grid {
   background: #fffdf5;
   border: 1px solid var(--line);

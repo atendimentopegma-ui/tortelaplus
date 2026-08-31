@@ -449,7 +449,7 @@ function renderOverview() {
   const data = totals();
   const pendingOrders = state.sales.filter((sale) => sale.onlineOrder && !["Entregue", "Cancelado", "Cancelada"].includes(sale.status));
   return `<div class="network-module compact">
-    ${moduleTitle("Painel do franqueado", "")}
+    ${moduleTitle("Painel do Franqueado", "")}
     <div class="network-grid four">
       ${kpi("Vendas no mes", money(data.salesTotal), `${amount(data.sales.length)} venda(s)`)}
       ${kpi("A receber aberto", money(data.receivableOpen))}
@@ -511,7 +511,7 @@ function renderChannels() {
   const channelRows = channelSummary();
   return `<div class="network-module compact">
     ${moduleTitle("Pedidos e canais da loja", "Acompanhe PDV, totem local, loja online e a fila de preparo sem acessar a Retaguarda completa.")}
-    <div class="network-grid four">
+    <div class="network-grid four store-metric-grid" aria-label="Indicadores do painel">
       ${kpi("Pedidos abertos", amount(pendingOrders.length))}
       ${kpi("Canais ativos", amount(channelRows.length))}
       ${kpi("Vendas registradas", amount(state.sales.length))}
