@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "navigation-settings-fix-v6";
+window.TORTELA_BUILD = "login-feedback-fix-v7";
 
 let state = load();
 let apiOnline = false;
@@ -351,6 +351,7 @@ let heartbeatTimer = 0;
 let authUser = JSON.parse(sessionStorage.getItem("tortelaplus-auth-user") || "null");
 let pdvPeripheralPort = null;
 let pdvPeripheralReader = null;
+let loginInProgress = false;
 let pendingExchangeCredit = 0;
 let authorizedDiscountValue = 0;
 
@@ -568,23 +569,37 @@ function audit(action, detail) {
 }
 
 async function api(path, options = {}) {
+  const controller = new AbortController();
+  const timeoutMs = Number(options.timeoutMs || 12000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {})
   };
   if (sessionId && !headers.Authorization) headers.Authorization = `Bearer ${sessionId}`;
-  const response = await fetch(path, {
-    ...options,
-    headers
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(payload.error || `API ${response.status}`);
-    error.status = response.status;
-    error.payload = payload;
+  try {
+    const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
+    const response = await fetch(path, {
+      ...fetchOptions,
+      headers,
+      signal: fetchOptions.signal || controller.signal
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(payload.error || `API ${response.status}`);
+      error.status = response.status;
+      error.payload = payload;
+      throw error;
+    }
+    return payload;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Tempo esgotado ao conectar com o servidor. Tente novamente.");
+    }
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return payload;
 }
 
 async function boot() {
@@ -893,6 +908,7 @@ function renderLogin() {
             <input id="login-pass" type="password" value="123456" autocomplete="current-password" />
           </div>
           <button class="btn primary" id="login-submit" type="submit">Entrar</button>
+          <p class="helper" id="login-feedback" aria-live="polite"></p>
           <p class="helper">Ambiente seguro da unidade Tortela.</p>
         </form>
       </section>
@@ -901,6 +917,16 @@ function renderLogin() {
 
   const enterSystem = async (event) => {
     event.preventDefault();
+    if (loginInProgress) return;
+    loginInProgress = true;
+    const submitButton = byId("login-submit");
+    const feedback = byId("login-feedback");
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Entrando...";
+      submitButton.setAttribute("aria-busy", "true");
+    }
+    if (feedback) feedback.textContent = apiOnline ? "Conectando com a unidade..." : "Abrindo em modo local...";
     state.settings.user = byId("login-user").value || "Operador";
     state.settings.company = byId("login-company").value || "Minha Empresa";
     state.settings.tenantCode = normalizeTenantCode(byId("login-tenant").value || state.settings.tenantCode);
@@ -908,8 +934,16 @@ function renderLogin() {
       try {
         await startSession(state.settings.tenantCode, state.settings.user, byId("login-pass").value);
         await loadTenantState(state.settings.tenantCode);
-      } catch {
-        alert("Nao foi possivel entrar. Confira unidade, usuario, senha, status na Central Tortela e limite de terminais.");
+      } catch (error) {
+        const message = error.message || "Nao foi possivel entrar. Confira unidade, usuario, senha, status na Central Tortela e limite de terminais.";
+        if (feedback) feedback.textContent = message;
+        alert(message);
+        loginInProgress = false;
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = "Entrar";
+          submitButton.removeAttribute("aria-busy");
+        }
         return;
       }
     }
@@ -923,7 +957,6 @@ function renderLogin() {
   };
 
   byId("login-form").addEventListener("submit", enterSystem);
-  byId("login-submit").addEventListener("click", enterSystem);
 }
 
 function renderLicenseGate() {
@@ -6872,7 +6905,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=navigation-settings-fix-v6").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=login-feedback-fix-v7").catch(() => undefined);
 }
 
 boot();

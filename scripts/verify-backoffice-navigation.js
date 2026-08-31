@@ -66,6 +66,17 @@ includesAll("Menu lateral", shellRenderer, [
 assert(!shellRenderer.includes('document.querySelectorAll("[data-module]")'), "Menu lateral: clique deve ser tratado apenas pelo handler global.");
 assert(!shellRenderer.includes('document.querySelectorAll("[data-mode]")'), "Modo PDV/Retaguarda: clique deve ser tratado apenas pelo handler global.");
 
+const loginRenderer = extractFunction("renderLogin");
+includesAll("Login da retaguarda", loginRenderer, [
+  'id="login-form"',
+  'id="login-submit"',
+  'id="login-feedback"',
+  "loginInProgress",
+  "Entrando...",
+  "Conectando com a unidade..."
+]);
+assert(!loginRenderer.includes('byId("login-submit").addEventListener("click"'), "Login: botao Entrar deve usar apenas o submit do formulario.");
+
 const moduleRenderer = extractFunction("renderModule");
 includesAll("Renderizadores dos modulos", moduleRenderer, [
   "dashboard: renderDashboard",
@@ -147,9 +158,9 @@ includesAll("Links publicos do totem em desenvolvimento", app, [
 assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
 assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
 includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
-  "navigation-settings-fix-v6",
-  "tortelaplus-operacao-v6",
-  'navigator.serviceWorker.register("/sw.js?v=navigation-settings-fix-v6")'
+  "login-feedback-fix-v7",
+  "tortelaplus-operacao-v7",
+  'navigator.serviceWorker.register("/sw.js?v=login-feedback-fix-v7")'
 ]);
 
 console.log("OK - navegacao da retaguarda validada: modulos, abas e paineis principais estao conectados.");
