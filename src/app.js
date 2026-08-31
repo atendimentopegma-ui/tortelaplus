@@ -2698,14 +2698,48 @@ function renderFiscal() {
   const rules = state.fiscalRules || [];
   const serviceRules = rules.filter((rule) => rule.active !== false && rule.model === "NFS-e" && rule.regime === state.settings.regime);
   const currentModel = fiscalTabModel(currentFiscalTab);
+  const pendingRows = state.fiscalQueue.filter((row) => !["Autorizada", "Cancelada"].includes(row.status));
+  const authorizedRows = state.fiscalQueue.filter((row) => row.status === "Autorizada");
+  const fiscalTabLabels = { nfe: "NF-e", nfce: "NFC-e", nfse: "NFS-e", cte: "CT-e", cteos: "CT-e OS", mdfe: "MDF-e", sat: "SAT", mfe: "MF-e", sped: "SPED", sintegra: "Sintegra", fila: "Fila" };
   return `
-    <section class="panel">
-      <div class="panel-head"><h2>Fiscal</h2><div class="actions"><button class="btn" id="retry-fiscal-queue">Reprocessar pendentes</button><button class="btn" id="fiscal-distribution">Buscar DF-e</button><button class="btn" id="fiscal-manifest-key">Manifestar NF-e</button><button class="btn" id="fiscal-inutilize">Inutilizar faixa</button><button class="btn" id="fiscal-export-batch">Lote XML</button><button class="btn" id="fiscal-pdf-batch">Lote PDF</button><label class="btn" for="fiscal-import-xml">Importar XML</label><input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />${currentFiscalTab === "nfse" ? `<button class="btn primary" id="issue-nfse">Emitir NFS-e</button>` : `<button class="btn primary" id="new-fiscal">Gerar documento</button>`}</div></div>
-      <div class="module-tabs">${availableTabs.map((tab) => `<a class="${currentFiscalTab === tab ? "active" : ""}" data-fiscal-tab="${tab}" href="#module=fiscal&fiscal=${tab}" role="button" aria-current="${currentFiscalTab === tab ? "page" : "false"}">${tab.toUpperCase()}</a>`).join("")}</div>
-      <div class="panel-body grid">
+    <section class="panel fiscal-screen desktop-module-screen">
+      <div class="desktop-module-titlebar">
+        <strong>Fiscal</strong>
+        <span>${fiscalTabLabels[currentFiscalTab] || currentModel}: emissao, consulta, XML e PDF</span>
+        <span>${pendingRows.length} pendente(s)</span>
+      </div>
+
+      <div class="desktop-module-ribbon">
+        ${availableTabs.map((tab) => `
+          <button class="desktop-ribbon-button ${currentFiscalTab === tab ? "primary" : ""}" data-fiscal-tab="${tab}" type="button" aria-current="${currentFiscalTab === tab ? "page" : "false"}">
+            <span class="dashboard-module-icon icon-fiscal" aria-hidden="true"></span>
+            <strong>${fiscalTabLabels[tab] || tab.toUpperCase()}</strong>
+            <small>${tab === "fila" ? "Pendencias" : "Documento fiscal"}</small>
+          </button>
+        `).join("")}
+      </div>
+
+      <input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />
+
+      <div class="desktop-context-strip fiscal-context-strip">
+        <button class="active" data-fiscal-step="form" type="button">Documento</button>
+        <button data-fiscal-step="rules" type="button">Regras fiscais</button>
+        <button data-fiscal-step="queue" type="button">Fila fiscal</button>
+        <span class="desktop-context-metric">Autorizadas: ${authorizedRows.length}</span>
+      </div>
+
+      <div class="desktop-work-area fiscal-work-area">
+        <div class="desktop-summary-strip">
+          <div><span>Fila total</span><strong>${state.fiscalQueue.length}</strong></div>
+          <div><span>Pendentes</span><strong>${pendingRows.length}</strong></div>
+          <div><span>Autorizadas</span><strong>${authorizedRows.length}</strong></div>
+          <div><span>Regras ativas</span><strong>${rules.filter((rule) => rule.active).length}</strong></div>
+        </div>
         <div class="fiscal-note">
           Ambiente ${state.settings.fiscalEnvironment}. NF-e/NFC-e usam fluxo de mercadoria. NFS-e fica em tela separada porque depende de municipio, item de servico, ISS, NBS e padrao nacional/municipal vigente.
         </div>
+        <div class="fiscal-desktop-body">
+        <div id="fiscal-step-form" tabindex="-1">
         ${currentFiscalTab === "nfse" ? renderNfseIssueForm(serviceRules) : advancedFiscalTabs().includes(currentFiscalTab) ? renderAdvancedFiscalForm(currentModel) : `
         <div class="form-card grid four">
           <div class="field"><label>Modelo</label><input id="fiscal-model" value="${currentModel}" readonly /></div>
@@ -2717,19 +2751,31 @@ function renderFiscal() {
           <div class="field"><label>Ambiente</label><input value="${state.settings.fiscalEnvironment}" readonly /></div>
         </div>
         `}
-        <div class="form-card">
+        </div>
+        <div class="form-card" id="fiscal-step-rules" tabindex="-1">
           <h3>Regras fiscais ativas</h3>
           <div class="table-wrap">
             <table><thead><tr><th>Regra</th><th>Regime</th><th>UF</th><th>Modelo</th><th>CFOP</th><th>Servico</th><th>Municipio</th><th>ISS/ICMS</th><th>IBS</th><th>CBS</th></tr></thead>
             <tbody>${rules.filter((rule) => rule.active).map((rule) => `<tr><td>${rule.name}</td><td>${rule.regime}</td><td>${rule.uf}</td><td>${rule.model}</td><td>${rule.cfop}</td><td>${rule.serviceCode || "-"}</td><td>${rule.municipio || "-"}</td><td>${rule.model === "NFS-e" ? pct(rule.issRate) : pct(rule.icmsRate)}</td><td>${rule.ibsClass}</td><td>${rule.cbsClass}</td></tr>`).join("")}</tbody></table>
           </div>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap fiscal-queue-card" id="fiscal-step-queue" tabindex="-1">
           <table>
             <thead><tr><th>Numero</th><th>Modelo</th><th>Status</th><th>Cliente</th><th>Total</th><th>Tentativas</th><th>Ultimo erro</th><th>Chave</th><th>Protocolo</th><th>Acoes</th></tr></thead>
             <tbody>${filteredRows.map((row) => `<tr><td>${row.id}</td><td>${row.model}</td><td><span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${row.status}</span></td><td>${row.customer}</td><td>${money(row.total)}</td><td>${row.attempts || 0}</td><td>${row.lastFiscalError || "-"}</td><td>${row.key || "-"}</td><td>${row.protocol || "-"}</td><td><button class="btn" data-fiscal-transmit="${row.id}">Transmitir</button> <button class="btn" data-fiscal-query="${row.id}">Consultar</button> <button class="btn" data-fiscal-print="${row.id}">${row.model === "NFS-e" ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE"}</button> ${row.pdfUrl ? `<button class="btn" data-fiscal-pdf="${row.id}">Baixar PDF</button>` : ""} <button class="btn" data-fiscal-xml="${row.id}">XML</button> ${row.model === "NF-e" ? `<button class="btn" data-fiscal-cce="${row.id}">CC-e</button>` : ""} ${row.model === "NFC-e" ? `<button class="btn" data-fiscal-contingency="${row.id}">Contingencia</button>` : ""} <button class="btn danger" data-fiscal-cancel="${row.id}">Cancelar</button></td></tr>`).join("") || `<tr><td colspan="10">Nenhum documento encontrado para ${currentFiscalTab === "fila" ? "a fila fiscal" : currentModel}. Use o formulario acima para gerar um documento ou importe um XML.</td></tr>`}</tbody>
           </table>
         </div>
+        </div>
+      </div>
+      <div class="desktop-action-bar erp-action-bar">
+        <button class="desktop-command" id="retry-fiscal-queue" type="button"><span>R</span>Reprocessar</button>
+        <button class="desktop-command" id="fiscal-distribution" type="button"><span>D</span>Buscar DF-e</button>
+        <button class="desktop-command" id="fiscal-manifest-key" type="button"><span>M</span>Manifestar</button>
+        <button class="desktop-command" id="fiscal-inutilize" type="button"><span>I</span>Inutilizar</button>
+        <button class="desktop-command" id="fiscal-export-batch" type="button"><span>X</span>Lote XML</button>
+        <button class="desktop-command" id="fiscal-pdf-batch" type="button"><span>P</span>Lote PDF</button>
+        <label class="desktop-command" for="fiscal-import-xml"><span>U</span>Importar XML</label>
+        ${currentFiscalTab === "nfse" ? `<button class="desktop-command primary" id="issue-nfse" type="button"><span>S</span>Emitir NFS-e</button>` : `<button class="desktop-command primary" id="new-fiscal" type="button"><span>G</span>Gerar documento</button>`}
       </div>
     </section>
   `;
@@ -3847,6 +3893,10 @@ function bindCurrentModule() {
       setInternalRoute({ module: "fiscal", fiscal: currentFiscalTab });
       renderShell();
     });
+  });
+
+  document.querySelectorAll("[data-fiscal-step]").forEach((button) => {
+    button.addEventListener("click", () => focusFiscalStep(button.dataset.fiscalStep || "form"));
   });
 
   document.querySelectorAll("[data-fiscal-transmit]").forEach((button) => {
@@ -5495,6 +5545,18 @@ function focusOnlineStep(step) {
     history: "online-step-history"
   };
   const section = byId(targets[step] || targets.board);
+  if (!section) return;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+  section.focus({ preventScroll: true });
+}
+
+function focusFiscalStep(step) {
+  const targets = {
+    form: "fiscal-step-form",
+    rules: "fiscal-step-rules",
+    queue: "fiscal-step-queue"
+  };
+  const section = byId(targets[step] || targets.form);
   if (!section) return;
   section.scrollIntoView({ behavior: "smooth", block: "start" });
   section.focus({ preventScroll: true });

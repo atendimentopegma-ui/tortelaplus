@@ -3217,6 +3217,51 @@ header.topbar .top-right .central-top-action:hover {
   border-left: 4px solid #f2c300;
 }
 
+.fiscal-screen {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+.fiscal-context-strip {
+  gap: 2px;
+}
+
+.fiscal-work-area {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.fiscal-desktop-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(360px, 0.52fr) minmax(520px, 1fr);
+  gap: 12px;
+  overflow: auto;
+}
+
+#fiscal-step-form {
+  min-height: 0;
+}
+
+#fiscal-step-rules,
+.fiscal-queue-card {
+  min-height: 0;
+  border: 1px solid #c8ced4;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.fiscal-queue-card {
+  grid-column: 1 / -1;
+  overflow: auto;
+}
+
+#fiscal-step-form:focus,
+#fiscal-step-rules:focus,
+.fiscal-queue-card:focus {
+  outline: 3px solid rgba(214, 169, 0, 0.32);
+  outline-offset: 2px;
+}
+
 @media (max-width: 1100px) {
   .erp-overview {
     grid-template-columns: repeat(2, minmax(140px, 1fr));

@@ -129,7 +129,6 @@ includesAll("Abas de estoque", stockRenderer, [
 const fiscalRenderer = extractFunction("renderFiscal");
 includesAll("Abas fiscais", fiscalRenderer, [
   "data-fiscal-tab",
-  "href=\"#module=fiscal&fiscal=",
   "currentFiscalTab"
 ]);
 [
