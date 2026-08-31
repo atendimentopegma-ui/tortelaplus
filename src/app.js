@@ -1149,8 +1149,8 @@ function renderDashboard() {
         `).join("")}
       </div>
 
-      <div class="dashboard-tab-strip">
-        <span class="active">Inicio</span>
+      <div class="dashboard-context-strip">
+        <span>Inicio</span>
         <span>Painel</span>
         <span>Resumo operacional</span>
       </div>
@@ -1315,8 +1315,8 @@ function renderPeople() {
         </button>
       </div>
 
-      <div class="desktop-tab-strip">
-        <span class="active">Contatos</span>
+      <div class="desktop-context-strip">
+        <span>Contatos</span>
         <span>${personTypeFilter === "Todos" ? "Todos" : personTypeFilter}</span>
         <span>${selectedPerson ? `Selecionado: ${selectedPerson.name}` : "Nenhum selecionado"}</span>
       </div>
@@ -1511,8 +1511,8 @@ function renderProducts() {
         `).join("")}
       </div>
 
-      <div class="desktop-tab-strip">
-        <span class="active">Produtos</span>
+      <div class="desktop-context-strip">
+        <span>Produtos</span>
         <span>${tabLabel(currentTab)}</span>
         <span>${selectedProduct ? `Selecionado: ${selectedProduct.description}` : "Nenhum selecionado"}</span>
       </div>
@@ -2179,8 +2179,8 @@ function renderStock() {
         `).join("")}
       </div>
 
-      <div class="desktop-tab-strip">
-        <span class="active">Estoque</span>
+      <div class="desktop-context-strip">
+        <span>Estoque</span>
         <span>${activeStockTab[1]}</span>
         <span>${money(stockValue)} a custo</span>
       </div>
@@ -2246,8 +2246,8 @@ function renderPurchases() {
 
       <input id="purchase-xml" type="file" accept=".xml,text/xml,application/xml" hidden />
 
-      <div class="desktop-tab-strip">
-        <span class="active">Compras</span>
+      <div class="desktop-context-strip">
+        <span>Compras</span>
         <span>Entrada</span>
         <span>Total atual: ${money(purchaseTotal)}</span>
       </div>

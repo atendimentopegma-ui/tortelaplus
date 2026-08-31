@@ -619,29 +619,22 @@ header.topbar .top-right .central-top-action:hover {
   transform: rotate(45deg);
 }
 
-.dashboard-tab-strip {
+.dashboard-context-strip {
   display: flex;
-  align-items: end;
-  gap: 4px;
-  padding: 8px 12px 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid #c8ced4;
   background: #e4e7ea;
 }
 
-.dashboard-tab-strip span {
-  min-width: 96px;
-  padding: 9px 12px;
-  border: 1px solid #c8ced4;
-  border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-  background: #eef1f4;
+.dashboard-context-strip span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
   color: #273341;
+  font-size: 12px;
   font-weight: 800;
-}
-
-.dashboard-tab-strip .active {
-  background: #fff;
-  color: #061733;
 }
 
 .dashboard-work-area {
@@ -2416,29 +2409,22 @@ header.topbar .top-right .central-top-action:hover {
   line-height: 1.2;
 }
 
-.desktop-tab-strip {
+.desktop-context-strip {
   display: flex;
-  align-items: end;
-  gap: 4px;
-  padding: 8px 12px 0;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid #c8ced4;
   background: #e4e7ea;
 }
 
-.desktop-tab-strip span {
-  min-width: 96px;
-  padding: 9px 12px;
-  border: 1px solid #c8ced4;
-  border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-  background: #eef1f4;
+.desktop-context-strip span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
   color: #273341;
+  font-size: 12px;
   font-weight: 800;
-}
-
-.desktop-tab-strip .active {
-  background: #fff;
-  color: #061733;
 }
 
 .desktop-work-area {
