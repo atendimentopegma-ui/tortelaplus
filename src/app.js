@@ -1434,24 +1434,91 @@ function renderProducts() {
   const tabs = ["dados", "impostos", "composicao", "grade", "balanca", "etiquetas", "tabelas"];
   if (!tabs.includes(currentTab)) currentTab = "dados";
   const formHtml = productForm();
+  const activeProducts = state.products.filter((product) => product.active !== false).length;
+  const lowStockProducts = state.products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0)).length;
+  const fiscalPendingProducts = state.products.filter((product) => product.fiscalStatus !== "Homologado").length;
+  const selectedProduct = state.products.find((product) => Number(product.id) === Number(selectedProductId));
   const bodyHtml = currentTab === "dados"
-    ? `${formHtml}${productsTable()}`
+    ? `
+      <div class="product-edit-panel">
+        <div class="product-section-title">
+          <div>
+            <h3>${editingProductId ? "Alterar produto" : "Novo produto"}</h3>
+            <p>Comece pelos dados essenciais. Depois complete preco, estoque, fiscal, balanca, composicao e etiquetas quando precisar.</p>
+          </div>
+          <span class="badge ${editingProductId ? "warn" : "ok"}">${editingProductId ? `Codigo ${editingProductId}` : "Novo cadastro"}</span>
+        </div>
+        ${formHtml}
+      </div>
+      <div class="product-list-panel">
+        <div class="product-section-title">
+          <div>
+            <h3>Lista de produtos</h3>
+            <p>${activeProducts} ativo(s), ${lowStockProducts} abaixo do minimo, ${fiscalPendingProducts} com fiscal pendente.</p>
+          </div>
+          <span class="badge ${selectedProduct ? "ok" : "warn"}">${selectedProduct ? `Selecionado: ${selectedProduct.description}` : "Selecione para alterar"}</span>
+        </div>
+        ${productsTable()}
+      </div>
+    `
     : `${productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>${productsTable()}`;
   return `
-    <section class="panel erp-screen">
-      <div class="panel-head"><h2>Produtos</h2><div class="actions"><button class="btn primary" id="save-product">${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button></div></div>
-      <div class="erp-search-strip">
-        <label>Localizar</label>
-        <div class="erp-search-line"><input id="product-search" value="${escapeAttr(productSearch)}" placeholder="Digite descricao, codigo de barras, marca, grupo ou NCM" /><button class="btn" id="filter-products">Buscar</button></div>
+    <section class="panel erp-screen products-screen didactic-screen">
+      <div class="panel-head didactic-head">
+        <div>
+          <h2>Produtos</h2>
+          <p>Cadastre itens de venda, materia-prima, produtos fabricados, servicos, precos, estoque, fiscal e etiquetas.</p>
+        </div>
+        <div class="actions"><button class="btn primary" id="save-product">${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button></div>
+      </div>
+
+      <div class="product-quick-start">
+        <button class="quick-action-card primary" data-new-product-type="Mercadoria para revenda" type="button">
+          <strong>Novo produto</strong>
+          <span>Item comum vendido no PDV, loja ou pedido.</span>
+        </button>
+        <button class="quick-action-card" data-new-product-type="Materia-prima" type="button">
+          <strong>Materia-prima</strong>
+          <span>Ingrediente usado em producao e composicao.</span>
+        </button>
+        <button class="quick-action-card" data-new-product-type="Produto fabricado" type="button">
+          <strong>Produto fabricado</strong>
+          <span>Receita, kit ou item com ficha tecnica.</span>
+        </button>
+        <button class="quick-action-card" data-new-product-type="Servico" type="button">
+          <strong>Servico</strong>
+          <span>Item sem estoque para venda ou fiscal.</span>
+        </button>
+      </div>
+
+      <div class="erp-overview product-overview">
+        <div><span>Total</span><strong>${state.products.length}</strong></div>
+        <div><span>Ativos</span><strong>${activeProducts}</strong></div>
+        <div><span>Abaixo do minimo</span><strong>${lowStockProducts}</strong></div>
+        <div><span>Fiscal pendente</span><strong>${fiscalPendingProducts}</strong></div>
+      </div>
+
+      <div class="product-workflow">
+        <div><strong>1. Busque antes</strong><span>Evite duplicar produto por descricao, codigo de barras, marca, grupo ou NCM.</span></div>
+        <div><strong>2. Cadastre o essencial</strong><span>Descricao, codigo, tipo, unidade, custo, venda e estoque minimo.</span></div>
+        <div><strong>3. Complete quando necessario</strong><span>Use as abas para impostos, composicao, lote, balanca, etiquetas e tabela de precos.</span></div>
+      </div>
+
+      <div class="erp-search-strip product-search-strip">
+        <div>
+          <label>Localizar produto</label>
+          <span>Descricao, codigo de barras, marca, grupo ou NCM.</span>
+        </div>
+        <div class="erp-search-line"><input id="product-search" value="${escapeAttr(productSearch)}" placeholder="Ex.: torta, 789..., farinha, congelados ou 19059090" /><button class="btn" id="filter-products">Buscar</button></div>
       </div>
       <div class="module-tabs">${tabs.map((tab) => `<a class="${currentTab === tab ? "active" : ""}" data-product-tab="${tab}" href="#module=products&tab=${tab}" role="button" aria-current="${currentTab === tab ? "page" : "false"}">${tabLabel(tab)}</a>`).join("")}</div>
-      <div class="panel-body erp-body">
+      <div class="panel-body erp-body product-body ${currentTab === "dados" ? "product-body-dados" : "product-body-tab"}">
         ${bodyHtml}
       </div>
       <div class="erp-action-bar">
         <button class="btn primary" id="new-product" type="button">Novo</button>
         <button class="btn" id="edit-selected-product" type="button">Alterar</button>
-        <button class="btn" id="label-selected-product" type="button">Etiqueta</button>
+        <button class="btn primary" id="label-selected-product" type="button">Etiqueta</button>
         <button class="btn" id="print-products" type="button">Imprimir</button>
         <button class="btn" id="refresh-products" type="button">Atualizar</button>
         <button class="btn" id="close-products" type="button">Fechar</button>
@@ -1518,63 +1585,85 @@ function productForm() {
     ...pendingProductDraft
   };
   return `
-    <form class="form-card" id="product-form">
-      <div class="grid four">
-        <div class="field"><label>Descricao</label><input id="product-description" value="${escapeAttr(draft.description)}" required /></div>
-        <div class="field"><label>Codigo de barras</label><input id="product-barcode" value="${escapeAttr(draft.barcode)}" /></div>
-        <div class="field"><label>Tipo</label><select id="product-type">${["Mercadoria para revenda", "Materia-prima", "Produto fabricado", "Servico", "Combustivel"].map((item) => `<option ${draft.type === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
-          <div class="field"><label>Unidade de estoque/compra</label><select id="product-unit">${["UN", "KG", "G", "LT", "ML", "CX", "HR"].map((item) => `<option ${draft.unit === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+    <form class="form-card product-form-card" id="product-form">
+      <div class="product-form-section required">
+        <h4>Dados essenciais</h4>
+        <div class="grid four">
+          <div class="field wide-field"><label>Descricao</label><input id="product-description" value="${escapeAttr(draft.description)}" required /></div>
+          <div class="field"><label>Codigo de barras</label><input id="product-barcode" value="${escapeAttr(draft.barcode)}" /></div>
+          <div class="field"><label>Tipo</label><select id="product-type">${["Mercadoria para revenda", "Materia-prima", "Produto fabricado", "Servico", "Combustivel"].map((item) => `<option ${draft.type === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+          <div class="field"><label>Unidade estoque/compra</label><select id="product-unit">${["UN", "KG", "G", "LT", "ML", "CX", "HR"].map((item) => `<option ${draft.unit === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+          <div class="field"><label>Ativo</label><select id="product-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
+        </div>
       </div>
-      <div class="grid four">
-        <div class="field"><label>Marca</label><input id="product-brand" value="${escapeAttr(draft.brand)}" /></div>
-        <div class="field"><label>Grupo</label><input id="product-group" value="${escapeAttr(draft.group)}" /></div>
-        <div class="field"><label>Localizacao</label><input id="product-location" value="${escapeAttr(draft.location)}" /></div>
-        <div class="field"><label>Ativo</label><select id="product-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
+
+      <div class="product-form-section">
+        <h4>Organizacao interna</h4>
+        <div class="grid four">
+          <div class="field"><label>Marca</label><input id="product-brand" value="${escapeAttr(draft.brand)}" /></div>
+          <div class="field"><label>Grupo</label><input id="product-group" value="${escapeAttr(draft.group)}" /></div>
+          <div class="field"><label>Localizacao</label><input id="product-location" value="${escapeAttr(draft.location)}" /></div>
+          <div class="field"><label>Referencia</label><input id="product-reference" value="${escapeAttr(draft.reference)}" /></div>
+          <div class="field"><label>Codigo interno/SKU</label><input id="product-sku" value="${escapeAttr(draft.sku)}" /></div>
+          <div class="field"><label>Embalagem</label><input id="product-packaging" value="${escapeAttr(draft.packaging)}" /></div>
+          <div class="field"><label>Status fiscal</label><select id="product-fiscal-status">${["Conferir", "Homologado", "Pendente", "Bloqueado"].map((item) => `<option ${draft.fiscalStatus === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+        </div>
       </div>
-      <div class="grid four">
-        <div class="field"><label>Referencia</label><input id="product-reference" value="${escapeAttr(draft.reference)}" /></div>
-        <div class="field"><label>Codigo interno/SKU</label><input id="product-sku" value="${escapeAttr(draft.sku)}" /></div>
-        <div class="field"><label>Embalagem</label><input id="product-packaging" value="${escapeAttr(draft.packaging)}" /></div>
-        <div class="field"><label>Status fiscal</label><select id="product-fiscal-status">${["Conferir", "Homologado", "Pendente", "Bloqueado"].map((item) => `<option ${draft.fiscalStatus === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
+
+      <div class="product-form-section required">
+        <h4>Preco e estoque</h4>
+        <div class="grid four">
+          <div class="field"><label>Custo</label><input id="product-cost" type="number" step="0.01" value="${draft.cost}" /></div>
+          <div class="field"><label>Venda</label><input id="product-price" type="number" step="0.01" value="${draft.price}" /></div>
+          <div class="field"><label>Estoque atual</label><input id="product-stock" type="number" step="0.001" value="${draft.stock}" /></div>
+          <div class="field"><label>Estoque minimo</label><input id="product-min" type="number" step="0.001" value="${draft.minStock}" /></div>
+        </div>
       </div>
-      <div class="grid four">
-        <div class="field"><label>Custo</label><input id="product-cost" type="number" step="0.01" value="${draft.cost}" /></div>
-        <div class="field"><label>Venda</label><input id="product-price" type="number" step="0.01" value="${draft.price}" /></div>
-        <div class="field"><label>Estoque atual</label><input id="product-stock" type="number" step="0.001" value="${draft.stock}" /></div>
-        <div class="field"><label>Estoque minimo</label><input id="product-min" type="number" step="0.001" value="${draft.minStock}" /></div>
+
+      <div class="product-form-section">
+        <h4>Como o produto funciona</h4>
+        <div class="desktop-check-grid">
+          ${productCheck("product-moves-stock", "Movimenta estoque", draft.movesStock !== false)}
+          ${productCheck("product-allows-sale", "Permite venda", draft.allowsSale !== false)}
+          ${productCheck("product-pays-commission", "Paga comissao", draft.paysCommission)}
+          ${productCheck("product-complementary", "Complementar", draft.complementary)}
+          ${productCheck("product-pair-product", "Par", draft.pairProduct)}
+          ${productCheck("product-show-app", "Mostrar no App", draft.showInApp)}
+          ${productCheck("product-uses-price-table", "Usar tabela preco", draft.usesPriceTable)}
+          ${productCheck("product-controls-imei", "Usar IMEI", draft.controlsImei)}
+          ${productCheck("product-manufactured", "Fabricado", draft.manufactured || draft.type === "Produto fabricado")}
+          ${productCheck("product-explode-kit-nf", "Explodir kit na NF", draft.explodeKitNf)}
+          ${productCheck("product-adult-only", "Produto +18", draft.adultOnly)}
+          ${productCheck("product-additional", "Adicional", draft.additional)}
+          ${productCheck("product-ecommerce", "Integrar e-commerce", draft.ecommerceIntegration)}
+          ${productCheck("product-kitchen-request", "Pedir na cozinha", draft.kitchenRequest)}
+          ${productCheck("product-medicine", "Medicamento", draft.medicine)}
+        </div>
       </div>
-      <div class="desktop-check-grid">
-        ${productCheck("product-moves-stock", "Movimenta estoque", draft.movesStock !== false)}
-        ${productCheck("product-allows-sale", "Permite venda", draft.allowsSale !== false)}
-        ${productCheck("product-pays-commission", "Paga comissao", draft.paysCommission)}
-        ${productCheck("product-complementary", "Complementar", draft.complementary)}
-        ${productCheck("product-pair-product", "Par", draft.pairProduct)}
-        ${productCheck("product-show-app", "Mostrar no App", draft.showInApp)}
-        ${productCheck("product-uses-price-table", "Usar tabela preco", draft.usesPriceTable)}
-        ${productCheck("product-controls-imei", "Usar IMEI", draft.controlsImei)}
-        ${productCheck("product-manufactured", "Fabricado", draft.manufactured || draft.type === "Produto fabricado")}
-        ${productCheck("product-explode-kit-nf", "Explodir kit na NF", draft.explodeKitNf)}
-        ${productCheck("product-adult-only", "Produto +18", draft.adultOnly)}
-        ${productCheck("product-additional", "Adicional", draft.additional)}
-        ${productCheck("product-ecommerce", "Integrar e-commerce", draft.ecommerceIntegration)}
-        ${productCheck("product-kitchen-request", "Pedir na cozinha", draft.kitchenRequest)}
-        ${productCheck("product-medicine", "Medicamento", draft.medicine)}
+
+      <div class="product-form-section">
+        <h4>Fiscal rapido</h4>
+        <div class="grid four">
+          <div class="field"><label>NCM</label><input id="product-ncm" value="${escapeAttr(draft.ncm)}" /></div>
+          <div class="field"><label>CEST</label><input id="product-cest" value="${escapeAttr(draft.cest)}" /></div>
+          <div class="field"><label>CFOP</label><input id="product-cfop" value="${escapeAttr(draft.cfop)}" /></div>
+          <div class="field"><label>CST/CSOSN</label><input id="product-cst" value="${escapeAttr(draft.cst)}" /></div>
+          <div class="field"><label>Classificacao IBS</label><input id="product-ibs" value="${escapeAttr(draft.ibsClass)}" /></div>
+          <div class="field"><label>Classificacao CBS</label><input id="product-cbs" value="${escapeAttr(draft.cbsClass)}" /></div>
+          <div class="field"><label>Principio ativo</label><input id="product-active-principle" value="${escapeAttr(draft.activePrinciple)}" /></div>
+        </div>
+        <span class="helper">Aba Impostos mantem a conferencia fiscal completa para NF-e, NFC-e e reforma tributaria.</span>
       </div>
-      <div class="grid four">
-        <div class="field"><label>NCM</label><input id="product-ncm" value="${escapeAttr(draft.ncm)}" /></div>
-        <div class="field"><label>CEST</label><input id="product-cest" value="${escapeAttr(draft.cest)}" /></div>
-        <div class="field"><label>CFOP</label><input id="product-cfop" value="${escapeAttr(draft.cfop)}" /></div>
-        <div class="field"><label>CST/CSOSN</label><input id="product-cst" value="${escapeAttr(draft.cst)}" /></div>
-        <div class="field"><label>Classificacao IBS</label><input id="product-ibs" value="${escapeAttr(draft.ibsClass)}" /></div>
-        <div class="field"><label>Classificacao CBS</label><input id="product-cbs" value="${escapeAttr(draft.cbsClass)}" /></div>
-        <div class="field"><label>Principio ativo</label><input id="product-active-principle" value="${escapeAttr(draft.activePrinciple)}" /></div>
-      </div>
-      <div class="photo-uploader">
-        <div class="photo-preview" id="product-photo-preview">${pendingProductPhoto ? `<img src="${pendingProductPhoto}" alt="Foto do produto" />` : "Sem foto"}</div>
-        <div class="grid">
-          <div class="field"><label>Foto do produto</label><input id="product-photo" type="file" accept="image/*" /></div>
-          <label class="check-row"><input id="product-is-bundle" type="checkbox" ${pendingComposition.length ? "checked" : ""} /> Este produto e composto ou produzido com materia-prima</label>
-          <p class="helper">Marque quando este cadastro for uma receita/produto produzido, como torta de limao, ou um kit. A ficha tecnica fica na aba Composicao.</p>
+
+      <div class="product-form-section">
+        <h4>Foto, composicao e producao</h4>
+        <div class="photo-uploader">
+          <div class="photo-preview" id="product-photo-preview">${pendingProductPhoto ? `<img src="${pendingProductPhoto}" alt="Foto do produto" />` : "Sem foto"}</div>
+          <div class="grid">
+            <div class="field"><label>Foto do produto</label><input id="product-photo" type="file" accept="image/*" /></div>
+            <label class="check-row"><input id="product-is-bundle" type="checkbox" ${pendingComposition.length ? "checked" : ""} /> Este produto e composto ou produzido com materia-prima</label>
+            <p class="helper">Marque quando este cadastro for uma receita/produto produzido, como torta de limao, ou um kit. A ficha tecnica fica na aba Composicao.</p>
+          </div>
         </div>
       </div>
     </form>
@@ -3195,6 +3284,9 @@ function bindCurrentModule() {
   if (saveProduct) saveProduct.addEventListener("click", saveProductRecord);
   const newProduct = byId("new-product");
   if (newProduct) newProduct.addEventListener("click", newProductRecord);
+  document.querySelectorAll("[data-new-product-type]").forEach((button) => {
+    button.addEventListener("click", () => newProductRecord(button.dataset.newProductType || "Mercadoria para revenda"));
+  });
   const editSelectedProduct = byId("edit-selected-product");
   if (editSelectedProduct) editSelectedProduct.addEventListener("click", () => editProductRecord(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
   const labelSelectedProduct = byId("label-selected-product");
@@ -4238,12 +4330,12 @@ function saveProductRecord() {
   renderShell();
 }
 
-function newProductRecord() {
+function newProductRecord(type = "") {
   editingProductId = 0;
   selectedProductId = 0;
   pendingProductPhoto = "";
   pendingComposition = [];
-  pendingProductDraft = {};
+  pendingProductDraft = type ? { type, manufactured: type === "Produto fabricado" } : {};
   currentTab = "dados";
   renderShell();
 }
