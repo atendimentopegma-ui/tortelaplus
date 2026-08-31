@@ -315,7 +315,7 @@ const seed = {
   }
 };
 
-window.TORTELA_BUILD = "settings-login-fix-v9";
+window.TORTELA_BUILD = "direct-settings-nav-fix-v10";
 
 let state = load();
 let apiOnline = false;
@@ -1068,7 +1068,7 @@ function renderShell() {
         ${currentMode === "pdv" ? renderPdv() : `
           <div class="layout">
             <aside class="sidebar">
-              ${modules.map(([key, label, short]) => `<a class="nav-btn ${currentModule === key ? "active" : ""}" data-module="${key}" href="#module=${key}">${icon(short)} ${label}</a>`).join("")}
+              ${modules.map(([key, label, short]) => `<a class="nav-btn ${currentModule === key ? "active" : ""}" data-module="${key}" href="#module=${key}" onclick="navigateBackofficeModule('${key}'); return false;">${icon(short)} ${label}</a>`).join("")}
             </aside>
             <section>${renderModule()}</section>
           </div>
@@ -2344,6 +2344,24 @@ function setInternalRoute(values) {
   const nextHash = `#${route.toString()}`;
   if (window.location.hash !== nextHash) window.location.hash = nextHash;
 }
+
+function navigateBackofficeModule(module) {
+  currentMode = "backoffice";
+  currentModule = module || "dashboard";
+  currentTab = "dados";
+  setInternalRoute({
+    mode: "",
+    module: currentModule,
+    tab: "",
+    fiscal: currentModule === "fiscal" ? currentFiscalTab : "",
+    stock: currentModule === "stock" ? currentStockTab : "",
+    people: currentModule === "people" ? currentPeopleTab : "",
+    settings: currentModule === "settings" ? currentSettingsTab : ""
+  });
+  renderShell();
+}
+
+window.navigateBackofficeModule = navigateBackofficeModule;
 
 function productSalesTotals() {
   const map = new Map();
@@ -6834,11 +6852,7 @@ document.addEventListener("click", (event) => {
   if (moduleButton) {
     event.preventDefault();
     event.stopPropagation();
-    currentMode = "backoffice";
-    currentModule = moduleButton.dataset.module || "dashboard";
-    currentTab = "dados";
-    setInternalRoute({ mode: "", module: currentModule, tab: "", fiscal: currentModule === "fiscal" ? currentFiscalTab : "", stock: currentModule === "stock" ? currentStockTab : "", people: currentModule === "people" ? currentPeopleTab : "", settings: currentModule === "settings" ? currentSettingsTab : "" });
-    renderShell();
+    navigateBackofficeModule(moduleButton.dataset.module || "dashboard");
     return;
   }
   const fiscalTab = event.target.closest("[data-fiscal-tab]");
@@ -6912,7 +6926,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=settings-login-fix-v9").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=direct-settings-nav-fix-v10").catch(() => undefined);
 }
 
 boot();

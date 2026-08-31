@@ -67,6 +67,7 @@ const shellRenderer = extractFunction("renderShell");
 includesAll("Menu lateral", shellRenderer, [
   'data-module="${key}"',
   'href="#module=${key}"',
+  "navigateBackofficeModule",
   "renderModule()"
 ]);
 assert(!shellRenderer.includes('document.querySelectorAll("[data-module]")'), "Menu lateral: clique deve ser tratado apenas pelo handler global.");
@@ -164,9 +165,9 @@ includesAll("Links publicos do totem em desenvolvimento", app, [
 assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
 assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
 includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
-  "settings-login-fix-v9",
-  "tortelaplus-operacao-v9",
-  'navigator.serviceWorker.register("/sw.js?v=settings-login-fix-v9")'
+  "direct-settings-nav-fix-v10",
+  "tortelaplus-operacao-v10",
+  'navigator.serviceWorker.register("/sw.js?v=direct-settings-nav-fix-v10")'
 ]);
 
 console.log("OK - navegacao da retaguarda validada: modulos, abas e paineis principais estao conectados.");

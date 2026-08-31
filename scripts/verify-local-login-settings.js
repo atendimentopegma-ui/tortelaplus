@@ -138,4 +138,14 @@ if (appElement.innerHTML.includes("Entrar no sistema")) {
   throw new Error("Sistema continuou preso no login.");
 }
 
-console.log("OK - login local abre Configuracoes direto pela rota #module=settings&settings=geral.");
+context.navigateBackofficeModule("dashboard");
+if (!appElement.innerHTML.includes("Painel da retaguarda")) {
+  throw new Error("Navegacao direta nao abriu o Painel.");
+}
+
+context.navigateBackofficeModule("settings");
+if (!appElement.innerHTML.includes("settings-screen") || !appElement.innerHTML.includes("Salvar configuracoes")) {
+  throw new Error("Botao Configuracoes nao renderizou a tela de configuracoes.");
+}
+
+console.log("OK - login local e botao Configuracoes abrem a tela correta.");
