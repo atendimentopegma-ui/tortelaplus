@@ -2739,6 +2739,13 @@ function renderFiscal() {
           Ambiente ${state.settings.fiscalEnvironment}. NF-e/NFC-e usam fluxo de mercadoria. NFS-e fica em tela separada porque depende de municipio, item de servico, ISS, NBS e padrao nacional/municipal vigente.
         </div>
         <div class="fiscal-desktop-body">
+        <div class="form-card" id="fiscal-step-rules" tabindex="-1">
+          <h3>Regras fiscais ativas</h3>
+          <div class="table-wrap">
+            <table><thead><tr><th>Regra</th><th>Regime</th><th>UF</th><th>Modelo</th><th>CFOP</th><th>Servico</th><th>Municipio</th><th>ISS/ICMS</th><th>IBS</th><th>CBS</th></tr></thead>
+            <tbody>${rules.filter((rule) => rule.active).map((rule) => `<tr><td>${rule.name}</td><td>${rule.regime}</td><td>${rule.uf}</td><td>${rule.model}</td><td>${rule.cfop}</td><td>${rule.serviceCode || "-"}</td><td>${rule.municipio || "-"}</td><td>${rule.model === "NFS-e" ? pct(rule.issRate) : pct(rule.icmsRate)}</td><td>${rule.ibsClass}</td><td>${rule.cbsClass}</td></tr>`).join("")}</tbody></table>
+          </div>
+        </div>
         <div id="fiscal-step-form" tabindex="-1">
         ${currentFiscalTab === "nfse" ? renderNfseIssueForm(serviceRules) : advancedFiscalTabs().includes(currentFiscalTab) ? renderAdvancedFiscalForm(currentModel) : `
         <div class="form-card grid four">
@@ -2751,13 +2758,6 @@ function renderFiscal() {
           <div class="field"><label>Ambiente</label><input value="${state.settings.fiscalEnvironment}" readonly /></div>
         </div>
         `}
-        </div>
-        <div class="form-card" id="fiscal-step-rules" tabindex="-1">
-          <h3>Regras fiscais ativas</h3>
-          <div class="table-wrap">
-            <table><thead><tr><th>Regra</th><th>Regime</th><th>UF</th><th>Modelo</th><th>CFOP</th><th>Servico</th><th>Municipio</th><th>ISS/ICMS</th><th>IBS</th><th>CBS</th></tr></thead>
-            <tbody>${rules.filter((rule) => rule.active).map((rule) => `<tr><td>${rule.name}</td><td>${rule.regime}</td><td>${rule.uf}</td><td>${rule.model}</td><td>${rule.cfop}</td><td>${rule.serviceCode || "-"}</td><td>${rule.municipio || "-"}</td><td>${rule.model === "NFS-e" ? pct(rule.issRate) : pct(rule.icmsRate)}</td><td>${rule.ibsClass}</td><td>${rule.cbsClass}</td></tr>`).join("")}</tbody></table>
-          </div>
         </div>
         <div class="table-wrap fiscal-queue-card" id="fiscal-step-queue" tabindex="-1">
           <table>

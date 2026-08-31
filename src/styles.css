@@ -3233,13 +3233,17 @@ header.topbar .top-right .central-top-action:hover {
 .fiscal-desktop-body {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(360px, 0.52fr) minmax(520px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   overflow: auto;
 }
 
 #fiscal-step-form {
   min-height: 0;
+}
+
+#fiscal-step-form .form-card {
+  margin: 0;
 }
 
 #fiscal-step-rules,
