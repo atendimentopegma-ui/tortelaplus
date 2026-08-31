@@ -28,8 +28,10 @@ function ticket(order) {
 function orderCard(order) {
   return `
     <div class="display-ticket">
-      <span>Senha</span>
-      <strong>${ticket(order)}</strong>
+      <div>
+        <span>Senha</span>
+        <strong>${ticket(order)}</strong>
+      </div>
       <small>${displayEscape(order.status || "Preparando")}</small>
     </div>
   `;
@@ -39,6 +41,7 @@ function renderDisplay(payload) {
   const orders = payload.orders || [];
   const ready = orders.filter((order) => order.status === "Pronto");
   const preparing = orders.filter((order) => !["Pronto", "Entregue", "Cancelado"].includes(order.status));
+  const nextReady = ready[0];
   const now = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   document.getElementById("display-app").innerHTML = `
     <main class="display-shell">
@@ -46,9 +49,13 @@ function renderDisplay(payload) {
         <div class="display-brand">
           <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
           <div>
-            <span>Pedidos do totem</span>
+            <span>Telao de retirada</span>
             <h1>${displayEscape(payload.unit || "Tortela")}</h1>
           </div>
+        </div>
+        <div class="display-summary">
+          <div><span>Prontos</span><strong>${ready.length}</strong></div>
+          <div><span>Em preparo</span><strong>${preparing.length}</strong></div>
         </div>
         <div class="display-clock">
           <span>Atualizado</span>
@@ -56,20 +63,23 @@ function renderDisplay(payload) {
         </div>
       </header>
       <section class="display-callout">
-        <div>
-          <span>Retire no balcao</span>
-          <strong>${ready[0] ? ticket(ready[0]) : "---"}</strong>
+        <div class="display-next">
+          <span>Proxima retirada</span>
+          <strong>${nextReady ? ticket(nextReady) : "---"}</strong>
         </div>
-        <p>${ready[0] ? "Pedido pronto para retirada." : "Acompanhe sua senha na tela."}</p>
+        <div class="display-message">
+          <span>${nextReady ? "Pedido pronto" : "Aguardando preparo"}</span>
+          <p>${nextReady ? "Retire seu pedido no balcao." : "Quando seu pedido ficar pronto, a senha aparece em destaque aqui."}</p>
+        </div>
       </section>
       <section class="display-grid">
-        <div class="display-column preparing">
-          <h2>Em preparo <span>${preparing.length}</span></h2>
-          <div class="display-list">${preparing.map(orderCard).join("") || `<p>Nenhum pedido em preparo.</p>`}</div>
-        </div>
         <div class="display-column ready">
           <h2>Prontos <span>${ready.length}</span></h2>
           <div class="display-list">${ready.map(orderCard).join("") || `<p>Aguardando pedidos prontos.</p>`}</div>
+        </div>
+        <div class="display-column preparing">
+          <h2>Em preparo <span>${preparing.length}</span></h2>
+          <div class="display-list">${preparing.map(orderCard).join("") || `<p>Nenhum pedido em preparo.</p>`}</div>
         </div>
       </section>
     </main>

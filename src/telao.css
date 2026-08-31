@@ -2,127 +2,161 @@ html,
 body.tortela-display-page {
   min-height: 100%;
   margin: 0;
-  background: #101827;
-  color: #fffaf0;
+  background: #f6f8fb;
+  color: #071833;
   font-family: Arial, Helvetica, sans-serif;
 }
 
 .display-shell {
   min-height: 100vh;
-  padding: 30px;
   box-sizing: border-box;
+  padding: clamp(20px, 3vw, 44px);
   background:
-    linear-gradient(115deg, rgba(8, 113, 135, 0.32), transparent 42%),
-    radial-gradient(circle at 82% 20%, rgba(242, 198, 0, 0.22), transparent 28%),
-    linear-gradient(180deg, #101827, #172033);
+    linear-gradient(90deg, rgba(250, 204, 21, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, #ffffff, #f4f7fb);
+  background-size: 72px 72px, auto;
 }
 
 .display-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 28px;
+  gap: 18px;
   padding: 18px 22px;
-  border: 1px solid rgba(255, 250, 240, 0.16);
-  border-radius: 26px;
-  background: rgba(255, 250, 240, 0.08);
-  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.26);
+  border: 1px solid #dbe3ef;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 46px rgba(7, 24, 51, 0.08);
 }
 
 .display-brand {
   display: flex;
   align-items: center;
-  gap: 20px;
+  min-width: 0;
+  gap: 18px;
 }
 
 .display-brand img {
-  width: 150px;
-  height: 76px;
+  width: 136px;
+  height: 70px;
   object-fit: contain;
-  padding: 8px 14px;
+  padding: 7px 12px;
+  border: 1px solid #f1d876;
   border-radius: 18px;
-  background: #fff7c7;
+  background: #fff8c5;
 }
 
 .display-brand span,
 .display-clock span,
-.display-callout span {
-  color: #f2c600;
-  font-size: 14px;
+.display-callout span,
+.display-summary span {
+  color: #06718a;
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 0;
   text-transform: uppercase;
 }
 
 .display-brand h1 {
-  margin: 4px 0 0;
-  color: #fffaf0;
-  font-size: 38px;
+  margin: 5px 0 0;
+  color: #071833;
+  font-size: clamp(30px, 3.2vw, 50px);
   line-height: 1;
 }
 
+.display-summary {
+  display: flex;
+  gap: 10px;
+}
+
+.display-summary div,
 .display-clock {
-  min-width: 150px;
-  padding: 14px 18px;
+  min-width: 118px;
+  padding: 13px 16px;
+  border: 1px solid #dbe3ef;
   border-radius: 18px;
-  background: rgba(255, 250, 240, 0.1);
+  background: #f8fafc;
   text-align: center;
 }
 
+.display-summary strong,
 .display-clock strong {
   display: block;
   margin-top: 4px;
-  font-size: 34px;
+  color: #071833;
+  font-size: 30px;
   line-height: 1;
+}
+
+.display-clock strong {
+  font-size: 32px;
 }
 
 .display-callout {
   display: grid;
-  grid-template-columns: minmax(260px, 430px) 1fr;
-  gap: 24px;
-  align-items: center;
-  margin: 24px 0;
-  padding: 26px;
-  border-radius: 28px;
-  background: #fffaf0;
-  color: #101827;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+  grid-template-columns: minmax(310px, 430px) 1fr;
+  gap: 22px;
+  align-items: stretch;
+  margin: 22px 0;
 }
 
-.display-callout div {
-  padding: 18px;
-  border-radius: 22px;
-  background: linear-gradient(180deg, #ffe06a, #f2c600);
+.display-next,
+.display-message {
+  border: 1px solid #dbe3ef;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 20px 60px rgba(7, 24, 51, 0.08);
+}
+
+.display-next {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  padding: 24px;
+  background: linear-gradient(180deg, #fff8c5, #facc15);
   text-align: center;
 }
 
-.display-callout strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 100px;
-  line-height: 0.92;
+.display-next span {
+  color: #071833;
 }
 
-.display-callout p {
-  margin: 0;
-  color: #263244;
-  font-size: 42px;
+.display-next strong {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(96px, 11vw, 176px);
+  line-height: 0.86;
+}
+
+.display-message {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(28px, 4vw, 54px);
+}
+
+.display-message p {
+  max-width: 880px;
+  margin: 12px 0 0;
+  color: #071833;
+  font-size: clamp(36px, 4.2vw, 72px);
   font-weight: 900;
-  line-height: 1.08;
+  line-height: 1.02;
 }
 
 .display-grid {
   display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: 22px;
 }
 
 .display-column {
-  min-height: 46vh;
+  min-height: 40vh;
   padding: 20px;
-  border: 1px solid rgba(255, 250, 240, 0.15);
+  border: 1px solid #dbe3ef;
   border-radius: 28px;
-  background: rgba(255, 250, 240, 0.08);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 54px rgba(7, 24, 51, 0.07);
 }
 
 .display-column h2 {
@@ -131,19 +165,20 @@ body.tortela-display-page {
   justify-content: space-between;
   gap: 14px;
   margin: 0 0 18px;
-  color: #fffaf0;
-  font-size: 34px;
+  color: #071833;
+  font-size: clamp(30px, 3vw, 48px);
   line-height: 1;
 }
 
 .display-column h2 span {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  min-width: 56px;
+  height: 56px;
+  padding: 0 12px;
   border-radius: 999px;
-  background: #f2c600;
-  color: #101827;
+  background: #071833;
+  color: #ffffff;
   font-size: 24px;
 }
 
@@ -155,76 +190,113 @@ body.tortela-display-page {
 
 .display-list p,
 .display-error {
-  padding: 32px;
-  border-radius: 24px;
-  background: rgba(255, 250, 240, 0.1);
-  color: #dce2ea;
-  font-size: 24px;
+  margin: 0;
+  padding: 28px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 22px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 23px;
   font-weight: 800;
 }
 
 .display-ticket {
-  display: grid;
-  gap: 6px;
-  place-items: center;
-  min-height: 170px;
-  padding: 18px;
-  border-radius: 24px;
-  background: #fffaf0;
-  color: #101827;
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 116px;
+  padding: 18px 20px;
+  border: 1px solid #dbe3ef;
+  border-radius: 22px;
+  background: #ffffff;
+  color: #071833;
+  box-shadow: 0 14px 34px rgba(7, 24, 51, 0.08);
 }
 
 .ready .display-ticket {
-  background: linear-gradient(180deg, #fff4b8, #f2c600);
+  border-color: #f1d876;
+  background: #fff9d7;
 }
 
 .display-ticket span {
-  color: #087187;
-  font-size: 15px;
+  color: #06718a;
+  font-size: 14px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .display-ticket strong {
-  font-size: 74px;
+  display: block;
+  margin-top: 2px;
+  font-size: clamp(54px, 5vw, 86px);
   line-height: 0.9;
 }
 
 .display-ticket small {
+  flex: 0 0 auto;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: #eef4f8;
   color: #475569;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
+}
+
+.ready .display-ticket small {
+  background: #071833;
+  color: #ffffff;
 }
 
 .display-error {
   max-width: 920px;
   margin: 18vh auto 0;
+  border-style: solid;
 }
 
 .display-error h1 {
   margin: 0 0 12px;
-  color: #fffaf0;
+  color: #071833;
   font-size: 52px;
 }
 
-@media (max-width: 900px) {
-  .display-header,
-  .display-brand {
-    align-items: flex-start;
-  }
-
+@media (max-width: 980px) {
   .display-header,
   .display-callout,
   .display-grid {
     grid-template-columns: 1fr;
   }
 
-  .display-header {
-    display: grid;
+  .display-summary {
+    width: 100%;
   }
 
-  .display-callout p {
-    font-size: 30px;
+  .display-summary div,
+  .display-clock {
+    flex: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .display-shell {
+    padding: 14px;
+  }
+
+  .display-brand {
+    align-items: flex-start;
+  }
+
+  .display-brand img {
+    width: 112px;
+    height: 58px;
+  }
+
+  .display-summary {
+    flex-direction: column;
+  }
+
+  .display-ticket {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
