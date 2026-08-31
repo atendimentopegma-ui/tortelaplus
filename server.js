@@ -1629,6 +1629,12 @@ function sessionAccess(req, provider, tenantCode, requiredPermission = "") {
   const tenant = findTenant(provider, tenantCode);
   if (!tenant) return { error: { status: 404, message: "Cliente nao encontrado" } };
   refreshTerminalCount(tenant);
+  if (tenant.status !== "Ativo" && tenant.status !== "Homologacao") {
+    tenant.activeSessions = [];
+    refreshTerminalCount(tenant);
+    writeProvider(provider);
+    return { error: { status: 403, message: "Unidade bloqueada na Central Tortela" } };
+  }
   const sessionId = bearerToken(req);
   const session = (tenant.activeSessions || []).find((item) => item.sessionId === sessionId);
   if (!session) return { error: { status: 401, message: "Sessao invalida ou expirada" } };
@@ -2995,7 +3001,17 @@ async function handleApi(req, res, urlPath) {
         paid: franchisePaid,
         status: franchiseOpen > 0 ? "Em aberto" : "A gerar"
       });
-      permissions.push({ unit: tenant.tradeName, tenantCode: tenant.tenantCode, status: tenant.status, modules: tenant.modules || [], maxTerminals: tenant.maxTerminals, activeTerminals: (tenant.activeSessions || []).length });
+      permissions.push({
+        unit: tenant.tradeName,
+        tenantCode: tenant.tenantCode,
+        status: tenant.status,
+        blocked: tenant.status !== "Ativo" && tenant.status !== "Homologacao",
+        modules: tenant.modules || [],
+        maxTerminals: tenant.maxTerminals,
+        terminalsLimit: tenant.maxTerminals,
+        activeTerminals: (tenant.activeSessions || []).length,
+        activeSessions: (tenant.activeSessions || []).length
+      });
       products.filter((product) => Array.isArray(product.composition) && product.composition.length).forEach((product) => {
         const components = product.composition.map((component) => {
           const rawMaterial = products.find((row) => Number(row.id) === Number(component.productId));
@@ -3475,6 +3491,13 @@ async function handleApi(req, res, urlPath) {
     const tenant = findTenant(provider, body.tenantCode);
     if (!tenant) {
       sendJson(res, 404, { ok: false, error: "Cliente nao encontrado" });
+      return;
+    }
+    if (tenant.status !== "Ativo" && tenant.status !== "Homologacao") {
+      tenant.activeSessions = [];
+      refreshTerminalCount(tenant);
+      writeProvider(provider);
+      sendJson(res, 403, { ok: false, error: "Unidade bloqueada na Central Tortela" });
       return;
     }
     refreshTerminalCount(tenant);
@@ -4459,6 +4482,7 @@ async function handleApi(req, res, urlPath) {
     for (const field of allowed) {
       if (body[field] !== undefined) tenant[field] = body[field];
     }
+    if (body.status !== undefined && tenant.status !== "Ativo" && tenant.status !== "Homologacao") tenant.activeSessions = [];
     tenant.maxTerminals = Math.max(1, Number(tenant.maxTerminals || 1));
     tenant.renewalDays = Math.max(1, Number(tenant.renewalDays || 30));
     refreshTerminalCount(tenant);

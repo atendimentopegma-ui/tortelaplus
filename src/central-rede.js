@@ -568,15 +568,44 @@ function renderPermissions() {
   return `<div class="network-module compact">
     ${moduleTitle("Permissoes dos franqueados", "Bloqueio, terminais, sessoes e modulos liberados por unidade.")}
     <section class="network-card">
-      ${table(["Unidade", "Bloqueio", "Terminais", "Sessoes", "Modulos"], summary.permissions.map((row) => [
+      ${table(["Unidade", "Status", "Terminais", "Sessoes", "Modulos", "Acao"], summary.permissions.map((row) => [
         escapeHtml(row.unit || row.tradeName || row.tenantCode || "-"),
-        row.blocked ? "Bloqueada" : "Liberada",
+        `<span class="badge ${row.blocked ? "danger" : "ok"}">${escapeHtml(row.status || (row.blocked ? "Bloqueada" : "Ativo"))}</span>`,
         `${amount(row.terminalsUsed || row.activeSessions || 0)} / ${amount(row.terminalsLimit || 0)}`,
         amount(row.activeSessions || 0),
-        escapeHtml(Array.isArray(row.modules) ? row.modules.join(", ") : (row.modules || "Todos"))
+        escapeHtml(Array.isArray(row.modules) ? row.modules.join(", ") : (row.modules || "Todos")),
+        `<button class="btn ${row.blocked ? "primary" : "danger"}" data-tenant-status="${escapeAttr(row.tenantCode)}" data-status="${row.blocked ? "Ativo" : "Inadimplente"}">${row.blocked ? "Liberar" : "Neutralizar"}</button> <button class="btn" data-clear-sessions="${escapeAttr(row.tenantCode)}">Encerrar sessoes</button>`
       ]))}
     </section>
   </div>`;
+}
+
+async function updateTenantStatus(tenantCode, status) {
+  const message = status === "Ativo"
+    ? `Liberar novamente a unidade ${tenantCode}?`
+    : `Neutralizar a unidade ${tenantCode}? O acesso da loja sera bloqueado e as sessoes abertas serao encerradas.`;
+  if (!confirm(message)) return;
+  try {
+    await api(`/api/provider/tenant/${encodeURIComponent(tenantCode)}`, {
+      method: "POST",
+      body: JSON.stringify({ status })
+    });
+    alert(status === "Ativo" ? "Unidade liberada." : "Unidade neutralizada.");
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function clearTenantSessions(tenantCode) {
+  if (!confirm(`Encerrar todas as sessoes abertas da unidade ${tenantCode}?`)) return;
+  try {
+    await api(`/api/provider/tenant/${encodeURIComponent(tenantCode)}/sessions`, { method: "DELETE" });
+    alert("Sessoes encerradas.");
+    await boot();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 function renderProduction() {
@@ -718,6 +747,8 @@ function bindRender() {
   if (priceTableForm) priceTableForm.addEventListener("submit", submitPriceTable);
   const shipmentQrForm = byId("shipment-qr-form");
   if (shipmentQrForm) shipmentQrForm.addEventListener("submit", generateShipmentQr);
+  document.querySelectorAll("[data-tenant-status]").forEach((button) => button.addEventListener("click", () => updateTenantStatus(button.dataset.tenantStatus, button.dataset.status)));
+  document.querySelectorAll("[data-clear-sessions]").forEach((button) => button.addEventListener("click", () => clearTenantSessions(button.dataset.clearSessions)));
   document.querySelectorAll("[data-approve-request]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.approveRequest, "approved")));
   document.querySelectorAll("[data-reject-request]").forEach((button) => button.addEventListener("click", () => decideApproval(button.dataset.rejectRequest, "rejected")));
   const whatsappSettingsForm = byId("whatsapp-settings-form");
