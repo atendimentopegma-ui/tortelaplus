@@ -4,6 +4,7 @@ let authUser = JSON.parse(sessionStorage.getItem("tortela-lojista-user") || "nul
 let tenant = JSON.parse(sessionStorage.getItem("tortela-lojista-tenant-info") || "null");
 let state = null;
 let currentModule = sessionStorage.getItem("tortela-lojista-module") || "overview";
+const LICENSE_GATE_ENABLED = false;
 
 const rolePermissions = {
   Administrador: ["dashboard", "people", "products", "stock", "purchases", "sales", "finance", "fiscal", "reports", "settings", "pdv", "stock_adjust", "purchase_cancel", "sales_cancel", "finance_settle", "fiscal_transmit", "fiscal_cancel", "restore_backup", "manage_users"],
@@ -104,6 +105,7 @@ function licenseChallenge() {
 }
 
 function licenseExpired() {
+  if (!LICENSE_GATE_ENABLED) return false;
   return daysUntil(tenant?.licenseExpiresAt || today()) < 0;
 }
 
