@@ -8,11 +8,12 @@ let successResetTimer = null;
 const state = {
   catalog: { products: [], nearest: null },
   screen: "welcome",
-  category: "Todos",
+  category: "Tortela",
   orderMode: "",
   customerDocument: "",
   paymentMethod: "PIX",
   selectedProduct: null,
+  selectedChoiceKey: "",
   draft: null,
   cart: [],
   lastOrder: null,
@@ -84,13 +85,18 @@ function productCategory(product) {
 }
 
 function categories() {
-  return ["Todos", ...new Set(state.catalog.products.map(productCategory))];
+  return ["Tortela", "Shake", "Bebidas"];
 }
 
 function visibleProducts() {
-  return state.category === "Todos"
-    ? state.catalog.products
-    : state.catalog.products.filter((product) => productCategory(product) === state.category);
+  const products = state.catalog.products;
+  if (state.category === "Shake") {
+    return products.filter((product) => /shake|milk/i.test(product.description || ""));
+  }
+  if (state.category === "Bebidas") {
+    return products.filter((product) => /bebida|suco|refri|agua|refrigerante/i.test(product.description || ""));
+  }
+  return products.filter((product) => /torta|combo/i.test(product.description || "") && !/shake|milk/i.test(product.description || ""));
 }
 
 function cartCount() {
@@ -152,7 +158,15 @@ function setScreen(screen) {
 function shell(content, step = 0) {
   return `
     <main class="tk-shell tk-screen-${state.screen}">
-      <div class="tk-bg-words" aria-hidden="true">FELICIDADE EM PALITOS</div>
+      <div class="tk-bg-words" aria-hidden="true">
+        <span>FELICIDADE EM PALITOS FELICIDADE EM PALITOS</span>
+        <span>FELICIDADE EM PALITOS FELICIDADE EM PALITOS</span>
+        <span>FELICIDADE EM PALITOS FELICIDADE EM PALITOS</span>
+        <span>FELICIDADE EM PALITOS FELICIDADE EM PALITOS</span>
+        <span>FELICIDADE EM PALITOS FELICIDADE EM PALITOS</span>
+        <span>FELICIDADE EM PALITOS FELICIDADE EM PALITOS</span>
+        <span>FELICIDADE EM PALITOS FELICIDADE EM PALITOS</span>
+      </div>
       <header class="tk-header tk-ref-header">
         <button class="tk-logo" data-screen="welcome" aria-label="Voltar ao inicio">
           <img src="./assets/tortela/logo-tortela-orange.png" alt="Tortela" />
@@ -181,17 +195,17 @@ function renderWelcome() {
       <section class="tk-start-copy">
         <h1>Comece seu pedido</h1>
         <p>Aperte nos icones</p>
-        <div class="tk-start-actions">
-          <button class="tk-start-button" data-mode="Comer na loja">
-            <b>Comer aqui</b>
-            <small>Pedido para consumir na loja</small>
-          </button>
-          <button class="tk-start-button" data-mode="Retirar para viagem">
-            <b>Levar - Viagem</b>
-            <small>Pedido embalado para retirar</small>
-          </button>
-        </div>
       </section>
+      <div class="tk-start-actions">
+        <button class="tk-start-button" data-mode="Comer na loja">
+          <b>Comer aqui</b>
+          <small>Pedido para consumir na loja</small>
+        </button>
+        <button class="tk-start-button" data-mode="Retirar para viagem">
+          <b>Levar - Viagem</b>
+          <small>Pedido embalado para retirar</small>
+        </button>
+      </div>
       <div class="tk-hero-treat" aria-hidden="true"></div>
     </main>
   `;
@@ -218,30 +232,66 @@ function renderLoyalty() {
 
 function renderMenu() {
   const products = visibleProducts();
+  const selectedKey = state.selectedChoiceKey;
+  const classicProducts = tortelaChoices(products, "classic", 3);
+  const specialProducts = tortelaChoices(products, "special", 4);
   return shell(`
-    <section class="tk-menu">
-      <aside class="tk-categories tk-pill-categories">
+    <section class="tk-menu tk-tortela-menu">
+      <aside class="tk-categories tk-tortela-tabs">
         ${categories().map((category) => `<button class="${state.category === category ? "is-active" : ""}" data-category="${cleanText(category)}">${cleanText(category)}</button>`).join("")}
       </aside>
-      <section class="tk-menu-board">
-        <div class="tk-menu-title">
+      <section class="tk-menu-board tk-tortela-board">
+        <div class="tk-tortela-ribbon">3 passos para montar<br>a sua Tortela:</div>
+        <h1>1º Escolha a sua Tortela</h1>
+        <div class="tk-tortela-columns">
           <div>
-            <span class="tk-green-ribbon">Monte sua Tortela</span>
-            <h1>${state.category === "Todos" ? "Escolha sua Tortela" : cleanText(state.category)}</h1>
+            <strong class="tk-column-title tk-classic-title">Clássicas</strong>
+            <div class="tk-choice-list">
+              ${classicProducts.map((choice) => productChoice(choice, selectedKey, "classic")).join("")}
+            </div>
           </div>
-          <strong>${products.length} opcoes</strong>
+          <div>
+            <strong class="tk-column-title tk-special-title">Especiais</strong>
+            <div class="tk-choice-list">
+              ${specialProducts.map((choice) => productChoice(choice, selectedKey, "special")).join("")}
+            </div>
+          </div>
         </div>
-        <div class="tk-products">
-          ${products.map(productCard).join("") || `<div class="tk-empty">Nenhum produto real liberado para venda no totem.</div>`}
-        </div>
+        ${products.length ? "" : `<div class="tk-empty">Nenhum produto real liberado para esta categoria.</div>`}
+        <button class="tk-primary tk-menu-continue" id="tk-continue-product" ${state.selectedProduct ? "" : "disabled"}>Continuar</button>
       </section>
       <button class="tk-bottom-cart" data-screen="cart" ${state.cart.length ? "" : "disabled"}>
-        <span>${cartCount()} item(ns)</span>
-        <b>${money(cartTotal())}</b>
+        <span>item</span>
+        <b>R$</b>
         <strong>Ver pedido</strong>
       </button>
     </section>
   `, 2);
+}
+
+function tortelaChoices(products, tone, amount) {
+  const fallback = products[0] || state.catalog.products[0];
+  return Array.from({ length: amount }, (_, index) => {
+    const product = products[index] || products[index % Math.max(products.length, 1)] || fallback;
+    return {
+      key: `${tone}-${index}`,
+      product,
+      label: "Limão"
+    };
+  }).filter((choice) => choice.product);
+}
+
+function productChoice(choice, selectedKey, tone) {
+  const active = selectedKey === choice.key;
+  return `
+    <button class="tk-tortela-choice ${tone === "special" ? "is-special" : "is-classic"} ${active ? "is-active" : ""}" data-product-option="${choice.product.id}" data-choice-key="${choice.key}">
+      <span class="tk-choice-photo" aria-hidden="true"></span>
+      <span class="tk-choice-copy">
+        <b>${cleanText(choice.label)}</b>
+        <small>${money(choice.product.price)}</small>
+      </span>
+    </button>
+  `;
 }
 
 function productCard(product) {
@@ -278,41 +328,66 @@ function selectProduct(productId) {
 function renderCustomize() {
   const product = state.selectedProduct;
   if (!product || !state.draft) return renderMenu();
-  const extras = ["Calda extra", "Granulado", "Cobertura premium", "Castanha"];
+  const coverageOptions = [
+    "Chocolate ao leite",
+    "Chocolate branco",
+    "Chocolate meio amargo",
+    "Ovomaltine",
+    "Kinder Bueno",
+    "Avelã",
+    "Morango",
+    "Pistache"
+  ];
+  if (!state.draft.coverage || !coverageOptions.includes(state.draft.coverage)) {
+    state.draft.coverage = coverageOptions[0];
+  }
   return shell(`
-    <section class="tk-custom tk-reference-panel">
-      <div class="tk-custom-info">
-        <span class="tk-green-ribbon">3 passos para montar a sua Tortela:</span>
-        <h1>Escolha seu topping</h1>
-        <p class="tk-custom-product">${cleanText(product.description)} - ${money(product.price)}</p>
-        <div class="tk-option-row">
-          ${["Padrao", "Grande"].map((size) => `<button class="${state.draft.size === size ? "is-active" : ""}" data-size="${size}">${size}${size === "Grande" ? " + R$ 4,00" : ""}</button>`).join("")}
-        </div>
-        ${product.hasCoverage ? `
-          <label class="tk-field">
-            <span>Cobertura</span>
-            <select id="tk-coverage">${(product.coverageOptions || ["Tradicional"]).map((option) => `<option ${state.draft.coverage === option ? "selected" : ""}>${cleanText(option)}</option>`).join("")}</select>
-          </label>
-        ` : ""}
-        <div class="tk-extra-grid">
-          ${extras.map((extra) => `<button class="${state.draft.extras.includes(extra) ? "is-active" : ""}" data-extra="${cleanText(extra)}">${cleanText(extra)}<small>+ R$ 2,00</small></button>`).join("")}
-        </div>
-        <label class="tk-field">
-          <span>Observacao</span>
-          <input id="tk-note" value="${cleanText(state.draft.note)}" placeholder="Ex.: sem castanha" />
-        </label>
-        <div class="tk-custom-footer">
-          <div class="tk-stepper">
-            <button data-draft-qty="-1">-</button>
-            <b>${state.draft.qty}</b>
-            <button data-draft-qty="1">+</button>
-          </div>
-          <button class="tk-primary tk-hot-button" id="tk-add-product">Continuar</button>
-        </div>
-        ${decorativeTreats("tk-panel-treats")}
+    <section class="tk-custom tk-reference-panel tk-coverage-panel">
+      <div class="tk-coverage-ribbon">3 passos para montar<br>a sua Tortela:</div>
+      <h1>2º Escolha a sua cobertura</h1>
+      <div class="tk-coverage-grid">
+        ${coverageOptions.map((option) => `
+          <button class="${state.draft.coverage === option ? "is-active" : ""}" data-coverage-option="${cleanText(option)}">${cleanText(option)}</button>
+        `).join("")}
       </div>
+      <div class="tk-coverage-image" aria-hidden="true"></div>
+      <button class="tk-primary tk-coverage-continue" id="tk-continue-topping">Continuar</button>
     </section>
   `, 2);
+}
+
+function renderTopping() {
+  const product = state.selectedProduct;
+  if (!product || !state.draft) return renderMenu();
+  const toppingOptions = [
+    "Granulado",
+    "Chocoball",
+    "Cookies baunilha",
+    "Farofa de pacoca",
+    "Amendoim Granulado",
+    "Gostas cookies chocolate",
+    "Ovomaltine"
+  ];
+  if (!state.draft.extras.length || !toppingOptions.includes(state.draft.extras[0])) {
+    state.draft.extras = [toppingOptions[0]];
+  }
+  return shell(`
+    <section class="tk-custom tk-reference-panel tk-coverage-panel tk-topping-panel">
+      <div class="tk-coverage-ribbon">3 passos para montar<br>a sua Tortela:</div>
+      <h1>3º Escolha o seu Topping</h1>
+      <div class="tk-coverage-grid tk-topping-grid">
+        ${toppingOptions.map((option) => `
+          <button class="${state.draft.extras[0] === option ? "is-active" : ""}" data-topping-option="${cleanText(option)}">${cleanText(option)}</button>
+        `).join("")}
+      </div>
+      <div class="tk-topping-image" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <button class="tk-primary tk-coverage-continue tk-topping-continue" id="tk-add-product">Continuar</button>
+    </section>
+  `, 3);
 }
 
 function addProductToCart() {
@@ -332,6 +407,7 @@ function addProductToCart() {
     note: draft.note || ""
   });
   state.selectedProduct = null;
+  state.selectedChoiceKey = "";
   state.draft = null;
   setScreen("cart");
 }
@@ -361,14 +437,18 @@ function cartRows(editable = true) {
 
 function renderCart() {
   return shell(`
-    <section class="tk-panel tk-order-panel">
-      <span class="tk-eyebrow">Meu pedido</span>
-      <h1>Confira seu carrinho</h1>
-      <div class="tk-cart-list">${cartRows(true)}</div>
-      <div class="tk-total"><span>Total</span><strong>${money(cartTotal())}</strong></div>
-      <div class="tk-actions">
-        <button class="tk-secondary" data-screen="menu">Adicionar mais</button>
-        <button class="tk-primary" data-screen="payment" ${state.cart.length ? "" : "disabled"}>Finalizar</button>
+    <section class="tk-panel tk-order-panel tk-cart-panel">
+      <header class="tk-cart-panel-head">
+        <span>MEU PEDIDO</span>
+        <h1>Confira seu carrinho</h1>
+      </header>
+      <div class="tk-cart-panel-body">
+        <div class="tk-cart-list">${cartRows(true)}</div>
+        <div class="tk-total"><span>Total</span><strong>${money(cartTotal())}</strong></div>
+        <div class="tk-actions">
+          <button class="tk-primary" data-screen="menu">Adicionar</button>
+          <button class="tk-primary" data-screen="payment" ${state.cart.length ? "" : "disabled"}>Pagamento</button>
+        </div>
       </div>
     </section>
   `, 3);
@@ -376,40 +456,37 @@ function renderCart() {
 
 function renderPayment() {
   return shell(`
-    <section class="tk-panel tk-payment-panel">
-      <span class="tk-eyebrow">Pagamento</span>
-      <h1>Como deseja pagar?</h1>
-      <div class="tk-payment-grid">
-        ${["PIX", "Debito", "Credito"].map((method) => `<button class="${state.paymentMethod === method ? "is-active" : ""}" data-payment="${method}"><b>${method}</b><small>${method === "PIX" ? "QR Code na tela" : "Cartao / aproximacao"}</small></button>`).join("")}
-      </div>
-      <div class="tk-review">
-        <b>${cleanText(state.orderMode || "Retirar para viagem")}</b>
-        <b>CPF ${cleanText(state.customerDocument)}</b>
-      </div>
-      <div class="tk-cart-list">${cartRows(false)}</div>
-      <div class="tk-total"><span>Total</span><strong>${money(cartTotal())}</strong></div>
-      <div class="tk-actions">
-        <button class="tk-secondary" data-screen="cart">Voltar</button>
-        <button class="tk-primary" id="tk-confirm-order" ${state.loading ? "disabled" : ""}>${state.loading ? "Enviando..." : "Confirmar pedido"}</button>
+    <section class="tk-panel tk-payment-panel tk-checkout-panel">
+      <header class="tk-checkout-head">
+        <span>Pagamento</span>
+        <h1>Como deseja pagar?</h1>
+      </header>
+      <div class="tk-checkout-body">
+        <small class="tk-payment-info">Informacoes do pedido: ${cleanText(state.orderMode || "Para viagem")} - CPF: ${cleanText(state.customerDocument)}</small>
+        <div class="tk-payment-grid">
+          ${["PIX", "Debito", "Credito"].map((method) => `<button class="${state.paymentMethod === method ? "is-active" : ""}" data-payment="${method}"><b>${method}</b><small>${method === "PIX" ? "QR Code na tela" : "Cartao / aproximacao"}</small></button>`).join("")}
+        </div>
+        <div class="tk-cart-list">${cartRows(false)}</div>
+        <div class="tk-total"><span>Total</span><strong>${money(cartTotal())}</strong></div>
+        <div class="tk-actions">
+          <button class="tk-secondary" data-screen="cart">Voltar</button>
+          <button class="tk-primary" id="tk-confirm-order" ${state.loading ? "disabled" : ""}>${state.loading ? "Enviando..." : "Confirma pedido"}</button>
+        </div>
       </div>
     </section>
   `, 4);
 }
 
 function renderSuccess() {
-  return `
-    <main class="tk-success">
-      <section class="tk-success-card">
+  return shell(`
+      <section class="tk-success-card tk-final-card">
         <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
         <span>Pedido concluido</span>
         <h1>${String(state.lastOrder?.ticketNumber || "").padStart(3, "0")}</h1>
         <p>Acompanhe sua senha no telao. Quando aparecer como pronto, retire no balcao.</p>
-        <strong>${money(state.lastOrder?.total || cartTotal())}</strong>
-        <small class="tk-payment-status">${cleanText(state.lastOrder?.paymentInfo?.status || "Pagamento enviado para processamento")}</small>
-        <small class="tk-payment-status">Novo pedido sera iniciado automaticamente.</small>
+        <small class="tk-auto-reset">Novo pedido sera iniciado automaticamente</small>
       </section>
-    </main>
-  `;
+  `, 4);
 }
 
 function renderError(message) {
@@ -434,11 +511,12 @@ function render() {
   if (!app) return;
   app.innerHTML = state.screen === "welcome" ? renderWelcome()
     : state.screen === "loyalty" ? renderLoyalty()
-      : state.screen === "menu" ? renderMenu()
-        : state.screen === "customize" ? renderCustomize()
-          : state.screen === "cart" ? renderCart()
-            : state.screen === "payment" ? renderPayment()
-              : renderSuccess();
+        : state.screen === "menu" ? renderMenu()
+          : state.screen === "customize" ? renderCustomize()
+            : state.screen === "topping" ? renderTopping()
+              : state.screen === "cart" ? renderCart()
+                : state.screen === "payment" ? renderPayment()
+                  : renderSuccess();
 }
 
 document.addEventListener("click", (event) => {
@@ -461,7 +539,20 @@ document.addEventListener("click", (event) => {
   }
   if (button.dataset.category) {
     state.category = button.dataset.category;
+    state.selectedProduct = null;
+    state.selectedChoiceKey = "";
     return render();
+  }
+  if (button.dataset.productOption) {
+    const product = state.catalog.products.find((item) => Number(item.id) === Number(button.dataset.productOption));
+    if (!product) return;
+    state.selectedProduct = product;
+    state.selectedChoiceKey = button.dataset.choiceKey || "";
+    return render();
+  }
+  if (button.id === "tk-continue-product") {
+    if (!state.selectedProduct) return;
+    return selectProduct(state.selectedProduct.id);
   }
   if (button.dataset.product) return selectProduct(button.dataset.product);
   if (button.dataset.size) {
@@ -475,12 +566,23 @@ document.addEventListener("click", (event) => {
       : [...state.draft.extras, extra];
     return render();
   }
+  if (button.dataset.coverageOption) {
+    state.draft.coverage = button.dataset.coverageOption;
+    return render();
+  }
+  if (button.dataset.toppingOption) {
+    state.draft.extras = [button.dataset.toppingOption];
+    return render();
+  }
   if (button.dataset.draftQty) {
     state.draft.qty = Math.max(1, Number(state.draft.qty || 1) + Number(button.dataset.draftQty || 0));
     return render();
   }
+  if (button.id === "tk-continue-topping") {
+    return setScreen("topping");
+  }
   if (button.id === "tk-add-product") {
-    state.draft.coverage = document.getElementById("tk-coverage")?.value || state.draft.coverage || "";
+    state.draft.coverage = state.draft.coverage || "";
     state.draft.note = document.getElementById("tk-note")?.value || "";
     return addProductToCart();
   }
