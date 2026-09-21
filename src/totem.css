@@ -2315,6 +2315,7 @@ body.tortela-kiosk-page #kiosk-app {
 }
 
 .tk-start-screen {
+  position: relative;
   width: 100%;
   height: 100vh;
   min-height: 720px;
@@ -2380,22 +2381,23 @@ body.tortela-kiosk-page #kiosk-app {
 }
 
 .tk-start-copy p {
-  margin: 2.2vh 0 0;
+  margin: 1.2vh 0 0;
   color: #ff007f;
-  font-size: clamp(30px, 3vw, 44px);
+  font-family: "Arial Rounded MT Bold", "Arial Black", Arial, sans-serif;
+  font-size: clamp(18px, 1.8vw, 26px);
   font-weight: 1000;
   line-height: 1;
 }
 
 .tk-start-actions {
-  position: fixed;
-  left: calc(50% - min(100vw, 800px) / 2 + min(100vw, 800px) * 0.063);
-  bottom: 0;
+  position: absolute;
+  left: 6.3%;
+  bottom: 2.5vh;
   z-index: 6;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: calc(min(100vw, 800px) * 0.028);
-  width: calc(min(100vw, 800px) * 0.672);
+  grid-template-columns: 1fr;
+  gap: 2vh;
+  width: 36%;
   min-width: 0;
   align-items: end;
 }
@@ -2405,10 +2407,10 @@ body.tortela-kiosk-page #kiosk-app {
   align-content: center;
   justify-items: center;
   width: 100%;
-  min-height: clamp(78px, 13.2vh, 104px);
-  padding: 14px 18px;
+  min-height: clamp(76px, 9.4vh, 96px);
+  padding: 12px 14px;
   border: 0;
-  border-radius: 32px 32px 0 0;
+  border-radius: 38px;
   background: #ff007f;
   color: #e7f300;
   box-shadow: none;
@@ -2417,22 +2419,29 @@ body.tortela-kiosk-page #kiosk-app {
 
 .tk-start-button b {
   color: #e7f300;
-  font-size: clamp(18px, 1.8vw, 22px);
-  font-weight: 500;
-  line-height: 1;
+  font-family: "Arial Rounded MT Bold", "Arial Black", Arial, sans-serif;
+  font-size: clamp(22px, 2.45vw, 34px);
+  font-weight: 1000;
+  line-height: 0.98;
 }
 
 .tk-start-button small {
-  display: none;
+  display: block;
+  margin-top: 0.55vh;
+  color: #e7f300;
+  font-family: "Arial Rounded MT Bold", "Arial Black", Arial, sans-serif;
+  font-size: clamp(11px, 1.25vw, 18px);
+  font-weight: 1000;
+  line-height: 1.05;
 }
 
 .tk-hero-treat {
   position: absolute;
-  right: -7.4%;
+  right: -1.4%;
   bottom: 0;
   z-index: 3;
-  width: 48%;
-  height: 61%;
+  width: 46%;
+  height: 60%;
   border: 0;
   background: url("../assets/tortela/totem-personagem-inicial.png") right bottom / contain no-repeat;
   clip-path: none;

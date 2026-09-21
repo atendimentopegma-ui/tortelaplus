@@ -181,17 +181,17 @@ function renderWelcome() {
       <section class="tk-start-copy">
         <h1>Comece seu pedido</h1>
         <p>Aperte nos icones</p>
-        <div class="tk-start-actions">
-          <button class="tk-start-button" data-mode="Comer na loja">
-            <b>Comer aqui</b>
-            <small>Pedido para consumir na loja</small>
-          </button>
-          <button class="tk-start-button" data-mode="Retirar para viagem">
-            <b>Levar - Viagem</b>
-            <small>Pedido embalado para retirar</small>
-          </button>
-        </div>
       </section>
+      <div class="tk-start-actions">
+        <button class="tk-start-button" data-mode="Comer na loja">
+          <b>Comer aqui</b>
+          <small>Pedido para consumir na loja</small>
+        </button>
+        <button class="tk-start-button" data-mode="Retirar para viagem">
+          <b>Levar - Viagem</b>
+          <small>Pedido embalado para retirar</small>
+        </button>
+      </div>
       <div class="tk-hero-treat" aria-hidden="true"></div>
     </main>
   `;
