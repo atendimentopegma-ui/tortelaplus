@@ -101,6 +101,22 @@ function cartTotal() {
   return state.cart.reduce((total, item) => total + Number(item.qty || 0) * Number(item.price || 0), 0);
 }
 
+function progressDots(step = 0) {
+  return Array.from({ length: 5 }, (_, index) => `
+    <span class="${index <= step ? "is-active" : ""}" aria-label="Etapa ${index + 1}"></span>
+  `).join("");
+}
+
+function decorativeTreats(className = "") {
+  return `
+    <div class="tk-treats ${className}" aria-hidden="true">
+      <span class="tk-treat tk-treat-a"></span>
+      <span class="tk-treat tk-treat-b"></span>
+      <span class="tk-treat tk-treat-c"></span>
+    </div>
+  `;
+}
+
 function productPhoto(product, className = "tk-product-photo") {
   if (product.photo) {
     return `<img class="${className}" src="${cleanText(product.photo)}" alt="${cleanText(product.description)}" />`;
@@ -134,15 +150,18 @@ function setScreen(screen) {
 }
 
 function shell(content, step = 0) {
-  const steps = ["Inicio", "Tipo", "Cardapio", "Carrinho", "Pagamento"];
   return `
     <main class="tk-shell tk-screen-${state.screen}">
-      <header class="tk-header">
+      <div class="tk-bg-words" aria-hidden="true">FELICIDADE EM PALITOS</div>
+      <header class="tk-header tk-ref-header">
         <button class="tk-logo" data-screen="welcome" aria-label="Voltar ao inicio">
           <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
         </button>
-        <div class="tk-progress" aria-label="Progresso do pedido">
-          ${steps.map((label, index) => `<span class="${index <= step ? "is-active" : ""}" title="${cleanText(label)}">${cleanText(label)}</span>`).join("")}
+        <div class="tk-progress-wrap">
+          <strong>Palitando</strong>
+          <div class="tk-progress" aria-label="Progresso do pedido">
+            ${progressDots(step)}
+          </div>
         </div>
         <button class="tk-cart-button" data-screen="cart" aria-label="Abrir carrinho">
           <span>${cartCount()} itens</span>
@@ -156,45 +175,37 @@ function shell(content, step = 0) {
 
 function renderWelcome() {
   return `
-    <main class="tk-welcome">
-      <section class="tk-welcome-panel">
-        <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-        <span>Autoatendimento</span>
+    <main class="tk-welcome tk-start-screen">
+      <div class="tk-start-pattern" aria-hidden="true">FELICIDADE EM PALITOS</div>
+      <img class="tk-start-logo" src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+      <section class="tk-start-copy">
         <h1>Comece seu pedido</h1>
-        <p>Escolha como deseja receber, informe o CPF e monte seu pedido.</p>
-        <div class="tk-mode-grid">
-          <button data-mode="Comer na loja">
-            <b>Comer aqui</b>
-            <small>Pedido para consumir na loja</small>
-          </button>
-          <button data-mode="Retirar para viagem">
-            <b>Levar viagem</b>
-            <small>Pedido embalado para retirar</small>
-          </button>
+        <p>Aperte nos icones</p>
+        <div class="tk-start-actions">
+          <button class="tk-start-button" data-mode="Comer na loja">Comer aqui</button>
+          <button class="tk-start-button" data-mode="Retirar para viagem">Levar - Viagem</button>
         </div>
       </section>
-      <footer class="tk-welcome-footer">
-        <button data-mode="Retirar para viagem">Comecar pedido</button>
-        <small>${cleanText(unitName())}</small>
-      </footer>
+      <div class="tk-hero-treat" aria-hidden="true"></div>
     </main>
   `;
 }
 
 function renderLoyalty() {
   return shell(`
-    <section class="tk-panel tk-centered-panel">
-      <span class="tk-eyebrow">Clube Tortela</span>
+    <section class="tk-panel tk-centered-panel tk-reference-panel">
+      <div class="tk-panel-mark">Clube Tortela</div>
       <h1>Informe o CPF</h1>
-      <p>Para continuar a venda, o CPF do cliente precisa ser informado.</p>
+      <p>Para continuar a venda, insira o seu cpf</p>
       <label class="tk-field">
-        <span>CPF</span>
-        <input id="tk-cpf" inputmode="numeric" autocomplete="off" value="${cleanText(state.customerDocument)}" placeholder="Digite o CPF" />
+        <span>Cpf</span>
+        <input id="tk-cpf" class="tk-pink-input" inputmode="numeric" autocomplete="off" value="${cleanText(state.customerDocument)}" placeholder="Digite o CPF" />
       </label>
       <div id="tk-cpf-warning" class="tk-warning ${hasCpf() ? "" : "is-visible"}">Digite um CPF valido para liberar o cardapio.</div>
       <div class="tk-actions tk-actions-single">
-        <button class="tk-primary" id="tk-save-cpf" ${hasCpf() ? "" : "disabled"}>Ir para o cardapio</button>
+        <button class="tk-primary tk-orange-button" id="tk-save-cpf" ${hasCpf() ? "" : "disabled"}>Continuar</button>
       </div>
+      ${decorativeTreats("tk-panel-treats")}
     </section>
   `, 1);
 }
@@ -203,14 +214,14 @@ function renderMenu() {
   const products = visibleProducts();
   return shell(`
     <section class="tk-menu">
-      <aside class="tk-categories">
+      <aside class="tk-categories tk-pill-categories">
         ${categories().map((category) => `<button class="${state.category === category ? "is-active" : ""}" data-category="${cleanText(category)}">${cleanText(category)}</button>`).join("")}
       </aside>
       <section class="tk-menu-board">
         <div class="tk-menu-title">
           <div>
-            <span class="tk-eyebrow">Escolha um produto</span>
-            <h1>${cleanText(state.category)}</h1>
+            <span class="tk-green-ribbon">Monte sua Tortela</span>
+            <h1>${state.category === "Todos" ? "Escolha sua Tortela" : cleanText(state.category)}</h1>
           </div>
           <strong>${products.length} opcoes</strong>
         </div>
@@ -239,7 +250,7 @@ function productCard(product) {
           <span>${Number(product.stock || 0) > 0 ? "Disponivel" : "Indisponivel"}</span>
         </div>
       </div>
-      <button data-product="${product.id}">Adicionar</button>
+      <button class="tk-hot-button" data-product="${product.id}">Escolher</button>
     </article>
   `;
 }
@@ -263,12 +274,11 @@ function renderCustomize() {
   if (!product || !state.draft) return renderMenu();
   const extras = ["Calda extra", "Granulado", "Cobertura premium", "Castanha"];
   return shell(`
-    <section class="tk-custom">
-      <div class="tk-custom-photo-wrap">${productPhoto(product, "tk-custom-photo")}</div>
+    <section class="tk-custom tk-reference-panel">
       <div class="tk-custom-info">
-        <span class="tk-eyebrow">Revise o item</span>
-        <h1>${cleanText(product.description)}</h1>
-        <strong>${money(product.price)}</strong>
+        <span class="tk-green-ribbon">3 passos para montar a sua Tortela:</span>
+        <h1>Escolha seu topping</h1>
+        <p class="tk-custom-product">${cleanText(product.description)} - ${money(product.price)}</p>
         <div class="tk-option-row">
           ${["Padrao", "Grande"].map((size) => `<button class="${state.draft.size === size ? "is-active" : ""}" data-size="${size}">${size}${size === "Grande" ? " + R$ 4,00" : ""}</button>`).join("")}
         </div>
@@ -291,8 +301,9 @@ function renderCustomize() {
             <b>${state.draft.qty}</b>
             <button data-draft-qty="1">+</button>
           </div>
-          <button class="tk-primary" id="tk-add-product">Adicionar</button>
+          <button class="tk-primary tk-hot-button" id="tk-add-product">Continuar</button>
         </div>
+        ${decorativeTreats("tk-panel-treats")}
       </div>
     </section>
   `, 2);

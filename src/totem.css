@@ -1259,3 +1259,625 @@ body.tortela-kiosk-page #kiosk-app {
     min-height: 64px;
   }
 }
+
+/* Layout Totem Tortela: referencia Atendimento.pdf */
+body.tortela-kiosk-page {
+  background: #1b1b1b;
+}
+
+body.tortela-kiosk-page #kiosk-app {
+  width: min(100vw, 720px);
+  height: 100vh;
+  background: #f9c60e;
+  box-shadow: 0 0 0 10px #161616;
+}
+
+body.tortela-kiosk-page button {
+  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.tk-shell,
+.tk-success {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.28), transparent 18%),
+    linear-gradient(180deg, #ffd43b 0%, #ffc20f 48%, #f7b900 100%);
+}
+
+.tk-shell::before,
+.tk-success::before {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 32px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 32px);
+}
+
+.tk-bg-words,
+.tk-start-pattern {
+  position: absolute;
+  inset: auto -18px 78px -18px;
+  z-index: 0;
+  color: rgba(255, 129, 0, 0.15);
+  font-size: clamp(54px, 13vw, 96px);
+  font-weight: 1000;
+  line-height: 0.86;
+  letter-spacing: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.tk-bg-words::before,
+.tk-bg-words::after,
+.tk-start-pattern::before,
+.tk-start-pattern::after {
+  content: "FELICIDADE EM PALITOS";
+  display: block;
+}
+
+.tk-ref-header {
+  grid-template-columns: 132px 1fr 126px;
+  gap: 10px;
+  height: 100px;
+  margin: 12px;
+  padding: 10px 14px;
+  border: 2px solid #ef7c00;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.04);
+}
+
+.tk-logo {
+  display: grid;
+  place-items: center;
+  min-height: 74px;
+  border-radius: 22px;
+  background: #fff;
+}
+
+.tk-logo img {
+  width: 112px;
+  height: 62px;
+  padding: 0;
+  background: transparent;
+}
+
+.tk-progress-wrap {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.tk-progress-wrap strong {
+  color: #f06d00;
+  font-size: 34px;
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.tk-progress {
+  gap: 10px;
+}
+
+.tk-progress span {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f28b13;
+  background: #fff;
+}
+
+.tk-progress .is-active {
+  background: #ff0085;
+  border-color: #ff0085;
+}
+
+.tk-progress .is-active::after {
+  display: none;
+}
+
+.tk-cart-button {
+  min-height: 64px;
+  border-radius: 999px;
+  background: #ff0085;
+  color: #fff;
+  box-shadow: 0 7px 0 rgba(101, 0, 60, 0.18);
+}
+
+.tk-cart-button span,
+.tk-cart-button strong {
+  display: block;
+  color: #fff;
+}
+
+.tk-start-screen {
+  display: block;
+  padding: 54px 40px;
+  background:
+    radial-gradient(circle at 20% 4%, rgba(255, 255, 255, 0.42), transparent 22%),
+    linear-gradient(135deg, #eff43c 0%, #d9eb14 44%, #f7c014 100%);
+}
+
+.tk-start-screen::before {
+  background: none;
+}
+
+.tk-start-logo {
+  position: relative;
+  z-index: 2;
+  width: 220px;
+  height: 116px;
+  object-fit: contain;
+  background: transparent;
+}
+
+.tk-start-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 430px;
+  margin-top: 82px;
+}
+
+.tk-start-copy h1 {
+  margin: 0;
+  color: #ff0085;
+  font-size: clamp(58px, 12vw, 92px);
+  font-weight: 1000;
+  line-height: 0.88;
+}
+
+.tk-start-copy p {
+  margin: 18px 0 34px;
+  color: #ff0085;
+  font-size: 32px;
+  font-weight: 900;
+}
+
+.tk-start-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.tk-start-button {
+  min-height: 88px;
+  border: 0;
+  border-radius: 28px;
+  background: #ff0085;
+  color: #eff43c;
+  font-size: 25px;
+  font-weight: 1000;
+  box-shadow: 0 10px 0 rgba(126, 0, 73, 0.2);
+}
+
+.tk-start-button:active,
+.tk-hot-button:active,
+.tk-orange-button:active {
+  transform: translateY(2px) scale(0.99);
+}
+
+.tk-hero-treat {
+  position: absolute;
+  right: -62px;
+  bottom: 34px;
+  z-index: 1;
+  width: 310px;
+  height: 410px;
+  background:
+    radial-gradient(circle at 54% 20%, #8f4a18 0 4px, transparent 5px),
+    radial-gradient(circle at 42% 28%, #8f4a18 0 4px, transparent 5px),
+    radial-gradient(circle at 63% 32%, #8f4a18 0 4px, transparent 5px),
+    linear-gradient(145deg, #4b210e 0%, #8a3d17 47%, #3a1608 100%);
+  clip-path: polygon(49% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 24px 22px rgba(36, 18, 0, 0.36));
+}
+
+.tk-hero-treat::before {
+  content: "";
+  position: absolute;
+  inset: 24px 54px auto 54px;
+  height: 88px;
+  border-radius: 60% 60% 42% 42%;
+  background:
+    radial-gradient(circle at 20% 40%, #ffc84a 0 6px, transparent 7px),
+    radial-gradient(circle at 42% 22%, #ffc84a 0 6px, transparent 7px),
+    radial-gradient(circle at 64% 45%, #ffc84a 0 6px, transparent 7px),
+    radial-gradient(circle at 76% 18%, #ffc84a 0 5px, transparent 6px);
+}
+
+.tk-reference-panel,
+.tk-centered-panel,
+.tk-menu-board,
+.tk-order-panel,
+.tk-payment-panel,
+.tk-success-card {
+  border: 3px solid #111;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 40px rgba(54, 34, 0, 0.16);
+}
+
+.tk-centered-panel {
+  width: calc(100% - 54px);
+  max-width: none;
+  min-height: calc(100vh - 156px);
+  margin: 28px auto 0;
+  padding: 44px 36px 28px;
+  overflow: hidden;
+}
+
+.tk-panel-mark,
+.tk-eyebrow {
+  margin: 0 0 12px;
+  color: #111;
+  font-size: 30px;
+  font-weight: 1000;
+  text-transform: none;
+}
+
+.tk-reference-panel h1,
+.tk-panel h1,
+.tk-custom-info h1,
+.tk-menu-title h1 {
+  margin: 0 0 14px;
+  color: #111;
+  font-size: clamp(38px, 8.4vw, 64px);
+  font-weight: 1000;
+  line-height: 0.98;
+}
+
+.tk-reference-panel p,
+.tk-custom-product,
+.tk-panel p {
+  color: #111;
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.tk-field span {
+  color: #111;
+  font-size: 20px;
+  font-weight: 1000;
+  text-transform: none;
+}
+
+.tk-field input,
+.tk-field select {
+  min-height: 64px;
+  border: 2px solid #111;
+  border-radius: 22px;
+  background: #fff;
+  color: #111;
+  font-size: 24px;
+}
+
+.tk-field .tk-pink-input,
+.tk-pink-input {
+  border-color: #dd9ec9;
+  background: #e8b7d7;
+}
+
+.tk-orange-button {
+  background: #f58200;
+  color: #fff;
+  box-shadow: 0 8px 0 rgba(121, 61, 0, 0.24);
+}
+
+.tk-hot-button,
+.tk-primary.tk-hot-button {
+  background: #ff0085;
+  color: #fff;
+  box-shadow: 0 8px 0 rgba(126, 0, 73, 0.22);
+}
+
+.tk-menu {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr auto;
+  gap: 14px;
+  padding: 0 22px 106px;
+}
+
+.tk-pill-categories {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 0 2px;
+  overflow-x: auto;
+  background: transparent;
+}
+
+.tk-pill-categories button {
+  min-width: max-content;
+  min-height: 54px;
+  padding: 0 20px;
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #fff;
+  color: #ff0085;
+  font-size: 18px;
+  font-weight: 1000;
+  box-shadow: none;
+}
+
+.tk-pill-categories .is-active {
+  border-color: #ff0085;
+  background: #ff0085;
+  color: #fff;
+}
+
+.tk-menu-board {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tk-menu-title {
+  min-height: auto;
+  padding: 22px 24px;
+  border-bottom: 2px solid #111;
+}
+
+.tk-green-ribbon {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 11px 22px;
+  border-radius: 16px;
+  background: #35a260;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 1000;
+}
+
+.tk-menu-title strong {
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+}
+
+.tk-products {
+  grid-template-columns: 1fr;
+  gap: 14px;
+  padding: 18px;
+}
+
+.tk-product-card {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  grid-template-rows: auto auto;
+  gap: 12px 16px;
+  padding: 14px;
+  border: 2px solid #111;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.tk-product-photo,
+.tk-product-fallback {
+  grid-row: span 2;
+  width: 118px;
+  height: 118px;
+  border: 2px solid #111;
+  border-radius: 18px;
+}
+
+.tk-product-card h2 {
+  min-height: auto;
+  margin: 4px 0 10px;
+  color: #111;
+  font-size: 28px;
+  line-height: 1.02;
+}
+
+.tk-product-card button {
+  min-height: 58px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 22px;
+  font-weight: 1000;
+}
+
+.tk-product-footer span {
+  background: #ffe9f5;
+  color: #ff0085;
+}
+
+.tk-bottom-cart {
+  left: 28px;
+  right: 28px;
+  bottom: 20px;
+  border: 3px solid #111;
+  border-radius: 999px;
+  background: #ff0085;
+  color: #fff;
+}
+
+.tk-bottom-cart strong,
+.tk-bottom-cart span,
+.tk-bottom-cart b {
+  color: #fff;
+}
+
+.tk-custom {
+  display: block;
+  width: calc(100% - 48px);
+  max-height: calc(100vh - 134px);
+  margin: 18px auto 0;
+  padding: 24px;
+  overflow: auto;
+}
+
+.tk-custom-info {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tk-custom-info h1 {
+  font-size: clamp(42px, 8vw, 60px);
+}
+
+.tk-custom-product {
+  margin: 0 0 16px;
+}
+
+.tk-option-row,
+.tk-extra-grid,
+.tk-payment-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.tk-option-row button,
+.tk-extra-grid button,
+.tk-payment-grid button {
+  min-height: 68px;
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #fff;
+  color: #ff0085;
+  font-size: 22px;
+  font-weight: 1000;
+  box-shadow: none;
+}
+
+.tk-option-row button.is-active,
+.tk-extra-grid button.is-active,
+.tk-payment-grid button.is-active {
+  border-color: #ff0085;
+  background: #ff0085;
+  color: #fff;
+}
+
+.tk-extra-grid small {
+  display: block;
+  color: inherit;
+  font-size: 15px;
+}
+
+.tk-custom-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 14px;
+  padding-top: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #fff 28%);
+}
+
+.tk-stepper {
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.tk-stepper button {
+  color: #ff0085;
+}
+
+.tk-treats {
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 26px;
+  pointer-events: none;
+}
+
+.tk-treat {
+  display: block;
+  width: 92px;
+  height: 116px;
+  border: 2px solid #2a1208;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 42% 22%, #ffca40 0 5px, transparent 6px),
+    radial-gradient(circle at 58% 38%, #ffca40 0 5px, transparent 6px),
+    linear-gradient(145deg, #45200d, #8a3d17);
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.2));
+}
+
+.tk-treat-b {
+  transform: translateY(18px) rotate(-4deg);
+}
+
+.tk-treat-c {
+  transform: rotate(5deg);
+}
+
+.tk-order-panel,
+.tk-payment-panel {
+  width: calc(100% - 48px);
+  max-width: none;
+  margin: 18px auto 0;
+  padding: 24px;
+}
+
+.tk-actions .tk-secondary,
+.tk-secondary {
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  font-size: 22px;
+  font-weight: 1000;
+}
+
+.tk-actions .tk-primary,
+.tk-primary {
+  border-radius: 999px;
+  background: #ff0085;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 1000;
+}
+
+.tk-cart-row,
+.tk-total,
+.tk-review {
+  border-color: #111;
+  color: #111;
+}
+
+.tk-success {
+  display: grid;
+  place-items: center;
+}
+
+.tk-success-card {
+  width: calc(100% - 56px);
+  max-width: 560px;
+}
+
+@media (max-height: 760px) {
+  .tk-ref-header {
+    height: 84px;
+    margin: 8px 10px;
+  }
+
+  .tk-progress-wrap strong {
+    font-size: 28px;
+  }
+
+  .tk-centered-panel {
+    min-height: calc(100vh - 122px);
+    margin-top: 14px;
+    padding: 30px 30px 18px;
+  }
+
+  .tk-reference-panel h1,
+  .tk-panel h1,
+  .tk-custom-info h1,
+  .tk-menu-title h1 {
+    font-size: 42px;
+  }
+
+  .tk-start-copy {
+    margin-top: 44px;
+  }
+
+  .tk-hero-treat {
+    width: 250px;
+    height: 340px;
+  }
+}
