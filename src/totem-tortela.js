@@ -155,7 +155,7 @@ function shell(content, step = 0) {
       <div class="tk-bg-words" aria-hidden="true">FELICIDADE EM PALITOS</div>
       <header class="tk-header tk-ref-header">
         <button class="tk-logo" data-screen="welcome" aria-label="Voltar ao inicio">
-          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
+          <img src="./assets/tortela/logo-tortela-orange.png" alt="Tortela" />
         </button>
         <div class="tk-progress-wrap">
           <strong>Palitando</strong>
@@ -182,8 +182,14 @@ function renderWelcome() {
         <h1>Comece seu pedido</h1>
         <p>Aperte nos icones</p>
         <div class="tk-start-actions">
-          <button class="tk-start-button" data-mode="Comer na loja">Comer aqui</button>
-          <button class="tk-start-button" data-mode="Retirar para viagem">Levar - Viagem</button>
+          <button class="tk-start-button" data-mode="Comer na loja">
+            <b>Comer aqui</b>
+            <small>Pedido para consumir na loja</small>
+          </button>
+          <button class="tk-start-button" data-mode="Retirar para viagem">
+            <b>Levar - Viagem</b>
+            <small>Pedido embalado para retirar</small>
+          </button>
         </div>
       </section>
       <div class="tk-hero-treat" aria-hidden="true"></div>

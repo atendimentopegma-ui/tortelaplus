@@ -1881,3 +1881,568 @@ body.tortela-kiosk-page button {
     height: 340px;
   }
 }
+
+/* Ajuste de fidelidade ao PDF Atendimento: proporcao 9:16 e elementos na mesma leitura visual. */
+body.tortela-kiosk-page #kiosk-app {
+  width: min(100vw, calc(100vh * 0.5625), 720px);
+  height: 100vh;
+  box-shadow: 0 0 0 8px #111;
+}
+
+.tk-start-screen {
+  padding: 0;
+  overflow: hidden;
+  background: #e7f300;
+}
+
+.tk-start-pattern {
+  display: none;
+}
+
+.tk-start-logo {
+  position: absolute;
+  top: 6.4%;
+  left: 7.1%;
+  width: 30.6%;
+  height: auto;
+  z-index: 3;
+}
+
+.tk-start-copy {
+  position: absolute;
+  top: 25.4%;
+  left: 6.9%;
+  z-index: 3;
+  width: 69%;
+  max-width: none;
+  margin: 0;
+}
+
+.tk-start-copy h1 {
+  color: #ff007f;
+  font-size: clamp(54px, 8.4vh, 118px);
+  font-weight: 1000;
+  line-height: 0.88;
+  letter-spacing: 0;
+}
+
+.tk-start-copy p {
+  margin: 5.3vh 0 4.2vh;
+  color: #ff007f;
+  font-size: clamp(20px, 3vh, 42px);
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.tk-start-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3.2vh;
+  width: 46%;
+  min-width: 0;
+}
+
+.tk-start-button {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-height: 10.7vh;
+  padding: 18px 20px;
+  border-radius: 48px;
+  background: #ff007f;
+  color: #e7f300;
+  box-shadow: none;
+  text-align: center;
+}
+
+.tk-start-button b {
+  color: #e7f300;
+  font-size: clamp(24px, 3.1vh, 48px);
+  font-weight: 1000;
+  line-height: 0.98;
+}
+
+.tk-start-button small {
+  display: block;
+  margin-top: 8px;
+  color: #e7f300;
+  font-size: clamp(12px, 1.75vh, 24px);
+  font-weight: 1000;
+  line-height: 1.05;
+}
+
+.tk-hero-treat {
+  right: -1px;
+  bottom: -1px;
+  width: 48.5%;
+  height: 43.5%;
+  clip-path: none;
+  border: 0;
+  background: url("../assets/tortela/totem-hero-start.png") right bottom / contain no-repeat;
+  filter: none;
+}
+
+.tk-hero-treat::before {
+  display: none;
+}
+
+.tk-shell {
+  overflow: hidden;
+  background: #ffc11b;
+}
+
+.tk-shell::before {
+  background: transparent;
+}
+
+.tk-bg-words {
+  inset: 13% -24% 0 -24%;
+  display: block;
+  color: rgba(255, 113, 0, 0.18);
+  font-size: clamp(70px, 9.3vh, 124px);
+  font-weight: 1000;
+  line-height: 1.26;
+  text-align: left;
+  transform: rotate(-6deg);
+}
+
+.tk-bg-words,
+.tk-bg-words::before,
+.tk-bg-words::after {
+  content: "FELICIDADE EM PALITOS FELICIDADE EM PALITOS";
+}
+
+.tk-ref-header {
+  grid-template-columns: 25% 43% 24%;
+  position: relative;
+  height: 12.6vh;
+  min-height: 128px;
+  margin: 0;
+  padding: 2.8vh 4.2% 2.2vh;
+  border: 0;
+  border-bottom: 2px solid #111;
+  border-radius: 0 0 42px 42px;
+  background: #f5f6f7;
+  box-shadow: none;
+}
+
+.tk-logo {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.tk-logo img {
+  width: 88%;
+  height: auto;
+}
+
+.tk-progress-wrap {
+  align-self: start;
+  gap: 12px;
+}
+
+.tk-progress-wrap strong {
+  color: #ff5900;
+  font-size: clamp(18px, 2.9vh, 41px);
+  font-weight: 1000;
+}
+
+.tk-progress {
+  gap: clamp(6px, 1.2vh, 12px);
+}
+
+.tk-progress span {
+  width: clamp(22px, 5.2vh, 56px);
+  height: clamp(22px, 5.2vh, 56px);
+  border: 0;
+  border-radius: 50%;
+  background: #ffc728;
+}
+
+.tk-progress span:nth-child(n+3) {
+  background: #ff5900;
+}
+
+.tk-progress span:nth-child(2) {
+  outline: 2px solid #111;
+  outline-offset: 0;
+}
+
+.tk-cart-button {
+  align-self: start;
+  min-height: 7.3vh;
+  border-radius: 999px;
+  background: #e9b9da;
+  box-shadow: none;
+}
+
+.tk-cart-button span,
+.tk-cart-button strong {
+  display: none;
+}
+
+.tk-centered-panel {
+  width: 80.3%;
+  min-height: 37.4vh;
+  max-height: none;
+  margin: 16.3vh auto 0;
+  padding: 4.4vh 5.1% 3.8vh;
+  border: 0;
+  border-radius: 30px;
+  background: #f5f6f7;
+  box-shadow: none;
+}
+
+.tk-centered-panel::after {
+  content: "";
+  position: absolute;
+  right: -12.2%;
+  bottom: -30.5vh;
+  width: 43%;
+  height: 38vh;
+  background: url("../assets/tortela/totem-hero-cpf.png") right bottom / contain no-repeat;
+  pointer-events: none;
+}
+
+.tk-panel-mark {
+  margin: 0 0 2.8vh;
+  color: #ff5900;
+  font-size: clamp(20px, 4.2vh, 56px);
+  font-weight: 1000;
+}
+
+.tk-reference-panel h1,
+.tk-centered-panel h1 {
+  margin: 0 0 3.7vh;
+  color: #050505;
+  font-size: clamp(30px, 6.2vh, 86px);
+  font-weight: 1000;
+  line-height: 0.94;
+}
+
+.tk-centered-panel p {
+  max-width: 84%;
+  margin-bottom: 3.2vh;
+  color: #050505;
+  font-size: clamp(20px, 4vh, 51px);
+  font-weight: 1000;
+  line-height: 0.9;
+}
+
+.tk-centered-panel .tk-field {
+  gap: 1.4vh;
+}
+
+.tk-centered-panel .tk-field span {
+  color: #050505;
+  font-size: clamp(20px, 4.2vh, 52px);
+  font-weight: 1000;
+}
+
+.tk-centered-panel .tk-field input {
+  min-height: 5.4vh;
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #e9b9da;
+}
+
+.tk-centered-panel .tk-warning {
+  display: none;
+}
+
+.tk-centered-panel .tk-actions-single {
+  width: 48%;
+  min-width: 240px;
+  margin: 2.4vh auto 0;
+}
+
+.tk-centered-panel .tk-orange-button {
+  min-height: 5.4vh;
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #ff5900;
+  color: #fff;
+  font-size: clamp(22px, 4.4vh, 56px);
+  font-weight: 1000;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.tk-centered-panel .tk-treats {
+  display: none;
+}
+
+.tk-custom {
+  width: 80.3%;
+  max-height: 72vh;
+  margin: 5.2vh auto 0;
+  padding: 3.2vh 4.4%;
+  border: 3px solid #111;
+  border-radius: 30px;
+  background: #f5f6f7;
+  box-shadow: none;
+}
+
+.tk-custom .tk-green-ribbon {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 2.9vh;
+  padding: 1.1vh 4.2%;
+  border-radius: 999px;
+  background: #49a56a;
+  color: #fff;
+  font-size: clamp(18px, 2.6vh, 35px);
+}
+
+.tk-custom-info h1 {
+  text-align: center;
+  font-size: clamp(38px, 5.4vh, 72px);
+}
+
+.tk-option-row button,
+.tk-extra-grid button {
+  min-height: 5.7vh;
+  border: 2px solid #111;
+  border-radius: 999px;
+  background: #fff;
+  color: #ff007f;
+  font-size: clamp(18px, 2.4vh, 32px);
+}
+
+.tk-option-row button.is-active,
+.tk-extra-grid button.is-active {
+  border-color: #ff007f;
+  background: #ff007f;
+  color: #fff;
+}
+
+.tk-menu {
+  gap: 1.6vh;
+  padding: 0 5.3% 10.8vh;
+}
+
+.tk-pill-categories button {
+  min-height: 5.6vh;
+  padding: 0 5.2%;
+  font-size: clamp(14px, 2.1vh, 28px);
+}
+
+.tk-menu-board {
+  max-height: 61vh;
+  overflow: auto;
+}
+
+.tk-menu-title {
+  padding: 2.2vh 5.2%;
+}
+
+.tk-menu-title h1 {
+  font-size: clamp(28px, 5.2vh, 68px);
+  line-height: 0.92;
+}
+
+.tk-green-ribbon {
+  margin-bottom: 1.8vh;
+  padding: 1.1vh 5.2%;
+  font-size: clamp(16px, 2.3vh, 31px);
+  line-height: 1.1;
+}
+
+.tk-menu-title strong {
+  min-width: auto;
+  padding: 0.7vh 3.6%;
+  font-size: clamp(15px, 2.1vh, 28px);
+}
+
+.tk-products {
+  gap: 1.5vh;
+  padding: 1.7vh 4%;
+}
+
+.tk-product-card {
+  grid-template-columns: 28% 1fr;
+  gap: 1.1vh 4%;
+  padding: 1.4vh 4%;
+  border-radius: 20px;
+}
+
+.tk-product-photo,
+.tk-product-fallback {
+  width: 100%;
+  height: 10vh;
+  min-height: 74px;
+}
+
+.tk-product-card h2 {
+  font-size: clamp(18px, 2.8vh, 36px);
+}
+
+.tk-product-footer strong {
+  font-size: clamp(16px, 2.3vh, 30px);
+}
+
+.tk-product-footer span {
+  padding: 0.5vh 2.2%;
+  font-size: clamp(11px, 1.5vh, 18px);
+}
+
+.tk-product-card button {
+  min-height: 4.9vh;
+  font-size: clamp(17px, 2.6vh, 34px);
+}
+
+.tk-bottom-cart {
+  left: 6.2%;
+  right: 6.2%;
+  bottom: 1.8vh;
+  min-height: 6.8vh;
+  grid-template-columns: 1fr 1fr 1.1fr;
+}
+
+.tk-bottom-cart,
+.tk-bottom-cart strong,
+.tk-bottom-cart span,
+.tk-bottom-cart b {
+  font-size: clamp(13px, 1.9vh, 25px);
+}
+
+/* Primeira tela ajustada por partes conforme referencia enviada. */
+body.tortela-kiosk-page #kiosk-app {
+  width: min(100vw, 800px);
+  height: 100vh;
+  max-height: none;
+}
+
+.tk-start-screen {
+  width: 100%;
+  height: 100vh;
+  min-height: 720px;
+  padding: 0;
+  overflow: hidden;
+  background: #e7f300;
+}
+
+.tk-start-screen::before {
+  display: none;
+}
+
+.tk-start-pattern {
+  display: block;
+  inset: 11.5% 1.3% auto 1.3%;
+  z-index: 1;
+  color: rgba(203, 195, 0, 0.25);
+  font-size: clamp(74px, 8.9vw, 118px);
+  font-weight: 1000;
+  line-height: 0.9;
+  letter-spacing: 0;
+  text-align: left;
+  transform: none;
+}
+
+.tk-start-pattern,
+.tk-start-pattern::before,
+.tk-start-pattern::after {
+  content: "FELICIDADE\A EM PALITOS\A FELICIDADE\A EM PALITOS\A FELICIDADE\A EM PALITOS";
+  white-space: pre;
+}
+
+.tk-start-logo {
+  position: absolute;
+  top: 8.6%;
+  left: 6.2%;
+  z-index: 4;
+  width: 35%;
+  max-width: 280px;
+  height: auto;
+  object-fit: contain;
+  background: transparent;
+}
+
+.tk-start-copy {
+  position: absolute;
+  top: 27%;
+  left: 6.3%;
+  z-index: 5;
+  width: 69%;
+  max-width: none;
+  margin: 0;
+}
+
+.tk-start-copy h1 {
+  max-width: 560px;
+  margin: 0;
+  color: #ff007f;
+  font-size: clamp(76px, 8vw, 104px);
+  font-weight: 1000;
+  line-height: 0.87;
+  letter-spacing: 0;
+}
+
+.tk-start-copy p {
+  margin: 2.2vh 0 0;
+  color: #ff007f;
+  font-size: clamp(30px, 3vw, 44px);
+  font-weight: 1000;
+  line-height: 1;
+}
+
+.tk-start-actions {
+  position: fixed;
+  left: calc(50% - min(100vw, 800px) / 2 + min(100vw, 800px) * 0.063);
+  bottom: 0;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(min(100vw, 800px) * 0.028);
+  width: calc(min(100vw, 800px) * 0.672);
+  min-width: 0;
+  align-items: end;
+}
+
+.tk-start-button {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  width: 100%;
+  min-height: clamp(78px, 13.2vh, 104px);
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 32px 32px 0 0;
+  background: #ff007f;
+  color: #e7f300;
+  box-shadow: none;
+  text-align: center;
+}
+
+.tk-start-button b {
+  color: #e7f300;
+  font-size: clamp(18px, 1.8vw, 22px);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.tk-start-button small {
+  display: none;
+}
+
+.tk-hero-treat {
+  position: absolute;
+  right: -7.4%;
+  bottom: 0;
+  z-index: 3;
+  width: 48%;
+  height: 61%;
+  border: 0;
+  background: url("../assets/tortela/totem-personagem-inicial.png") right bottom / contain no-repeat;
+  clip-path: none;
+  filter: none;
+}
+
+.tk-hero-treat::before {
+  display: none;
+}
+
+.tk-hero-treat::after {
+  display: none;
+}
