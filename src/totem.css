@@ -3221,15 +3221,20 @@ body.tortela-kiosk-page #kiosk-app {
 
 .tk-tortela-tabs button {
   justify-self: center;
-  width: 48px;
-  max-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  max-width: 58px;
   min-height: 6.4vh;
   padding-left: 0;
   padding-right: 0;
   box-sizing: border-box;
-  font-size: 8px;
+  font-size: 7px;
   line-height: 1;
+  overflow: hidden;
   text-align: center;
+  white-space: nowrap;
 }
 
 .tk-tortela-board {
