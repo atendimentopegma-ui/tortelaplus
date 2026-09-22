@@ -3208,31 +3208,23 @@ body.tortela-kiosk-page #kiosk-app {
 
 /* Ajuste final da tela "Escolha a sua Tortela": evita que Continuar bata na barra do pedido. */
 .tk-tortela-menu {
-  grid-template-columns: 19.5% 1fr;
-  gap: 1.8%;
   padding-top: 4.6vh;
   padding-bottom: 15.2vh;
 }
 
 .tk-tortela-tabs {
   gap: 1.8vh;
-  min-width: 0;
-  padding-left: 5%;
-  padding-right: 5%;
   padding-top: 4.2vh;
-  box-sizing: border-box;
 }
 
 .tk-tortela-tabs button {
-  width: 100%;
-  min-width: 0;
   min-height: 6.4vh;
-  padding: 0 2px;
-  box-sizing: border-box;
-  font-size: clamp(10px, 1.18vh, 13px);
   line-height: 1;
-  overflow: hidden;
   text-align: center;
+}
+
+.tk-tortela-tabs button:nth-child(3) {
+  font-size: 11px;
 }
 
 .tk-tortela-board {
