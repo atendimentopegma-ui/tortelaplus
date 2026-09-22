@@ -3053,7 +3053,8 @@ body.tortela-kiosk-page #kiosk-app {
 
 /* Primeira tela ajustada por partes conforme referencia enviada. */
 body.tortela-kiosk-page #kiosk-app {
-  width: min(100vw, 800px);
+  width: min(100vw, 360px);
+  max-width: 360px;
   height: 100vh;
   max-height: none;
 }
@@ -3094,11 +3095,11 @@ body.tortela-kiosk-page #kiosk-app {
 
 .tk-start-logo {
   position: absolute;
-  top: 8.6%;
-  left: 6.2%;
+  top: 6.8%;
+  left: 6%;
   z-index: 4;
-  width: 35%;
-  max-width: 280px;
+  width: 42%;
+  max-width: 160px;
   height: auto;
   object-fit: contain;
   background: transparent;
@@ -3106,29 +3107,29 @@ body.tortela-kiosk-page #kiosk-app {
 
 .tk-start-copy {
   position: absolute;
-  top: 27%;
-  left: 6.3%;
+  top: 24.4%;
+  left: 6%;
   z-index: 5;
-  width: 69%;
+  width: 66%;
   max-width: none;
   margin: 0;
 }
 
 .tk-start-copy h1 {
-  max-width: 560px;
+  max-width: 270px;
   margin: 0;
   color: #ff007f;
-  font-size: clamp(90px, 9.4vw, 122px);
+  font-size: clamp(62px, 10.2vh, 82px);
   font-weight: 1000;
   line-height: 0.87;
   letter-spacing: 0;
 }
 
 .tk-start-copy p {
-  margin: 3.4vh 0 0;
+  margin: 1.9vh 0 0;
   color: #ff007f;
   font-family: "Arial Rounded MT Bold", "Arial Black", Arial, sans-serif;
-  font-size: clamp(18px, 1.8vw, 26px);
+  font-size: clamp(18px, 2.7vh, 26px);
   font-weight: 1000;
   line-height: 1;
 }
@@ -3140,13 +3141,13 @@ body.tortela-kiosk-page #kiosk-app {
 
 .tk-start-actions {
   position: absolute;
-  left: 6.3%;
-  bottom: 2.5vh;
+  left: 6%;
+  bottom: 2.2vh;
   z-index: 6;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2vh;
-  width: 36%;
+  gap: 1.4vh;
+  width: 47%;
   min-width: 0;
   align-items: end;
 }
@@ -3156,8 +3157,8 @@ body.tortela-kiosk-page #kiosk-app {
   align-content: center;
   justify-items: center;
   width: 100%;
-  min-height: clamp(76px, 9.4vh, 96px);
-  padding: 12px 14px;
+  min-height: clamp(62px, 8.4vh, 82px);
+  padding: 10px 12px;
   border: 0;
   border-radius: 38px;
   background: #ff007f;
@@ -3169,7 +3170,7 @@ body.tortela-kiosk-page #kiosk-app {
 .tk-start-button b {
   color: #e7f300;
   font-family: "Arial Rounded MT Bold", "Arial Black", Arial, sans-serif;
-  font-size: clamp(22px, 2.45vw, 34px);
+  font-size: clamp(21px, 3vh, 30px);
   font-weight: 1000;
   line-height: 0.98;
 }
@@ -3179,18 +3180,18 @@ body.tortela-kiosk-page #kiosk-app {
   margin-top: 0.55vh;
   color: #e7f300;
   font-family: "Arial Rounded MT Bold", "Arial Black", Arial, sans-serif;
-  font-size: clamp(11px, 1.25vw, 18px);
+  font-size: clamp(10px, 1.55vh, 15px);
   font-weight: 1000;
   line-height: 1.05;
 }
 
 .tk-hero-treat {
   position: absolute;
-  right: -1.4%;
+  right: -4%;
   bottom: 0;
   z-index: 3;
-  width: 46%;
-  height: 60%;
+  width: 56%;
+  height: 58%;
   border: 0;
   background: url("../assets/tortela/totem-personagem-inicial.png") right bottom / contain no-repeat;
   clip-path: none;
