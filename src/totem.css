@@ -3213,18 +3213,27 @@ body.tortela-kiosk-page #kiosk-app {
 }
 
 .tk-tortela-tabs {
+  position: relative;
+  z-index: 3;
   gap: 1.8vh;
   padding-top: 4.2vh;
 }
 
 .tk-tortela-tabs button {
+  justify-self: center;
+  width: 48px;
+  max-width: 48px;
   min-height: 6.4vh;
+  padding-left: 0;
+  padding-right: 0;
+  box-sizing: border-box;
   font-size: 8px;
   line-height: 1;
   text-align: center;
 }
 
 .tk-tortela-board {
+  z-index: 1;
   padding-top: 10vh;
   padding-bottom: 1.7vh;
 }
