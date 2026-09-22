@@ -3142,11 +3142,11 @@ body.tortela-kiosk-page #kiosk-app {
 .tk-start-actions {
   position: absolute;
   left: 6%;
-  bottom: 2.2vh;
+  bottom: 7.6vh;
   z-index: 6;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.4vh;
+  gap: 1.2vh;
   width: 47%;
   min-width: 0;
   align-items: end;
@@ -3157,7 +3157,7 @@ body.tortela-kiosk-page #kiosk-app {
   align-content: center;
   justify-items: center;
   width: 100%;
-  min-height: clamp(62px, 8.4vh, 82px);
+  min-height: clamp(56px, 7.4vh, 74px);
   padding: 10px 12px;
   border: 0;
   border-radius: 38px;
