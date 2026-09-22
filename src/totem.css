@@ -3226,8 +3226,8 @@ body.tortela-kiosk-page #kiosk-app {
 }
 
 .tk-tortela-tabs button {
-  width: 100%;
-  max-width: 100%;
+  width: 88%;
+  max-width: 88%;
   min-height: 6.4vh;
   padding-left: 2px;
   padding-right: 2px;
