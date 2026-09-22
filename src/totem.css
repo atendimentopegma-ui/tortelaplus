@@ -3220,12 +3220,14 @@ body.tortela-kiosk-page #kiosk-app {
 }
 
 .tk-tortela-tabs button {
+  position: relative;
+  z-index: 4;
   justify-self: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 58px;
-  max-width: 58px;
+  width: 44px;
+  max-width: calc(100% - 4px);
   min-height: 6.4vh;
   padding-left: 0;
   padding-right: 0;
@@ -3234,6 +3236,13 @@ body.tortela-kiosk-page #kiosk-app {
   line-height: 1;
   overflow: hidden;
   text-align: center;
+  white-space: nowrap;
+}
+
+.tk-tortela-tabs button .tk-tab-label {
+  display: block;
+  transform: scale(0.52);
+  transform-origin: center;
   white-space: nowrap;
 }
 

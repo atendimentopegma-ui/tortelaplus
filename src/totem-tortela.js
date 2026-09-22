@@ -238,7 +238,7 @@ function renderMenu() {
   return shell(`
     <section class="tk-menu tk-tortela-menu">
       <aside class="tk-categories tk-tortela-tabs">
-        ${categories().map((category) => `<button class="${state.category === category ? "is-active" : ""}" data-category="${cleanText(category)}">${cleanText(category)}</button>`).join("")}
+        ${categories().map((category) => `<button class="${state.category === category ? "is-active" : ""}" data-category="${cleanText(category)}"><span class="tk-tab-label">${cleanText(category)}</span></button>`).join("")}
       </aside>
       <section class="tk-menu-board tk-tortela-board">
         <div class="tk-tortela-ribbon">3 passos para montar<br>a sua Tortela:</div>
