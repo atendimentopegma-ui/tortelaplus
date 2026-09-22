@@ -3229,7 +3229,7 @@ body.tortela-kiosk-page #kiosk-app {
   min-height: 6.4vh;
   padding: 0 2px;
   box-sizing: border-box;
-  font-size: clamp(11px, 1.35vh, 15px);
+  font-size: clamp(10px, 1.18vh, 13px);
   line-height: 1;
   overflow: hidden;
   text-align: center;
