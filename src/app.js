@@ -7349,7 +7349,6 @@ async function finishSaleRecord() {
     status: navigator.onLine ? "Aguardando transmissao" : "Fila offline",
     customer: sale.customer,
     customerDocument: sale.customerDocument,
-    customerDocument: sale.customerDocument,
     saleId: sale.id,
     issuedAt: new Date().toISOString(),
     items: structuredClone(sale.items),
@@ -7575,7 +7574,7 @@ function pdvPaymentBreakdown(total) {
   };
   if (Object.values(raw).every((value) => value <= 0)) raw.Dinheiro = total;
   const paid = Object.values(raw).reduce((sum, value) => sum + value, 0);
-  const change = Math.max(0, paid - total);
+  const change = Math.round(Math.max(0, paid - total) * 100) / 100;
   const storeCredit = Math.max(0, Math.min(raw.Crediario, total - raw.Dinheiro - raw.PIX - raw["Cartao debito"] - raw["Cartao credito"]));
   const cashEntries = [];
   Object.entries(raw).forEach(([method, value]) => {
@@ -7723,8 +7722,10 @@ function cancelClosedSale(id) {
       cashRegisterOpenedAt: state.cashRegister?.open ? state.cashRegister.openedAt : ""
     });
   }
-  state.fiscalQueue.filter((row) => row.saleId === sale.id && row.status !== "Cancelada").forEach((row) => {
-    row.status = "Cancelada";
+  state.fiscalQueue.filter((row) => row.saleId === sale.id && !String(row.status || "").startsWith("Cancelada")).forEach((row) => {
+    row.status = row.key || row.protocol || row.status === "Autorizada"
+      ? "Cancelamento fiscal pendente"
+      : "Cancelada antes da transmissao";
     row.cancelledAt = new Date().toISOString();
   });
   sale.status = "Cancelado";
