@@ -90,4 +90,17 @@ const server = read("server.js");
   "unidadeAdRem="
 ].forEach((attr) => requireText(app, attr, "Previa XML da reforma fiscal"));
 
+[
+  "<IBSCBS>",
+  "<gIBSCBS>",
+  "<gIBSUF>",
+  "<gIBSMun>",
+  "<gCBS>",
+  "<IS>",
+  "<ISTot>",
+  "<IBSCBSTot>",
+  "<vNFTot>",
+  "validateReformTotals"
+].forEach((text) => requireText(fiscalDocuments, text, "XML oficial da reforma fiscal"));
+
 console.log("OK - campos da reforma fiscal IBS/CBS/IS validados.");

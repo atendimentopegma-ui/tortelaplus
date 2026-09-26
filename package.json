@@ -27,12 +27,13 @@
     "verify:backup": "node scripts/verify-backup-safety.js",
     "verify:regression": "node scripts/verify-regression.js",
     "verify:reform-fields": "node scripts/verify-reform-fields.js",
+    "verify:fiscal-xml-reform": "node scripts/verify-fiscal-xml-reform.js",
     "verify:operational": "node scripts/verify-operational-readiness.js",
     "real-data:status": "node scripts/real-data-status.js",
     "homologation:status": "node scripts/homologation-status.js",
     "implantation:status": "node scripts/implantation-status.js",
     "fiscal:rules:import": "node scripts/import-fiscal-rules.js",
-    "verify": "node --check server.js && node --check fiscal-agent.js && node --check scripts/verify-post-deploy.js && node --check scripts/verify-central-monitoring.js && node --check scripts/verify-backup-safety.js && node --check scripts/verify-regression.js && node --check scripts/verify-operational-readiness.js && node --check scripts/verify-reform-fields.js && node --check scripts/real-data-status.js && node --check scripts/homologation-status.js && node --check src/app.js && node --check src/loja-tortela.js && node --check src/totem-tortela.js && node --check src/cozinha-tortela.js && node --check src/telao-tortela.js && node --check src/central-rede.js && node --check src/central-lojista.js && node --check src/central-saas.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
+    "verify": "node --check server.js && node --check fiscal-agent.js && node --check scripts/verify-post-deploy.js && node --check scripts/verify-central-monitoring.js && node --check scripts/verify-backup-safety.js && node --check scripts/verify-regression.js && node --check scripts/verify-operational-readiness.js && node --check scripts/verify-reform-fields.js && node --check scripts/verify-fiscal-xml-reform.js && node --check scripts/real-data-status.js && node --check scripts/homologation-status.js && node --check src/app.js && node --check src/loja-tortela.js && node --check src/totem-tortela.js && node --check src/cozinha-tortela.js && node --check src/telao-tortela.js && node --check src/central-rede.js && node --check src/central-lojista.js && node --check src/central-saas.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
   },
   "keywords": [
     "erp",
