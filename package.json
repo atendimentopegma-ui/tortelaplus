@@ -17,12 +17,13 @@
     "verify:stock": "node scripts/verify-stock-flow.js",
     "verify:finance": "node scripts/verify-finance-flow.js",
     "verify:security": "node scripts/verify-security-flow.js",
+    "verify:polish": "node scripts/verify-operational-polish.js",
     "verify:pdv": "node scripts/verify-pdv-flow.js",
     "verify:kitchen": "node scripts/verify-kitchen-display.js",
     "verify:kiosk": "node scripts/verify-kiosk-flow.js",
     "implantation:status": "node scripts/implantation-status.js",
     "fiscal:rules:import": "node scripts/import-fiscal-rules.js",
-    "verify": "node --check server.js && node --check fiscal-agent.js && node --check src/app.js && node --check src/central-rede.js && node --check src/central-lojista.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
+    "verify": "node --check server.js && node --check fiscal-agent.js && node --check src/app.js && node --check src/loja-tortela.js && node --check src/totem-tortela.js && node --check src/cozinha-tortela.js && node --check src/telao-tortela.js && node --check src/central-rede.js && node --check src/central-lojista.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
   },
   "keywords": [
     "erp",

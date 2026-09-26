@@ -1,6 +1,9 @@
 let catalog = { products: [], units: [], nearest: null };
 let cart = [];
 const params = new URLSearchParams(location.search);
+let catalogLoadInFlight = null;
+let catalogWarning = "";
+let orderInFlight = false;
 
 const byId = (id) => document.getElementById(id);
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -103,11 +106,12 @@ function render() {
           <div class="store-delivery-status ${deliveryBlocked ? "blocked" : deliveryKnown ? "ok" : ""}">
             ${escapeHtml(catalog.deliveryMessage || "Informe o CEP para localizar sua loja Tortela.")}
           </div>
+          ${catalogWarning ? `<div class="store-delivery-status blocked" role="status">${escapeHtml(catalogWarning)}</div>` : ""}
         </div>
         <div class="store-delivery-actions">
           <strong>Encontre a unidade de atendimento</strong>
           <div class="field"><label>CEP de entrega</label><input id="store-cep" inputmode="numeric" value="${escapeHtml(currentCep)}" placeholder="Digite seu CEP" /></div>
-          <button class="btn primary" id="store-refresh">Encontrar loja</button>
+          <button class="btn primary" id="store-refresh" ${catalogLoadInFlight ? "disabled" : ""}>${catalogLoadInFlight ? "Atualizando..." : "Encontrar loja"}</button>
         </div>
       </section>
 
@@ -159,7 +163,7 @@ function render() {
             ${paymentOption("Debito", "Debito", "Online", formValues.payment)}
             ${paymentOption("Credito", "Credito", "Online", formValues.payment)}
           </div>
-          <button class="btn primary full" id="send-online-order" ${cart.length && !deliveryBlocked ? "" : "disabled"}>${deliveryBlocked ? "Entrega indisponivel" : "Finalizar pedido"}</button>
+          <button class="btn primary full" id="send-online-order" ${cart.length && !deliveryBlocked && !orderInFlight ? "" : "disabled"}>${orderInFlight ? "Enviando pedido..." : deliveryBlocked ? "Entrega indisponivel" : "Finalizar pedido"}</button>
         </aside>
       </section>
     </main>`;
@@ -252,13 +256,27 @@ function filterCategory(category) {
 }
 
 async function loadCatalog() {
+  if (catalogLoadInFlight) return catalogLoadInFlight;
   const cep = byId("store-cep")?.value || "";
   const q = byId("store-search")?.value || "";
   const unidade = params.get("unidade") || "";
-  catalog = await api(`/api/public/store/catalog?cep=${encodeURIComponent(cep)}&q=${encodeURIComponent(q)}&unidade=${encodeURIComponent(unidade)}`);
-  if (catalog.nearest) cart = cart.filter((item) => item.tenantCode === catalog.nearest.tenantCode);
-  fillAddressFromCatalog();
+  catalogWarning = "";
+  catalogLoadInFlight = (async () => {
+    try {
+      const nextCatalog = await api(`/api/public/store/catalog?cep=${encodeURIComponent(cep)}&q=${encodeURIComponent(q)}&unidade=${encodeURIComponent(unidade)}`);
+      catalog = nextCatalog;
+      if (catalog.nearest) cart = cart.filter((item) => item.tenantCode === catalog.nearest.tenantCode);
+      fillAddressFromCatalog();
+    } catch (error) {
+      if (!catalog.products.length) throw error;
+      catalogWarning = `Nao foi possivel atualizar agora. Mantivemos o ultimo cardapio carregado. ${error.message}`;
+    } finally {
+      catalogLoadInFlight = null;
+      render();
+    }
+  })();
   render();
+  return catalogLoadInFlight;
 }
 
 function fillAddressFromCatalog() {
@@ -275,7 +293,10 @@ function fillAddressFromCatalog() {
 }
 
 async function sendOrder() {
+  if (orderInFlight) return;
   const tenantCode = catalog.nearest?.tenantCode || cart[0]?.tenantCode || "";
+  orderInFlight = true;
+  render();
   try {
     const result = await api("/api/public/store/orders", {
       method: "POST",
@@ -303,6 +324,9 @@ async function sendOrder() {
     alert(`Pedido ${result.orderId} enviado para ${result.unit}. Total ${money(result.total)}. Pagamento: ${result.payment}.${paymentLink}`);
   } catch (error) {
     alert(error.message);
+  } finally {
+    orderInFlight = false;
+    render();
   }
 }
 
