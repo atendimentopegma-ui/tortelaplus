@@ -7090,6 +7090,21 @@ async function downloadTenantXmlBackup() {
   }
 }
 
+function validateBackupBeforeRestore(backup) {
+  if (!backup || typeof backup !== "object") throw new Error("Arquivo de backup invalido.");
+  if (backup.product && backup.product !== "Tortela Plus") throw new Error("Este backup nao pertence ao Tortela Plus.");
+  const restoredState = backup.state || backup;
+  if (!restoredState || typeof restoredState !== "object") throw new Error("Estado do backup invalido.");
+  if (!restoredState.settings) throw new Error("Backup sem configuracoes da unidade.");
+  if (restoredState.settings?.tenantCode && normalizeTenantCode(restoredState.settings.tenantCode) !== normalizeTenantCode(state.settings.tenantCode)) {
+    throw new Error("Este backup pertence a outro cliente.");
+  }
+  if (!Array.isArray(restoredState.products)) throw new Error("Backup sem cadastro de produtos.");
+  if (!Array.isArray(restoredState.users)) throw new Error("Backup sem usuarios.");
+  if (!Array.isArray(restoredState.sales)) throw new Error("Backup sem historico de vendas.");
+  return restoredState;
+}
+
 function exportCompleteCsvRecord() {
   const rows = [["tipo", "id", "nome", "documento_codigo", "quantidade_valor", "detalhe"]];
   state.people.forEach((row) => rows.push(["pessoa", row.id, row.name, row.document || "", row.type, `${row.city || ""}/${row.uf || ""}`]));
@@ -7189,11 +7204,8 @@ function restoreBackupJson(event) {
   reader.onload = async () => {
     try {
       const restored = JSON.parse(String(reader.result || "{}"));
-      const restoredState = restored.state || restored;
-      if (restoredState.settings?.tenantCode && normalizeTenantCode(restoredState.settings.tenantCode) !== normalizeTenantCode(state.settings.tenantCode)) {
-        throw new Error("Este backup pertence a outro cliente.");
-      }
-      if (!confirm("Restaurar este backup substituirá os dados atuais deste cliente. Deseja continuar?")) return;
+      const restoredState = validateBackupBeforeRestore(restored);
+      if (!confirm("Restaurar este backup substituirá os dados atuais deste cliente. O servidor criara uma copia de seguranca antes da restauracao. Deseja continuar?")) return;
       if (apiOnline && sessionId) {
         await api(`/api/tenant/${state.settings.tenantCode}/restore`, { method: "POST", body: JSON.stringify(restored) });
       }

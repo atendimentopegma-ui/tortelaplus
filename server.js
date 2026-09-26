@@ -560,6 +560,18 @@ function createScheduledTenantBackup(tenantCode, state) {
   fs.readdirSync(directory).filter((name) => name.endsWith(".json")).sort().reverse().slice(backupRetentionDays * 4).forEach((name) => fs.unlinkSync(path.join(directory, name)));
 }
 
+function createPreRestoreTenantBackup(tenantCode, state) {
+  const code = normalizeTenantCode(tenantCode);
+  const directory = path.join(backupsDir, code);
+  if (!fs.existsSync(directory)) fs.mkdirSync(directory, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `${stamp}-antes-restauracao.json`;
+  const snapshot = tenantSnapshotDocument(code, state, "antes-restauracao");
+  writeJson(path.join(directory, filename), snapshot);
+  if (postgresStore) postgresStore.queue(() => postgresStore.writeFile(code, "backup", filename, "application/json", Buffer.from(JSON.stringify(snapshot), "utf8")));
+  return filename;
+}
+
 function auditHash(previousHash, date, user, action, detail) {
   return crypto.createHash("sha256").update([previousHash, date, user, action, detail].join("|")).digest("hex");
 }
@@ -1786,13 +1798,26 @@ async function completeTenantBackup(tenantCode, reason = "manual-completo") {
   };
 }
 
+function validateTenantBackupPayload(tenantCode, backup) {
+  const code = normalizeTenantCode(tenantCode);
+  if (!backup || typeof backup !== "object") throw new Error("Arquivo de backup invalido");
+  if (backup.product && backup.product !== "Tortela Plus") throw new Error("Backup nao pertence ao Tortela Plus");
+  if (backup.type && backup.type !== "tenant-backup" && backup.type !== "backup-geral-central-saas") throw new Error("Tipo de backup invalido");
+  const restored = backup.state || backup;
+  if (!restored || typeof restored !== "object" || Array.isArray(restored)) throw new Error("Estado do backup invalido");
+  if (!restored.settings || typeof restored.settings !== "object") throw new Error("Backup sem configuracoes da unidade");
+  if (restored.settings.tenantCode && normalizeTenantCode(restored.settings.tenantCode) !== code) throw new Error("Backup pertence a outro cliente");
+  if (!Array.isArray(restored.products)) throw new Error("Backup sem cadastro de produtos");
+  if (!Array.isArray(restored.users)) throw new Error("Backup sem usuarios");
+  if (!Array.isArray(restored.sales)) throw new Error("Backup sem historico de vendas");
+  return restored;
+}
+
 async function restoreTenantBackup(tenantCode, backup) {
   const code = normalizeTenantCode(tenantCode);
-  const restored = backup.state || backup;
-  if (restored.settings?.tenantCode && normalizeTenantCode(restored.settings.tenantCode) !== code) {
-    throw new Error("Backup pertence a outro cliente");
-  }
-  createDailyTenantBackup(code, readTenantState(code));
+  const restored = validateTenantBackupPayload(code, backup);
+  const current = readTenantState(code);
+  const safetyBackup = createPreRestoreTenantBackup(code, current);
   writeTenantState(code, restored);
   const archive = backup.fiscalFileArchive || backup.fiscalXmlArchive;
   let restoredFiles = 0;
@@ -1808,7 +1833,7 @@ async function restoreTenantBackup(tenantCode, backup) {
     });
     restoredFiles += 1;
   }
-  return { restoredFiles };
+  return { restoredFiles, safetyBackup };
 }
 
 async function completeProviderBackup(reason = "backup-geral-central-saas") {
@@ -3453,6 +3478,10 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const body = await readBody(req);
+    if (body.product && body.product !== "Tortela Plus") {
+      sendJson(res, 400, { ok: false, error: "Backup geral nao pertence ao Tortela Plus" });
+      return;
+    }
     if (body.type !== "backup-geral-central-saas" || !Array.isArray(body.clients)) {
       sendJson(res, 400, { ok: false, error: "Arquivo de backup geral invalido" });
       return;
@@ -4337,7 +4366,7 @@ async function handleApi(req, res, urlPath) {
     }
     appendTenantAudit(tenantCode, "Backup restaurado", "Restauracao via API", access.session.user);
     writeProvider(provider);
-    sendJson(res, 200, { ok: true, tenantCode, restoredAt: new Date().toISOString(), restoredFiles: result.restoredFiles });
+    sendJson(res, 200, { ok: true, tenantCode, restoredAt: new Date().toISOString(), restoredFiles: result.restoredFiles, safetyBackup: result.safetyBackup });
     return;
   }
 
