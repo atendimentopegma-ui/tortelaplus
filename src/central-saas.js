@@ -1,4 +1,6 @@
-const storageKey = "pegmaplus-provider-state-v1";
+const storageKey = "tortelaplus-provider-state-v1";
+const sessionKey = "tortelaplus-central-session";
+const userKey = "tortelaplus-central-user";
 
 const seed = {
   provider: {
@@ -23,8 +25,8 @@ const seed = {
 
 let state = load();
 let apiOnline = false;
-let providerSession = sessionStorage.getItem("pegmaplus-central-session") || "";
-let providerUser = JSON.parse(sessionStorage.getItem("pegmaplus-central-user") || "null");
+let providerSession = sessionStorage.getItem(sessionKey) || "";
+let providerUser = JSON.parse(sessionStorage.getItem(userKey) || "null");
 let providerHealth = null;
 let providerMonitoring = null;
 let managedUsers = [];
@@ -87,8 +89,8 @@ async function boot() {
   } catch {
     providerSession = "";
     providerUser = null;
-    sessionStorage.removeItem("pegmaplus-central-session");
-    sessionStorage.removeItem("pegmaplus-central-user");
+    sessionStorage.removeItem(sessionKey);
+    sessionStorage.removeItem(userKey);
     renderLogin();
     return;
   }
@@ -102,7 +104,7 @@ function renderLogin() {
         <div class="login-brand">
           ${brandMarkup()}
           <h1>Central SaaS</h1>
-          <p>Administracao de clientes, usuarios, terminais, modulos e licencas do Pegma Plus.</p>
+          <p>Administracao de clientes, usuarios, terminais, modulos e licencas do Tortela Plus.</p>
         </div>
         <form class="login-panel" id="central-login">
           <h2>Acesso administrativo</h2>
@@ -124,8 +126,8 @@ async function loginCentral(event) {
     });
     providerSession = result.sessionId;
     providerUser = result.user;
-    sessionStorage.setItem("pegmaplus-central-session", providerSession);
-    sessionStorage.setItem("pegmaplus-central-user", JSON.stringify(providerUser));
+    sessionStorage.setItem(sessionKey, providerSession);
+    sessionStorage.setItem(userKey, JSON.stringify(providerUser));
     await boot();
   } catch {
     alert("Usuario ou senha invalidos.");
@@ -137,8 +139,8 @@ async function logoutCentral() {
   providerSession = "";
   providerUser = null;
   centralView = "main";
-  sessionStorage.removeItem("pegmaplus-central-session");
-  sessionStorage.removeItem("pegmaplus-central-user");
+  sessionStorage.removeItem(sessionKey);
+  sessionStorage.removeItem(userKey);
   renderLogin();
 }
 
@@ -217,7 +219,7 @@ function licenseStatus(tenant) {
 }
 
 function brandMarkup() {
-  return `<div class="brand-mark logo"><img src="./assets/logo-pegmaplus-nova.png?v=1" alt="Pegma Plus" /></div>`;
+  return `<div class="brand-mark logo tortela-logo"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /></div>`;
 }
 
 function render() {
@@ -239,7 +241,7 @@ function render() {
         <div class="top-left">
           ${brandMarkup()}
           <div>
-            <div class="company">Central SaaS Pegma Plus</div>
+            <div class="company">Central SaaS Tortela Plus</div>
           <small>${providerUser?.name || "Administrador"} | Licencas | Terminais | Clientes | ${apiOnline ? "API online" : "modo local"}</small>
           </div>
         </div>
@@ -372,7 +374,7 @@ function renderAudit() {
         <div class="top-left">
           ${brandMarkup()}
           <div>
-            <div class="company">Central SaaS Pegma Plus</div>
+            <div class="company">Central SaaS Tortela Plus</div>
             <small>Auditoria administrativa</small>
           </div>
         </div>
@@ -634,7 +636,7 @@ async function downloadAllClientsBackup() {
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `backup-geral-pegmaplus-${today()}.json`;
+    link.download = `backup-geral-tortelaplus-${today()}.json`;
     document.body.appendChild(link);
     link.click();
     URL.revokeObjectURL(link.href);
