@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { DEFAULT_REFORM_TAX_TABLES, validateClassificationPair, validateReformTaxTables } = require("./reform-tax-tables");
 
 const UF_CODES = {
   RO: "11", AC: "12", AM: "13", RR: "14", PA: "15", AP: "16", TO: "17",
@@ -315,7 +316,9 @@ function nfceSupplement(settings, key, options = {}) {
 function validateNfeState(state, row) {
   const settings = state.settings || {};
   const missing = [];
+  const reformTables = state.reformTaxTables || DEFAULT_REFORM_TAX_TABLES;
   const validRegimes = ["Simples Nacional", "Lucro Presumido", "Lucro Real"];
+  validateReformTaxTables(reformTables).forEach((error) => missing.push(error));
   if (!validRegimes.includes(settings.regime)) missing.push("regime tributario valido");
   if (!UF_CODES[String(settings.uf || "").toUpperCase()]) missing.push("UF valida do emitente");
   if (digits(settings.document).length !== 14) missing.push("CNPJ do emitente");
@@ -335,6 +338,11 @@ function validateNfeState(state, row) {
     if (digits(rule.pisCofinsCst).length !== 2) missing.push(`CST PIS/COFINS do item ${index + 1}`);
     if (digits(rule.ibsCbsCst).length !== 3) missing.push(`CST IBS/CBS do item ${index + 1}`);
     if (digits(rule.ibsClass || rule.cbsClass).length !== 6) missing.push(`classificacao tributaria IBS/CBS do item ${index + 1}`);
+    validateClassificationPair(reformTables, {
+      cst: rule.ibsCbsCst,
+      classTrib: rule.ibsClass || rule.cbsClass,
+      model: row.model
+    }).forEach((error) => missing.push(`${error} no item ${index + 1}`));
     if (number(rule.selectiveTaxRate) > 0 && digits(rule.selectiveTaxCst).length !== 3) missing.push(`CST do Imposto Seletivo do item ${index + 1}`);
     if (number(rule.selectiveTaxRate) > 0 && digits(rule.selectiveTaxClass).length !== 6) missing.push(`classificacao do Imposto Seletivo do item ${index + 1}`);
     if (number(rule.reformReductionRate) < 0 || number(rule.reformReductionRate) > 100) missing.push(`reducao IBS/CBS entre 0 e 100 no item ${index + 1}`);

@@ -280,6 +280,17 @@ const seed = {
       active: true
     }
   ],
+  reformTaxTables: {
+    version: "IT-2025.002-v1.60-baseline",
+    publishedAt: "2026-06-23",
+    source: "Portal Nacional da NF-e - Documentos/Diversos - Tabela de Classificacao Tributaria do IBS e CBS",
+    cstIndicators: [
+      { cst: "000", description: "Tributacao integral", requiresReduction: false, allowsReduction: false, allowsDeferral: false }
+    ],
+    classTrib: [
+      { code: "000001", cst: "000", description: "Tributacao integral", models: ["NF-e", "NFC-e"] }
+    ]
+  },
   provider: {
     ownerName: "Central Tortela",
     deployment: "Rede de franquias",

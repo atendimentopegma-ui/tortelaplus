@@ -40,6 +40,12 @@ const baseState = {
     nfceQrCodeUrl: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx",
     nfceConsultaUrl: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/"
   },
+  reformTaxTables: {
+    version: "IT-2025.002-v1.60-baseline",
+    publishedAt: "2026-06-23",
+    cstIndicators: [{ cst: "000", description: "Tributacao integral" }],
+    classTrib: [{ code: "000001", cst: "000", description: "Tributacao integral", models: ["NF-e", "NFC-e"] }]
+  },
   people: [
     {
       id: 1,

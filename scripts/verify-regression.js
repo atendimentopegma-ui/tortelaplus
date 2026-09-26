@@ -15,6 +15,7 @@ const checks = [
   ["verify:backup", "Backup e restauracao segura"],
   ["verify:reform-fields", "Campos da reforma fiscal IBS/CBS/IS"],
   ["verify:fiscal-xml-reform", "XML NF-e/NFC-e da reforma fiscal"],
+  ["verify:reform-tax-tables", "Tabelas oficiais da reforma fiscal"],
   ["verify:operational", "Revisao operacional final sem dados reais"],
   ["verify:implantation", "Prontidao tecnica de implantacao"],
   ["verify:post-deploy", "Dominio real app/rede depois do deploy"]
