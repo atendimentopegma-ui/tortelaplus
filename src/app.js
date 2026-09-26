@@ -161,9 +161,22 @@ const seed = {
       mvaRate: 0,
       ibsClass: "000001",
       cbsClass: "000001",
+      ibsCbsCst: "000",
       ibsRate: 0,
       cbsRate: 0,
+      ibsUfRate: 0,
+      ibsCityRate: 0,
+      cbsFederalRate: 0,
+      presumedCreditRate: 0,
+      transitionYear: "2026",
+      reformReductionRate: 0,
+      reformDeferralRate: 0,
       selectiveTaxRate: 0,
+      selectiveTaxCst: "",
+      selectiveTaxClass: "",
+      monophase: false,
+      adRemRate: 0,
+      adRemUnit: "",
       serviceCode: "",
       cityServiceCode: "",
       taxBenefitCode: "",
@@ -195,9 +208,22 @@ const seed = {
       mvaRate: 0,
       ibsClass: "000001",
       cbsClass: "000001",
+      ibsCbsCst: "000",
       ibsRate: 0,
       cbsRate: 0,
+      ibsUfRate: 0,
+      ibsCityRate: 0,
+      cbsFederalRate: 0,
+      presumedCreditRate: 0,
+      transitionYear: "2026",
+      reformReductionRate: 0,
+      reformDeferralRate: 0,
       selectiveTaxRate: 0,
+      selectiveTaxCst: "",
+      selectiveTaxClass: "",
+      monophase: false,
+      adRemRate: 0,
+      adRemUnit: "",
       serviceCode: "",
       cityServiceCode: "",
       taxBenefitCode: "",
@@ -229,9 +255,22 @@ const seed = {
       mvaRate: 0,
       ibsClass: "000001",
       cbsClass: "000001",
+      ibsCbsCst: "000",
       ibsRate: 0,
       cbsRate: 0,
+      ibsUfRate: 0,
+      ibsCityRate: 0,
+      cbsFederalRate: 0,
+      presumedCreditRate: 0,
+      transitionYear: "2026",
+      reformReductionRate: 0,
+      reformDeferralRate: 0,
       selectiveTaxRate: 0,
+      selectiveTaxCst: "",
+      selectiveTaxClass: "",
+      monophase: false,
+      adRemRate: 0,
+      adRemUnit: "",
       serviceCode: "14.01",
       cityServiceCode: "",
       taxBenefitCode: "",
@@ -1765,8 +1804,12 @@ function productTab() {
           <div class="field"><label>Diferimento %</label><input id="product-reform-deferral" type="number" step="0.01" value="${Number(reform.deferral || 0)}" /></div>
           <div class="field"><label>Credito presumido %</label><input id="product-presumed-credit" type="number" step="0.01" value="${Number(reform.presumedCredit || 0)}" /></div>
           <div class="field"><label>Imposto seletivo %</label><input id="product-selective-tax" type="number" step="0.01" value="${Number(reform.selectiveTax || 0)}" /></div>
+          <div class="field"><label>CST Imp. seletivo</label><input id="product-selective-tax-cst" value="${escapeAttr(reform.selectiveTaxCst || "")}" /></div>
+          <div class="field"><label>Class. Imp. seletivo</label><input id="product-selective-tax-class" value="${escapeAttr(reform.selectiveTaxClass || "")}" /></div>
           <div class="field"><label>Vigencia inicio</label><input id="product-reform-from" type="date" value="${escapeAttr(reform.from || "")}" /></div>
           <div class="field"><label>Monofasico/ad rem</label><select id="product-reform-monophase"><option value="false">Nao</option><option value="true" ${reform.monophase ? "selected" : ""}>Sim</option></select></div>
+          <div class="field"><label>Aliquota ad rem</label><input id="product-ad-rem-rate" type="number" step="0.0001" value="${Number(reform.adRemRate || 0)}" /></div>
+          <div class="field"><label>Unidade ad rem</label><input id="product-ad-rem-unit" value="${escapeAttr(reform.adRemUnit || "")}" /></div>
           <div class="field"><label>Observacao fiscal</label><input id="product-fiscal-note" value="${escapeAttr(fiscal.note || "")}" /></div>
         </div>
         <div class="desktop-check-grid">
@@ -3367,6 +3410,12 @@ function renderSettings() {
             <div class="field"><label>Ano transicao</label><input id="rule-transition-year" type="number" value="${ruleValue("transitionYear", "2026")}" /></div>
             <div class="field"><label>Reducao base reforma %</label><input id="rule-reform-reduction-rate" type="number" step="0.01" value="${ruleNumber("reformReductionRate")}" /></div>
             <div class="field"><label>Imp. seletivo %</label><input id="rule-selective-rate" type="number" step="0.01" value="${ruleNumber("selectiveTaxRate")}" /></div>
+            <div class="field"><label>Diferimento reforma %</label><input id="rule-reform-deferral-rate" type="number" step="0.01" value="${ruleNumber("reformDeferralRate")}" /></div>
+            <div class="field"><label>CST Imp. seletivo</label><input id="rule-selective-cst" value="${ruleValue("selectiveTaxCst")}" /></div>
+            <div class="field"><label>Class. Imp. seletivo</label><input id="rule-selective-class" value="${ruleValue("selectiveTaxClass")}" /></div>
+            <div class="field"><label>Monofasico/ad rem</label><select id="rule-monophase"><option value="false">Nao</option><option value="true" ${editingRule.monophase ? "selected" : ""}>Sim</option></select></div>
+            <div class="field"><label>Aliquota ad rem</label><input id="rule-ad-rem-rate" type="number" step="0.0001" value="${ruleNumber("adRemRate")}" /></div>
+            <div class="field"><label>Unidade ad rem</label><input id="rule-ad-rem-unit" value="${ruleValue("adRemUnit")}" /></div>
             <div class="field"><label>Servico LC 116</label><input id="rule-service-code" value="${ruleValue("serviceCode")}" /></div>
             <div class="field"><label>Servico municipal</label><input id="rule-city-service-code" value="${ruleValue("cityServiceCode")}" /></div>
             <div class="field"><label>Beneficio fiscal</label><input id="rule-tax-benefit" value="${ruleValue("taxBenefitCode")}" /></div>
@@ -4951,8 +5000,12 @@ function captureProductDraft() {
     deferral: byId("product-reform-deferral")?.value ?? pendingProductDraft.reform?.deferral ?? 0,
     presumedCredit: byId("product-presumed-credit")?.value ?? pendingProductDraft.reform?.presumedCredit ?? 0,
     selectiveTax: byId("product-selective-tax")?.value ?? pendingProductDraft.reform?.selectiveTax ?? 0,
+    selectiveTaxCst: byId("product-selective-tax-cst")?.value ?? pendingProductDraft.reform?.selectiveTaxCst ?? "",
+    selectiveTaxClass: byId("product-selective-tax-class")?.value ?? pendingProductDraft.reform?.selectiveTaxClass ?? "",
     from: byId("product-reform-from")?.value ?? pendingProductDraft.reform?.from ?? "",
     monophase: byId("product-reform-monophase") ? byId("product-reform-monophase").value === "true" : Boolean(pendingProductDraft.reform?.monophase),
+    adRemRate: byId("product-ad-rem-rate")?.value ?? pendingProductDraft.reform?.adRemRate ?? 0,
+    adRemUnit: byId("product-ad-rem-unit")?.value ?? pendingProductDraft.reform?.adRemUnit ?? "",
     imported: byId("product-imported") ? byId("product-imported").checked : Boolean(pendingProductDraft.reform?.imported),
     capitalGood: byId("product-capital-good") ? byId("product-capital-good").checked : Boolean(pendingProductDraft.reform?.capitalGood),
     returnRule: byId("product-return-rule") ? byId("product-return-rule").checked : Boolean(pendingProductDraft.reform?.returnRule),
@@ -6301,6 +6354,12 @@ function saveFiscalRuleRecord() {
     transitionYear: byId("rule-transition-year").value || "2026",
     reformReductionRate: num("rule-reform-reduction-rate"),
     selectiveTaxRate: num("rule-selective-rate"),
+    reformDeferralRate: num("rule-reform-deferral-rate"),
+    selectiveTaxCst: byId("rule-selective-cst").value || "",
+    selectiveTaxClass: byId("rule-selective-class").value || "",
+    monophase: byId("rule-monophase").value === "true",
+    adRemRate: num("rule-ad-rem-rate"),
+    adRemUnit: byId("rule-ad-rem-unit").value || "",
     serviceCode: byId("rule-service-code").value || "",
     cityServiceCode: byId("rule-city-service-code").value || "",
     taxBenefitCode: byId("rule-tax-benefit").value || "",
@@ -6447,6 +6506,21 @@ function ensureFiscalRuleCoverage() {
         ibsCbsCst: "000",
         ibsClass: "000001",
         cbsClass: "000001",
+        ibsRate: 0,
+        cbsRate: 0,
+        ibsUfRate: 0,
+        ibsCityRate: 0,
+        cbsFederalRate: 0,
+        presumedCreditRate: 0,
+        transitionYear: "2026",
+        reformReductionRate: 0,
+        reformDeferralRate: 0,
+        selectiveTaxRate: 0,
+        selectiveTaxCst: "",
+        selectiveTaxClass: "",
+        monophase: false,
+        adRemRate: 0,
+        adRemUnit: "",
         serviceCode: model === "NFS-e" ? "14.01" : "",
         validFrom: "2026-01-01",
         active: true,
@@ -6499,7 +6573,7 @@ function fiscalXml(row) {
     `  <Produto ncm="${escapeXml(rule.ncm || "")}" cest="${escapeXml(rule.cest || "")}" />`,
     `  <ICMS aliquota="${Number(rule.icmsRate || 0).toFixed(2)}" fcp="${Number(rule.fcpRate || 0).toFixed(2)}" mva="${Number(rule.mvaRate || 0).toFixed(2)}" beneficio="${escapeXml(rule.taxBenefitCode || "")}" desoneracao="${escapeXml(rule.reductionReason || "")}" />`,
     `  <PISCOFINS cst="${escapeXml(rule.pisCofinsCst || "")}" pis="${Number(rule.pisRate || 0).toFixed(2)}" cofins="${Number(rule.cofinsRate || 0).toFixed(2)}" />`,
-    `  <ReformaTributaria cst="${escapeXml(rule.ibsCbsCst || "000")}" ibsClass="${escapeXml(rule.ibsClass || "000001")}" cbsClass="${escapeXml(rule.cbsClass || "000001")}" ibs="${Number(rule.ibsRate || 0).toFixed(2)}" ibsUf="${Number(rule.ibsUfRate || 0).toFixed(2)}" ibsMunicipio="${Number(rule.ibsCityRate || 0).toFixed(2)}" cbs="${Number(rule.cbsRate || 0).toFixed(2)}" cbsFederal="${Number(rule.cbsFederalRate || 0).toFixed(2)}" creditoPresumido="${Number(rule.presumedCreditRate || 0).toFixed(2)}" reducaoBase="${Number(rule.reformReductionRate || 0).toFixed(2)}" anoTransicao="${escapeXml(rule.transitionYear || "2026")}" impostoSeletivo="${Number(rule.selectiveTaxRate || 0).toFixed(2)}" />`,
+    `  <ReformaTributaria cst="${escapeXml(rule.ibsCbsCst || "000")}" ibsClass="${escapeXml(rule.ibsClass || "000001")}" cbsClass="${escapeXml(rule.cbsClass || "000001")}" ibs="${Number(rule.ibsRate || 0).toFixed(2)}" ibsUf="${Number(rule.ibsUfRate || 0).toFixed(2)}" ibsMunicipio="${Number(rule.ibsCityRate || 0).toFixed(2)}" cbs="${Number(rule.cbsRate || 0).toFixed(2)}" cbsFederal="${Number(rule.cbsFederalRate || 0).toFixed(2)}" creditoPresumido="${Number(rule.presumedCreditRate || 0).toFixed(2)}" reducaoBase="${Number(rule.reformReductionRate || 0).toFixed(2)}" diferimento="${Number(rule.reformDeferralRate || 0).toFixed(2)}" anoTransicao="${escapeXml(rule.transitionYear || "2026")}" impostoSeletivo="${Number(rule.selectiveTaxRate || 0).toFixed(2)}" seletivoCst="${escapeXml(rule.selectiveTaxCst || "")}" seletivoClass="${escapeXml(rule.selectiveTaxClass || "")}" monofasico="${rule.monophase ? "sim" : "nao"}" adRem="${Number(rule.adRemRate || 0).toFixed(4)}" unidadeAdRem="${escapeXml(rule.adRemUnit || "")}" />`,
     `  <Servico codigo="${escapeXml(service.serviceCode || rule.serviceCode || "")}" codigoMunicipal="${escapeXml(service.cityServiceCode || rule.cityServiceCode || "")}" municipio="${escapeXml(service.city || rule.municipio || "")}" codigoIbge="${escapeXml(service.cityCode || "")}" nbs="${escapeXml(service.nbs || "")}" cnae="${escapeXml(service.cnae || "")}" iss="${Number(service.issRate ?? rule.issRate ?? 0).toFixed(2)}" issRetido="${escapeXml(service.issWithheld || "false")}" exigibilidade="${escapeXml(service.issExigibility || "")}" />`,
     `  <Discriminacao>${escapeXml(service.description || "")}</Discriminacao>`,
     `  <Vigencia inicio="${escapeXml(rule.validFrom || "")}" fim="${escapeXml(rule.validTo || "")}" />`,

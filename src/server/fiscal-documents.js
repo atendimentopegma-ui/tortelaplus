@@ -110,8 +110,14 @@ function itemRule(state, row, item) {
     ibsUfRate: reform.ibsUfRate || product.ibsUfRate,
     ibsCityRate: reform.ibsCityRate || product.ibsCityRate,
     reformReductionRate: reform.reduction || product.reformReductionRate,
+    reformDeferralRate: reform.deferral || product.reformDeferralRate,
     selectiveTaxRate: reform.selectiveTax || product.selectiveTaxRate,
+    selectiveTaxCst: reform.selectiveTaxCst || product.selectiveTaxCst,
+    selectiveTaxClass: reform.selectiveTaxClass || product.selectiveTaxClass,
     presumedCreditRate: reform.presumedCredit || product.presumedCreditRate,
+    monophase: typeof reform.monophase === "boolean" ? reform.monophase : product.monophase,
+    adRemRate: reform.adRemRate || product.adRemRate,
+    adRemUnit: reform.adRemUnit || product.adRemUnit,
     ...rule,
     ...item
   };
