@@ -3,10 +3,24 @@ envVarGroups:
     envVars:
       - key: PGSSL
         value: require
+      - key: PEGMA_ENV
+        value: production-paid
+      - key: PEGMA_REQUIRE_PAID_PROVIDER
+        value: true
+      - key: PEGMA_ALLOWED_ORIGINS
+        value: https://tortelaplus-app.onrender.com,https://tortelaplus-rede.onrender.com
       - key: PEGMA_SECRET_KEY
         generateValue: true
       - key: PEGMA_PROVIDER_TOKEN
         generateValue: true
+      - key: PEGMA_PUBLIC_LINK_SECRET
+        generateValue: true
+      - key: PEGMA_CENTRAL_USER
+        value: admin
+      - key: PEGMA_CENTRAL_PASSWORD
+        sync: false
+      - key: PEGMA_BACKUP_DIR
+        sync: false
 
 services:
   - type: web
@@ -38,10 +52,6 @@ services:
       - key: NODE_VERSION
         value: 22
       - key: DATABASE_URL
-        sync: false
-      - key: PEGMA_CENTRAL_USER
-        sync: false
-      - key: PEGMA_CENTRAL_PASSWORD
         sync: false
       - key: PEGMA_SURFACE
         value: network
