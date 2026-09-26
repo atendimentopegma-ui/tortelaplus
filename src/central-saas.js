@@ -218,6 +218,80 @@ function licenseStatus(tenant) {
   };
 }
 
+function monitoringClients() {
+  return providerMonitoring?.clients || [];
+}
+
+function readinessStatus(value) {
+  const [ready, total] = String(value || "0/0").split("/").map((part) => Number(part) || 0);
+  return { ready, total, ok: total > 0 && ready >= total };
+}
+
+function isStaleUpdate(updatedAt) {
+  if (!updatedAt) return true;
+  const time = new Date(updatedAt).getTime();
+  if (!Number.isFinite(time)) return true;
+  return Date.now() - time > 24 * 60 * 60 * 1000;
+}
+
+function monitoringSummary() {
+  const clients = monitoringClients();
+  const pendingBackups = clients.filter((client) => !client.lastBackup).length;
+  const fiscalErrors = clients.reduce((sum, client) => sum + Number(client.fiscalErrors || 0), 0);
+  const pendingFiscal = clients.reduce((sum, client) => sum + Number(client.pendingFiscal || 0), 0);
+  const overdueTitles = clients.reduce((sum, client) => sum + Number(client.overdueTitles || 0), 0);
+  const lowStock = clients.reduce((sum, client) => sum + Number(client.lowStock || 0), 0);
+  const notReady = clients.filter((client) => !readinessStatus(client.readiness).ok).length;
+  const staleUpdates = clients.filter((client) => isStaleUpdate(client.updatedAt)).length;
+  const alerts = [
+    { label: "Backup pendente", value: pendingBackups, level: pendingBackups ? "danger" : "ok" },
+    { label: "Erros fiscais", value: fiscalErrors, level: fiscalErrors ? "danger" : "ok" },
+    { label: "Fiscal pendente", value: pendingFiscal, level: pendingFiscal ? "warn" : "ok" },
+    { label: "Titulos atrasados", value: overdueTitles, level: overdueTitles ? "warn" : "ok" },
+    { label: "Estoque minimo", value: lowStock, level: lowStock ? "warn" : "ok" },
+    { label: "Prontidao incompleta", value: notReady, level: notReady ? "warn" : "ok" },
+    { label: "Sem atualizacao 24h", value: staleUpdates, level: staleUpdates ? "warn" : "ok" }
+  ];
+  return { pendingBackups, fiscalErrors, pendingFiscal, overdueTitles, lowStock, notReady, staleUpdates, alerts };
+}
+
+function monitoringBadge(value, dangerWhenPositive = false) {
+  const number = Number(value || 0);
+  const level = number > 0 ? (dangerWhenPositive ? "danger" : "warn") : "ok";
+  return `<span class="badge ${level}">${number}</span>`;
+}
+
+function renderMonitoringAlerts(summary) {
+  return summary.alerts.map((alert) => `
+    <div class="kpi">
+      <small>${alert.label}</small>
+      <strong><span class="badge ${alert.level}">${alert.value}</span></strong>
+    </div>
+  `).join("");
+}
+
+function renderMonitoringRows() {
+  const clients = monitoringClients();
+  if (!clients.length) return `<tr><td colspan="11">Monitoramento ainda nao carregado.</td></tr>`;
+  return clients.map((client) => {
+    const readiness = readinessStatus(client.readiness);
+    const stale = isStaleUpdate(client.updatedAt);
+    return `<tr>
+      <td>${client.tradeName}</td>
+      <td>${client.sessions}</td>
+      <td><span class="badge ${client.lastBackup ? "ok" : "danger"}">${client.lastBackup || "Pendente"}</span></td>
+      <td>${monitoringBadge(client.pendingFiscal)}</td>
+      <td>${monitoringBadge(client.fiscalErrors, true)}</td>
+      <td>${monitoringBadge(client.overdueTitles)}</td>
+      <td>${monitoringBadge(client.lowStock)}</td>
+      <td><span class="badge ${readiness.ok ? "ok" : "warn"}">${client.readiness || "-"}</span></td>
+      <td>${client.closedThrough || "-"}</td>
+      <td><span class="badge ${stale ? "warn" : "ok"}">${client.updatedAt ? new Date(client.updatedAt).toLocaleString("pt-BR") : "Sem atualizacao"}</span></td>
+      <td>${client.lastBackup ? "Acompanhar rotina" : "Gerar backup"}</td>
+    </tr>`;
+  }).join("");
+}
+
 function brandMarkup() {
   return `<div class="brand-mark logo tortela-logo"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela" /></div>`;
 }
@@ -234,6 +308,7 @@ function render() {
   const blockedClients = clients.filter((client) => client.status !== "Ativo" && client.status !== "Homologacao").length;
   const expiredLicenses = clients.filter((client) => licenseStatus(client).expired).length;
   const firstClient = clients[0];
+  const monitorSummary = monitoringSummary();
 
   byId("app").innerHTML = `
     <main class="app-shell">
@@ -269,7 +344,7 @@ function render() {
               <div class="kpi"><small>Clientes bloqueados</small><strong>${blockedClients}</strong></div>
               <div class="kpi"><small>Licencas vencidas</small><strong>${expiredLicenses}</strong></div>
               <div class="kpi"><small>Sessoes ativas</small><strong>${providerMonitoring?.activeTenantSessions || 0}</strong></div>
-              <div class="kpi"><small>Pendencias fiscais</small><strong>${(providerMonitoring?.clients || []).reduce((sum, client) => sum + client.pendingFiscal, 0)}</strong></div>
+              <div class="kpi"><small>Pendencias fiscais</small><strong>${monitorSummary.pendingFiscal}</strong></div>
             </div>
 
             <div class="form-card">
@@ -356,7 +431,8 @@ function render() {
             </div>
             <div class="form-card">
               <h3>Monitoramento operacional</h3>
-              <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Sessoes</th><th>Backup</th><th>Fiscal pendente</th><th>Erros</th><th>Atrasados</th><th>Estoque minimo</th><th>Prontidao</th><th>Fechado ate</th><th>Atualizacao</th></tr></thead><tbody>${(providerMonitoring?.clients || []).map((client) => `<tr><td>${client.tradeName}</td><td>${client.sessions}</td><td>${client.lastBackup || "Pendente"}</td><td>${client.pendingFiscal}</td><td>${client.fiscalErrors}</td><td>${client.overdueTitles || 0}</td><td>${client.lowStock || 0}</td><td>${client.readiness || "-"}</td><td>${client.closedThrough || "-"}</td><td>${client.updatedAt ? new Date(client.updatedAt).toLocaleString("pt-BR") : "-"}</td></tr>`).join("")}</tbody></table></div>
+              <div class="grid four">${renderMonitoringAlerts(monitorSummary)}</div>
+              <div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Sessoes</th><th>Backup</th><th>Fiscal pendente</th><th>Erros</th><th>Atrasados</th><th>Estoque minimo</th><th>Prontidao</th><th>Fechado ate</th><th>Atualizacao</th><th>Acao sugerida</th></tr></thead><tbody>${renderMonitoringRows()}</tbody></table></div>
             </div>
           </div>
         </section>
