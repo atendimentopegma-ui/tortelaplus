@@ -7622,20 +7622,21 @@ function applySaleStock(items, reference = "Venda") {
   items.forEach((item) => {
     const product = state.products.find((productItem) => productItem.id === item.id);
     if (!product) return;
-    const saleComponents = (product.composition || []).filter((component) => component.mode !== "production");
-    if (!saleComponents.length) {
-      item.traceability = consumeProductTraceability(product, item.qty, reference);
-      product.stock -= item.qty;
-      addStockMovement(product, "Venda", -item.qty, `Venda ${item.description}`);
-    }
+    const requirements = saleStockRequirements([item]);
+    const directProductSale = requirements.length === 1 && Number(requirements[0].productId) === Number(product.id) && !saleComposition(product).length;
     item.componentTraceability = [];
-    compositionRequirements(product, item.qty, ["sale", "both"]).forEach((requirement) => {
-      const raw = state.products.find((rawItem) => rawItem.id === requirement.productId);
-      if (raw) {
-        const usedQty = requirement.qty;
-        item.componentTraceability.push({ productId: raw.id, qty: usedQty, traceability: consumeProductTraceability(raw, usedQty, reference) });
-        raw.stock -= usedQty;
-        addStockMovement(raw, "Baixa composicao", -usedQty, `Componente de ${product.description}`);
+    requirements.forEach((requirement) => {
+      const stockProduct = state.products.find((row) => Number(row.id) === Number(requirement.productId));
+      if (!stockProduct) return;
+      const usedQty = Number(requirement.qty || 0);
+      const traceability = consumeProductTraceability(stockProduct, usedQty, reference);
+      stockProduct.stock = Number(stockProduct.stock || 0) - usedQty;
+      if (directProductSale) {
+        item.traceability = traceability;
+        addStockMovement(stockProduct, "Venda", -usedQty, `Venda ${item.description}`);
+      } else {
+        item.componentTraceability.push({ productId: stockProduct.id, qty: usedQty, traceability });
+        addStockMovement(stockProduct, "Baixa composicao", -usedQty, `Componente de ${product.description}`);
       }
     });
   });
@@ -7659,14 +7660,31 @@ function compositionRequirements(product, qty, modes) {
     });
 }
 
+function saleComposition(product) {
+  return (product?.composition || []).filter((component) => (component.mode || "both") !== "production");
+}
+
+function collectSaleStockRequirements(product, qty, visited = new Set()) {
+  if (!product) return [];
+  const productId = Number(product.id);
+  if (visited.has(productId)) return [{ productId, qty: Number(qty || 0) }];
+  const components = saleComposition(product);
+  if (!components.length) return [{ productId, qty: Number(qty || 0) }];
+  const nextVisited = new Set(visited);
+  nextVisited.add(productId);
+  return components.flatMap((component) => {
+    const raw = state.products.find((row) => Number(row.id) === Number(component.productId));
+    const componentQty = componentStockQty(component, raw) * Number(qty || 0);
+    return raw ? collectSaleStockRequirements(raw, componentQty, nextVisited) : [{ productId: Number(component.productId), qty: componentQty }];
+  });
+}
+
 function saleStockRequirements(items) {
   const requirements = [];
   items.forEach((item) => {
     const product = state.products.find((row) => row.id === item.id);
     if (!product) return;
-    const components = compositionRequirements(product, item.qty, ["sale", "both"]);
-    if (components.length) requirements.push(...components);
-    else requirements.push({ productId: product.id, qty: Number(item.qty || 0) });
+    requirements.push(...collectSaleStockRequirements(product, Number(item.qty || 0)));
   });
   return aggregateRequirements(requirements);
 }
@@ -7765,20 +7783,18 @@ function reverseSaleStock(items, saleId) {
   items.forEach((item) => {
     const product = state.products.find((row) => row.id === item.id);
     if (!product) return;
-    const saleComponents = (product.composition || []).filter((component) => component.mode !== "production");
-    if (!saleComponents.length) {
-      product.stock += Number(item.qty || 0);
-      restoreProductTraceability(product, item.traceability, item.qty);
-      addStockMovement(product, "Estorno venda", Number(item.qty || 0), `Cancelamento venda ${saleId}`);
-    }
-    saleComponents.forEach((component) => {
-      const raw = state.products.find((row) => row.id === component.productId);
-      if (!raw) return;
-      const qty = Number(component.qty || 0) * Number(item.qty || 0);
-      raw.stock += qty;
-      const componentTrace = (item.componentTraceability || []).find((row) => row.productId === raw.id);
-      restoreProductTraceability(raw, componentTrace?.traceability, qty);
-      addStockMovement(raw, "Estorno composicao", qty, `Cancelamento venda ${saleId}`);
+    const requirements = saleStockRequirements([item]);
+    const directProductSale = requirements.length === 1 && Number(requirements[0].productId) === Number(product.id) && !saleComposition(product).length;
+    requirements.forEach((requirement) => {
+      const stockProduct = state.products.find((row) => Number(row.id) === Number(requirement.productId));
+      if (!stockProduct) return;
+      const qty = Number(requirement.qty || 0);
+      stockProduct.stock = Number(stockProduct.stock || 0) + qty;
+      const traceability = directProductSale
+        ? item.traceability
+        : (item.componentTraceability || []).find((row) => Number(row.productId) === Number(stockProduct.id))?.traceability;
+      restoreProductTraceability(stockProduct, traceability, qty);
+      addStockMovement(stockProduct, directProductSale ? "Estorno venda" : "Estorno composicao", qty, `Cancelamento venda ${saleId}`);
     });
   });
 }

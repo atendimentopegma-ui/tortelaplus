@@ -1495,20 +1495,33 @@ function componentStockQty(component, product) {
   return qty;
 }
 
+function saleComposition(product) {
+  return (product?.composition || []).filter((component) => (component.mode || "both") !== "production");
+}
+
+function collectOnlineStockRequirements(product, qty, products, visited = new Set()) {
+  if (!product) return [];
+  const productId = Number(product.id);
+  if (visited.has(productId)) return [{ productId, qty: Number(qty || 0) }];
+  const components = saleComposition(product);
+  if (!components.length) return [{ productId, qty: Number(qty || 0) }];
+  const nextVisited = new Set(visited);
+  nextVisited.add(productId);
+  return components.flatMap((component) => {
+    const raw = products.find((row) => Number(row.id) === Number(component.productId));
+    const componentQty = componentStockQty(component, raw) * Number(qty || 0);
+    return raw ? collectOnlineStockRequirements(raw, componentQty, products, nextVisited) : [{ productId: Number(component.productId), qty: componentQty }];
+  });
+}
+
 function onlineOrderRequirements(items, products) {
   const totals = new Map();
   items.forEach((item) => {
     const product = products.find((row) => Number(row.id) === Number(item.productId));
     if (!product) return;
-    const components = (product.composition || []).filter((component) => component.mode !== "production");
-    if (components.length) {
-      components.forEach((component) => {
-        const raw = products.find((row) => Number(row.id) === Number(component.productId));
-        totals.set(Number(component.productId), Number(totals.get(Number(component.productId)) || 0) + componentStockQty(component, raw) * Number(item.qty || 0));
-      });
-      return;
-    }
-    totals.set(Number(product.id), Number(totals.get(Number(product.id)) || 0) + Number(item.qty || 0));
+    collectOnlineStockRequirements(product, Number(item.qty || 0), products).forEach((requirement) => {
+      totals.set(Number(requirement.productId), Number(totals.get(Number(requirement.productId)) || 0) + Number(requirement.qty || 0));
+    });
   });
   return Array.from(totals, ([productId, qty]) => ({ productId, qty }));
 }

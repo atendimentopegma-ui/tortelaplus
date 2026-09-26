@@ -14,6 +14,7 @@
     "deploy:check": "node scripts/deploy-check.js",
     "verify:backoffice": "node scripts/verify-backoffice-navigation.js && node scripts/verify-local-login-settings.js",
     "verify:products": "node scripts/verify-products-flow.js",
+    "verify:stock": "node scripts/verify-stock-flow.js",
     "verify:pdv": "node scripts/verify-pdv-flow.js",
     "verify:kitchen": "node scripts/verify-kitchen-display.js",
     "verify:kiosk": "node scripts/verify-kiosk-flow.js",
