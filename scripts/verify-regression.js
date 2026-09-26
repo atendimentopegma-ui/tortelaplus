@@ -13,6 +13,7 @@ const checks = [
   ["verify:kiosk", "Totem, pedido, cozinha, telao e isolamento"],
   ["verify:monitoring", "Monitoramento operacional da Central"],
   ["verify:backup", "Backup e restauracao segura"],
+  ["verify:operational", "Revisao operacional final sem dados reais"],
   ["verify:implantation", "Prontidao tecnica de implantacao"],
   ["verify:post-deploy", "Dominio real app/rede depois do deploy"]
 ];

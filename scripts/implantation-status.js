@@ -71,7 +71,7 @@ const operationalChecks = [
   ["Unidade piloto em homologacao", any(states, (state) => state.settings?.fiscalEnvironment === "Homologacao")],
   ["Usuario administrador cadastrado", any(states, (state) => (state.users || []).some((user) => user.active !== false && user.role === "Administrador"))],
   ["Produtos Tortela ativos no catalogo", any(states, (state) => (state.products || []).some((product) => product.active !== false && /tortela|torta|milk shake|combo/i.test(product.description || "")))],
-  ["Caixa operacional aberto para testes", any(states, (state) => state.cashRegister?.open === true)],
+  ["Caixa operacional aberto para piloto", any(states, (state) => state.cashRegister?.open === true)],
   ["Backup local/externo configuravel", Boolean(process.env.PEGMA_BACKUP_DIR) || exists("scripts/backup-postgres.js")],
   ["Banco PostgreSQL configurado no ambiente atual", Boolean(process.env.DATABASE_URL)]
 ];

@@ -731,6 +731,7 @@ async function restoreAllClientsBackup(event) {
   if (!file || !apiOnline) return;
   try {
     const backup = JSON.parse(await file.text());
+    if (backup.product && backup.product !== "Tortela Plus") throw new Error("Este backup geral nao pertence ao Tortela Plus.");
     if (backup.type !== "backup-geral-central-saas" || !Array.isArray(backup.clients)) throw new Error("Arquivo de backup geral invalido.");
     if (!confirm(`Restaurar os dados e arquivos fiscais de ${backup.clients.length} clientes?`)) return;
     const result = await api("/api/provider/restore-all", { method: "POST", body: JSON.stringify(backup) });

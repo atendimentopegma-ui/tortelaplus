@@ -6235,7 +6235,7 @@ async function showFiscalReadiness() {
     }
   }
   if (readiness.ok) {
-    alert(`${provider} configurado para homologacao. Proximo passo: usar certificado e credenciais reais de teste para emitir documento em ambiente de homologacao.`);
+    alert(`${provider} configurado para homologacao. Proximo passo: usar certificado e credenciais reais de homologacao para emitir documento no ambiente autorizado.`);
     return;
   }
   alert(`Para validar emissao fiscal em homologacao ainda falta: ${readiness.missing.join(", ")}.`);
