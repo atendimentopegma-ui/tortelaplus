@@ -3,6 +3,9 @@ const kitchenTenantCode = kitchenParams.get("unidade") || "cliente-exemplo";
 const kitchenTerminalToken = kitchenParams.get("terminalToken") || kitchenParams.get("token") || kitchenParams.get("limpar") || "";
 const kitchenApp = document.getElementById("kitchen-app");
 const kitchenApiBase = location.protocol === "file:" ? "http://localhost:4173" : "";
+let kitchenRefreshInFlight = null;
+let lastKitchenPayload = null;
+const kitchenUpdatingOrders = new Set();
 
 const kitchenMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const kitchenEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
@@ -33,7 +36,19 @@ function minutesSince(dateValue) {
   return minutes <= 1 ? "agora" : `${minutes} min`;
 }
 
+function uniqueOrders(orders = []) {
+  const seen = new Set();
+  return orders.filter((order) => {
+    const key = String(order.id || order.ticketNumber || "");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function orderActions(order) {
+  const updating = kitchenUpdatingOrders.has(Number(order.id));
+  if (updating) return `<span class="kitchen-finished">Atualizando...</span>`;
   if (order.status === "Pronto") {
     return `<button class="kitchen-action done" data-status-order="${order.id}" data-status="Entregue">Entregar pedido</button>`;
   }
@@ -76,9 +91,9 @@ function orderCard(order) {
   `;
 }
 
-function renderKitchen(payload) {
-  const orders = (payload.orders || []).filter((order) => !["Entregue", "Cancelado"].includes(order.status));
-  const history = (payload.history || []).slice(0, 6);
+function renderKitchen(payload, options = {}) {
+  const orders = uniqueOrders(payload.orders || []).filter((order) => !["Entregue", "Cancelado"].includes(order.status));
+  const history = uniqueOrders(payload.history || []).slice(0, 6);
   const ready = orders.filter((order) => order.status === "Pronto");
   const preparing = orders.filter((order) => order.status !== "Pronto");
   const now = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -98,6 +113,7 @@ function renderKitchen(payload) {
         </div>
         <button id="kitchen-refresh">Atualizar</button>
       </header>
+      ${options.warning ? `<div class="kitchen-sync" role="status">${kitchenEscape(options.warning)}</div>` : ""}
       <section class="kitchen-hero">
         <div>
           <span>Cozinha do totem</span>
@@ -134,23 +150,42 @@ function renderKitchen(payload) {
 }
 
 async function loadKitchen() {
+  if (kitchenRefreshInFlight) return kitchenRefreshInFlight;
+  kitchenRefreshInFlight = (async () => {
   try {
     const query = new URLSearchParams({ unidade: kitchenTenantCode });
     if (kitchenTerminalToken) query.set("terminalToken", kitchenTerminalToken);
     const payload = await kitchenApi(`/api/public/kiosk/orders?${query.toString()}`);
+    lastKitchenPayload = payload;
     renderKitchen(payload);
   } catch (error) {
     const localFileHint = location.protocol === "file:" ? "Abra pelo servidor local do sistema, nao direto pelo arquivo." : error.message;
+    if (lastKitchenPayload) {
+      renderKitchen(lastKitchenPayload, { warning: `Sem atualizacao agora: ${localFileHint}` });
+      return;
+    }
     kitchenApp.innerHTML = `<main class="kitchen-shell"><section class="kitchen-error"><h1>Cozinha indisponivel</h1><p>${kitchenEscape(localFileHint)}</p><button id="kitchen-refresh">Tentar novamente</button></section></main>`;
+  } finally {
+    kitchenRefreshInFlight = null;
   }
+  })();
+  return kitchenRefreshInFlight;
 }
 
 async function updateKitchenOrder(orderId, status) {
-  await kitchenApi("/api/public/kiosk/orders/status", {
-    method: "POST",
-    body: JSON.stringify({ tenantCode: kitchenTenantCode, terminalToken: kitchenTerminalToken, orderId, status })
-  });
-  await loadKitchen();
+  if (kitchenUpdatingOrders.has(Number(orderId))) return;
+  kitchenUpdatingOrders.add(Number(orderId));
+  if (lastKitchenPayload) renderKitchen(lastKitchenPayload);
+  try {
+    await kitchenApi("/api/public/kiosk/orders/status", {
+      method: "POST",
+      body: JSON.stringify({ tenantCode: kitchenTenantCode, terminalToken: kitchenTerminalToken, orderId, status })
+    });
+    await loadKitchen();
+  } finally {
+    kitchenUpdatingOrders.delete(Number(orderId));
+    if (lastKitchenPayload) renderKitchen(lastKitchenPayload);
+  }
 }
 
 document.addEventListener("click", (event) => {

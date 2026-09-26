@@ -108,6 +108,17 @@ body.tortela-display-page .display-shell::after {
   margin: 22px 0;
 }
 
+.display-sync {
+  margin: 16px 0 0;
+  padding: 14px 18px;
+  border: 1px solid #f1d876;
+  border-radius: 18px;
+  background: #fff9d7;
+  color: #6b5300;
+  font-size: 18px;
+  font-weight: 900;
+}
+
 .display-next,
 .display-message {
   border: 1px solid #dbe3ef;

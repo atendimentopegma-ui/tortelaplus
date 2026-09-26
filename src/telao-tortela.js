@@ -2,6 +2,8 @@ const displayParams = new URLSearchParams(location.search);
 const displayTenantCode = displayParams.get("unidade") || "cliente-exemplo";
 const displayTerminalToken = displayParams.get("terminalToken") || displayParams.get("token") || displayParams.get("limpar") || "";
 const displayApiBase = location.protocol === "file:" ? "http://localhost:4173" : "";
+let displayRefreshInFlight = null;
+let lastDisplayPayload = null;
 
 const displayMoney = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const displayEscape = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
@@ -25,6 +27,16 @@ function ticket(order) {
   return String(order.ticketNumber || order.id || "").padStart(3, "0");
 }
 
+function uniqueOrders(orders = []) {
+  const seen = new Set();
+  return orders.filter((order) => {
+    const key = String(order.id || order.ticketNumber || "");
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function orderCard(order) {
   return `
     <div class="display-ticket">
@@ -37,8 +49,8 @@ function orderCard(order) {
   `;
 }
 
-function renderDisplay(payload) {
-  const orders = payload.orders || [];
+function renderDisplay(payload, options = {}) {
+  const orders = uniqueOrders(payload.orders || []);
   const ready = orders.filter((order) => order.status === "Pronto");
   const preparing = orders.filter((order) => !["Pronto", "Entregue", "Cancelado"].includes(order.status));
   const nextReady = ready[0];
@@ -62,6 +74,7 @@ function renderDisplay(payload) {
           <strong>${now}</strong>
         </div>
       </header>
+      ${options.warning ? `<div class="display-sync" role="status">${displayEscape(options.warning)}</div>` : ""}
       <section class="display-callout">
         <div class="display-next">
           <span>Proxima retirada</span>
@@ -87,12 +100,24 @@ function renderDisplay(payload) {
 }
 
 async function refreshDisplay() {
+  if (displayRefreshInFlight) return displayRefreshInFlight;
+  displayRefreshInFlight = (async () => {
   try {
-    renderDisplay(await loadDisplayOrders());
+    const payload = await loadDisplayOrders();
+    lastDisplayPayload = payload;
+    renderDisplay(payload);
   } catch (error) {
     const localFileHint = location.protocol === "file:" ? "Abra pelo servidor local do sistema, nao direto pelo arquivo." : error.message;
+    if (lastDisplayPayload) {
+      renderDisplay(lastDisplayPayload, { warning: `Sem atualizacao agora: ${localFileHint}` });
+      return;
+    }
     document.getElementById("display-app").innerHTML = `<main class="display-shell"><section class="display-error"><h1>Telao indisponivel</h1><p>${displayEscape(localFileHint)}</p></section></main>`;
+  } finally {
+    displayRefreshInFlight = null;
   }
+  })();
+  return displayRefreshInFlight;
 }
 
 refreshDisplay();
