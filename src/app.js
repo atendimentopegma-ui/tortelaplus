@@ -1577,6 +1577,11 @@ function productCheck(id, label, checked) {
   return `<label class="check-row desktop-check"><input id="${id}" type="checkbox" ${checked ? "checked" : ""} /> ${label}</label>`;
 }
 
+function commaOptionList(value) {
+  const source = Array.isArray(value) ? value : String(value || "").split(",");
+  return [...new Set(source.map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
 function productForm() {
   const draft = {
     description: "",
@@ -1606,6 +1611,9 @@ function productForm() {
     explodeKitNf: false,
     adultOnly: false,
     additional: false,
+    hasCoverage: false,
+    coverageOptions: [],
+    toppingOptions: [],
     ecommerceIntegration: false,
     kitchenRequest: false,
     medicine: false,
@@ -1672,6 +1680,16 @@ function productForm() {
           ${productCheck("product-ecommerce", "Integrar e-commerce", draft.ecommerceIntegration)}
           ${productCheck("product-kitchen-request", "Pedir na cozinha", draft.kitchenRequest)}
           ${productCheck("product-medicine", "Medicamento", draft.medicine)}
+        </div>
+      </div>
+
+      <div class="product-form-section">
+        <h4>Totem, combos e adicionais</h4>
+        <div class="grid four">
+          <label class="check-row desktop-check"><input id="product-has-coverage" type="checkbox" ${draft.hasCoverage || commaOptionList(draft.coverageOptions).length ? "checked" : ""} /> Possui cobertura</label>
+          <div class="field wide-field"><label>Coberturas do produto</label><input id="product-coverage-options" value="${escapeAttr(commaOptionList(draft.coverageOptions).join(", "))}" placeholder="Chocolate ao leite, Morango" /></div>
+          <div class="field wide-field"><label>Toppings/adicionais do totem</label><input id="product-topping-options" value="${escapeAttr(commaOptionList(draft.toppingOptions || draft.additionalOptions || draft.extrasOptions).join(", "))}" placeholder="Granulado, Chocoball" /></div>
+          <span class="helper">Use virgula para separar opcoes. Combos usam a ficha tecnica da aba Composicao.</span>
         </div>
       </div>
 
@@ -4705,6 +4723,8 @@ function saveProductRecord() {
   }
   const composition = pendingComposition.map((component) => ({ ...component }));
   if (composition.length && composition.some((component) => !state.products.some((product) => product.id === component.productId))) return alert("A composicao possui componente inexistente.");
+  const coverageOptions = commaOptionList(pendingProductDraft.coverageOptions);
+  const toppingOptions = commaOptionList(pendingProductDraft.toppingOptions || pendingProductDraft.additionalOptions || pendingProductDraft.extrasOptions);
   const compositionCost = composition.reduce((sum, component) => {
     const product = state.products.find((row) => row.id === component.productId);
     return sum + Number(product?.cost || 0) * componentStockQty(component, product);
@@ -4734,6 +4754,9 @@ function saveProductRecord() {
     explodeKitNf: Boolean(pendingProductDraft.explodeKitNf),
     adultOnly: Boolean(pendingProductDraft.adultOnly),
     additional: Boolean(pendingProductDraft.additional),
+    hasCoverage: Boolean(pendingProductDraft.hasCoverage || coverageOptions.length),
+    coverageOptions,
+    toppingOptions,
     ecommerceIntegration: Boolean(pendingProductDraft.ecommerceIntegration),
     kitchenRequest: Boolean(pendingProductDraft.kitchenRequest),
     medicine: Boolean(pendingProductDraft.medicine),
@@ -4843,6 +4866,9 @@ function captureProductDraft() {
     explodeKitNf: byId("product-explode-kit-nf") ? byId("product-explode-kit-nf").checked : Boolean(previous.explodeKitNf),
     adultOnly: byId("product-adult-only") ? byId("product-adult-only").checked : Boolean(previous.adultOnly),
     additional: byId("product-additional") ? byId("product-additional").checked : Boolean(previous.additional),
+    hasCoverage: byId("product-has-coverage") ? byId("product-has-coverage").checked : Boolean(previous.hasCoverage),
+    coverageOptions: commaOptionList(byId("product-coverage-options") ? byId("product-coverage-options").value : previous.coverageOptions),
+    toppingOptions: commaOptionList(byId("product-topping-options") ? byId("product-topping-options").value : (previous.toppingOptions || previous.additionalOptions || previous.extrasOptions)),
     ecommerceIntegration: byId("product-ecommerce") ? byId("product-ecommerce").checked : Boolean(previous.ecommerceIntegration),
     kitchenRequest: byId("product-kitchen-request") ? byId("product-kitchen-request").checked : Boolean(previous.kitchenRequest),
     medicine: byId("product-medicine") ? byId("product-medicine").checked : Boolean(previous.medicine),

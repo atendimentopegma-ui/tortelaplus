@@ -41,6 +41,41 @@ const cleanText = (value = "") => String(value).replace(/[&<>"']/g, (char) => ({
   '"': "&quot;",
   "'": "&#39;"
 }[char]));
+const defaultCoverageOptions = [
+  "Chocolate ao leite",
+  "Chocolate branco",
+  "Chocolate meio amargo",
+  "Ovomaltine",
+  "Kinder Bueno",
+  "Avela",
+  "Morango",
+  "Pistache"
+];
+const defaultToppingOptions = [
+  "Granulado",
+  "Chocoball",
+  "Cookies baunilha",
+  "Farofa de pacoca",
+  "Amendoim granulado",
+  "Gotas cookies chocolate",
+  "Ovomaltine"
+];
+
+function optionList(options, fallback = []) {
+  const source = Array.isArray(options) ? options : String(options || "").split(",");
+  const normalized = source.map((option) => String(option || "").trim()).filter(Boolean);
+  const chosen = normalized.length ? normalized : fallback;
+  return [...new Set(chosen.map((option) => String(option || "").trim()).filter(Boolean))];
+}
+
+function productCoverageOptions(product) {
+  if (!product?.hasCoverage && !Array.isArray(product?.coverageOptions)) return [];
+  return optionList(product.coverageOptions, defaultCoverageOptions);
+}
+
+function productToppingOptions(product) {
+  return optionList(product?.toppingOptions || product?.additionalOptions || product?.extrasOptions, defaultToppingOptions);
+}
 
 function resetOrder() {
   if (successResetTimer) {
@@ -318,7 +353,7 @@ function selectProduct(productId) {
   state.draft = {
     qty: 1,
     size: "Padrao",
-    coverage: product.hasCoverage ? (product.coverageOptions || ["Tradicional"])[0] : "",
+    coverage: productCoverageOptions(product)[0] || "",
     extras: [],
     note: ""
   };
@@ -328,16 +363,8 @@ function selectProduct(productId) {
 function renderCustomize() {
   const product = state.selectedProduct;
   if (!product || !state.draft) return renderMenu();
-  const coverageOptions = [
-    "Chocolate ao leite",
-    "Chocolate branco",
-    "Chocolate meio amargo",
-    "Ovomaltine",
-    "Kinder Bueno",
-    "Avelã",
-    "Morango",
-    "Pistache"
-  ];
+  const coverageOptions = productCoverageOptions(product);
+  if (!coverageOptions.length) return renderTopping();
   if (!state.draft.coverage || !coverageOptions.includes(state.draft.coverage)) {
     state.draft.coverage = coverageOptions[0];
   }
@@ -359,15 +386,8 @@ function renderCustomize() {
 function renderTopping() {
   const product = state.selectedProduct;
   if (!product || !state.draft) return renderMenu();
-  const toppingOptions = [
-    "Granulado",
-    "Chocoball",
-    "Cookies baunilha",
-    "Farofa de pacoca",
-    "Amendoim Granulado",
-    "Gostas cookies chocolate",
-    "Ovomaltine"
-  ];
+  const toppingOptions = productToppingOptions(product);
+  if (!toppingOptions.length) return addProductToCart();
   if (!state.draft.extras.length || !toppingOptions.includes(state.draft.extras[0])) {
     state.draft.extras = [toppingOptions[0]];
   }

@@ -297,6 +297,7 @@ const tortelaOnlineStarterProducts = [
     photo: "",
     hasCoverage: true,
     coverageOptions: ["Sem cobertura", "Chocolate ao leite", "Chocolate branco", "Morango"],
+    toppingOptions: ["Granulado", "Chocoball", "Cookies baunilha", "Farofa de pacoca", "Amendoim granulado", "Ovomaltine"],
     composition: [
       { productId: 9001, qty: 0.12, useUnit: "KG" },
       { productId: 9002, qty: 0.02, useUnit: "UN" }
@@ -321,6 +322,7 @@ const tortelaOnlineStarterProducts = [
     photo: "",
     hasCoverage: true,
     coverageOptions: ["Sem cobertura", "Morango", "Chocolate branco", "Leite ninho"],
+    toppingOptions: ["Granulado", "Chocoball", "Cookies baunilha", "Farofa de pacoca", "Amendoim granulado", "Ovomaltine"],
     composition: [
       { productId: 9001, qty: 0.12, useUnit: "KG" },
       { productId: 9002, qty: 0.02, useUnit: "UN" }
@@ -345,6 +347,7 @@ const tortelaOnlineStarterProducts = [
     photo: "",
     hasCoverage: true,
     coverageOptions: ["Sortidas", "Chocolate", "Morango", "Leite ninho"],
+    toppingOptions: ["Sortidos", "Granulado", "Chocoball", "Cookies baunilha", "Ovomaltine"],
     composition: [
       { productId: 7001, qty: 2, useUnit: "UN" },
       { productId: 7002, qty: 2, useUnit: "UN" }
@@ -369,6 +372,7 @@ const tortelaOnlineStarterProducts = [
     photo: "",
     hasCoverage: true,
     coverageOptions: ["Chocolate", "Morango", "Doce de leite", "Leite ninho"],
+    toppingOptions: ["Chantilly", "Granulado", "Chocoball", "Cookies baunilha", "Ovomaltine"],
     composition: [],
     active: true
   }
@@ -1254,8 +1258,23 @@ function effectiveProductPrice(product, qty = 1) {
   return Math.max(0, base - base * percent / 100);
 }
 
+function optionList(options, fallback = []) {
+  const source = Array.isArray(options) ? options : String(options || "").split(",");
+  const normalized = source.map((option) => String(option || "").trim()).filter(Boolean);
+  const chosen = normalized.length ? normalized : fallback;
+  return [...new Set(chosen.map((option) => String(option || "").trim()).filter(Boolean))];
+}
+
+function defaultToppingOptions(product = {}) {
+  const description = String(product.description || "").toLowerCase();
+  if (description.includes("combo")) return ["Sortidos", "Granulado", "Chocoball", "Cookies baunilha", "Ovomaltine"];
+  if (description.includes("milk") || description.includes("shake")) return ["Chantilly", "Granulado", "Chocoball", "Cookies baunilha", "Ovomaltine"];
+  return ["Granulado", "Chocoball", "Cookies baunilha", "Farofa de pacoca", "Amendoim granulado", "Gotas cookies chocolate", "Ovomaltine"];
+}
+
 function catalogProduct(product, tenant, tenantState) {
   const price = effectiveProductPrice(product, 1);
+  const hasCoverage = Boolean(product.hasCoverage || product.coverageOptions?.length || /bolo|torta|pizza|doce|cobertura/i.test(product.description || ""));
   return {
     id: product.id,
     tenantCode: tenant.tenantCode,
@@ -1267,8 +1286,12 @@ function catalogProduct(product, tenant, tenantState) {
     cost: Number(product.cost || 0),
     stock: Number(product.stock || 0),
     photo: product.photo || "",
-    hasCoverage: Boolean(product.hasCoverage || product.coverageOptions?.length || /bolo|torta|pizza|doce|cobertura/i.test(product.description || "")),
-    coverageOptions: product.coverageOptions || ["Sem cobertura", "Chocolate", "Morango", "Doce de leite"],
+    type: product.type || "",
+    isBundle: Boolean(product.isBundle || product.type === "Produto composto" || product.composition?.length),
+    additional: Boolean(product.additional),
+    hasCoverage,
+    coverageOptions: hasCoverage ? optionList(product.coverageOptions, ["Sem cobertura", "Chocolate", "Morango", "Doce de leite"]) : [],
+    toppingOptions: optionList(product.toppingOptions || product.additionalOptions || product.extrasOptions, defaultToppingOptions(product)),
     city: tenant.city || tenantState.settings?.city || "",
     uf: tenant.uf || tenantState.settings?.uf || "",
     cep: tenant.cep || tenantState.settings?.cep || ""
