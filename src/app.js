@@ -320,7 +320,7 @@ window.TORTELA_BUILD = "settings-tabs-cleanup-v11";
 let state = load();
 let apiOnline = false;
 const licenseGateDisabled = true;
-const publicTerminalGateDisabled = true;
+const publicTerminalGateDisabled = false;
 let currentMode = "backoffice";
 let currentModule = "dashboard";
 let currentTab = "dados";
@@ -3411,12 +3411,12 @@ function renderSettings() {
             <div class="field"><label>Raio entrega online km</label><input id="set-delivery-radius-km" type="number" step="0.1" value="${Number(state.settings.deliveryRadiusKm || 10)}" /></div>
             <div class="field terminal-token-field">
               <label>Token totem/cozinha/telao</label>
-              <input id="set-public-terminal-token" value="${escapeAttr(state.settings.publicTerminalToken || "")}" placeholder="Desativado durante desenvolvimento" ${publicTerminalGateDisabled ? "readonly" : ""} />
+              <input id="set-public-terminal-token" value="${escapeAttr(state.settings.publicTerminalToken || "")}" placeholder="Sem token: links diretos; com token: links protegidos" ${publicTerminalGateDisabled ? "readonly" : ""} />
               <div class="actions">
                 <button class="btn" id="copy-public-terminal-token" type="button" ${publicTerminalGateDisabled ? "disabled" : ""}>Copiar token</button>
                 <button class="btn danger" id="rotate-public-terminal-token" type="button" ${publicTerminalGateDisabled ? "disabled" : ""}>Gerar novo token</button>
               </div>
-              <small>${publicTerminalGateDisabled ? "Durante o desenvolvimento, os links do totem, cozinha e telao abrem direto por unidade." : "Ao gerar e salvar um novo token, os links antigos do totem, cozinha e telao deixam de funcionar."}</small>
+              <small>${publicTerminalGateDisabled ? "Durante o desenvolvimento, os links do totem, cozinha e telao abrem direto por unidade." : "Ao gerar e salvar um novo token, os links antigos do totem, cozinha e telao sem token deixam de funcionar."}</small>
             </div>
           </div>
         </div>

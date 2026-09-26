@@ -623,7 +623,7 @@ function ensureTortelaOnlineStarterProducts(products, tenantCode) {
 
 function withTenantStateDefaults(state, tenantCode) {
   const code = normalizeTenantCode(tenantCode || state?.settings?.tenantCode || initialTenantState.settings.tenantCode);
-  const publicTerminalToken = state?.settings?.publicTerminalToken || defaultPublicTerminalToken(code);
+  const publicTerminalToken = state?.settings?.publicTerminalToken || "";
   const merged = {
     ...structuredClone(initialTenantState),
     ...(state || {}),
@@ -1117,13 +1117,14 @@ function findTenant(provider, tenantCode) {
   return provider.clients.find((client) => client.tenantCode === normalizeTenantCode(tenantCode));
 }
 
-const publicTerminalAuthDisabled = true;
+const publicTerminalAuthDisabled = false;
 
 function publicTerminalAllowed(tenantState, token) {
   if (publicTerminalAuthDisabled) return true;
   const expected = String(tenantState?.settings?.publicTerminalToken || "").trim();
   const received = String(token || "").trim();
-  if (!expected || !received || expected.length !== received.length) return false;
+  if (!expected) return true;
+  if (!received || expected.length !== received.length) return false;
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(received));
 }
 

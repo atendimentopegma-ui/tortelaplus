@@ -16,6 +16,7 @@
     "verify:products": "node scripts/verify-products-flow.js",
     "verify:stock": "node scripts/verify-stock-flow.js",
     "verify:finance": "node scripts/verify-finance-flow.js",
+    "verify:security": "node scripts/verify-security-flow.js",
     "verify:pdv": "node scripts/verify-pdv-flow.js",
     "verify:kitchen": "node scripts/verify-kitchen-display.js",
     "verify:kiosk": "node scripts/verify-kiosk-flow.js",

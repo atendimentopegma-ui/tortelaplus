@@ -181,12 +181,13 @@ includesAll("Abas de configuracoes", settingsRenderer, [
 });
 
 const publicUnitLink = extractFunction("publicUnitLink");
-includesAll("Links publicos do totem em desenvolvimento", app, [
-  "const publicTerminalGateDisabled = true",
-  "Durante o desenvolvimento, os links do totem, cozinha e telao abrem direto por unidade."
+includesAll("Links publicos do totem em ambiente real", app, [
+  "const publicTerminalGateDisabled = false",
+  "Sem token: links diretos; com token: links protegidos",
+  "Ao gerar e salvar um novo token, os links antigos do totem, cozinha e telao sem token deixam de funcionar."
 ]);
-assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token nao pode ser exigido durante desenvolvimento.");
-assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar acesso direto quando token estiver desativado.");
+assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.publicTerminalToken"), "Links publicos: token deve entrar no link quando configurado.");
+assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar link protegido em ambiente real.");
 includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
   "settings-tabs-cleanup-v11",
   "tortelaplus-operacao-v11",
