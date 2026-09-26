@@ -2691,11 +2691,7 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 403, { ok: false, error: publicTerminalError(terminalToken) });
       return;
     }
-    const orders = (tenantState.sales || [])
-      .filter((sale) => sale.kioskOrder)
-      .sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date)))
-      .slice(0, 40)
-      .map((sale) => ({
+    const toKioskOrder = (sale) => ({
         id: sale.id,
         ticketNumber: sale.kioskTicketNumber,
         status: sale.status || "Preparando",
@@ -2703,9 +2699,25 @@ async function handleApi(req, res, urlPath) {
         payment: sale.payment || "PIX",
         paymentStatus: sale.paymentStatus || "Pendente",
         createdAt: sale.createdAt || "",
+        updatedAt: sale.updatedAt || sale.deliveredAt || sale.cancelledAt || "",
+        readyAt: sale.readyAt || "",
+        deliveredAt: sale.deliveredAt || "",
+        cancelledAt: sale.cancelledAt || "",
+        delivery: sale.delivery || "Retirada no balcao",
         items: (sale.items || []).map((item) => ({ description: item.description, qty: item.qty }))
-      }));
-    sendJson(res, 200, { ok: true, tenantCode: tenant.tenantCode, unit: tenant.tradeName, orders });
+      });
+    const kioskSales = (tenantState.sales || []).filter((sale) => sale.kioskOrder);
+    const activeOrders = kioskSales
+      .filter((sale) => !["Entregue", "Cancelado", "Cancelada"].includes(sale.status))
+      .sort((a, b) => String(a.createdAt || a.date).localeCompare(String(b.createdAt || b.date)))
+      .slice(0, 40)
+      .map(toKioskOrder);
+    const history = kioskSales
+      .filter((sale) => ["Entregue", "Cancelado", "Cancelada"].includes(sale.status))
+      .sort((a, b) => String(b.updatedAt || b.deliveredAt || b.cancelledAt || b.createdAt || b.date).localeCompare(String(a.updatedAt || a.deliveredAt || a.cancelledAt || a.createdAt || a.date)))
+      .slice(0, 20)
+      .map(toKioskOrder);
+    sendJson(res, 200, { ok: true, tenantCode: tenant.tenantCode, unit: tenant.tradeName, orders: activeOrders, history });
     return;
   }
 

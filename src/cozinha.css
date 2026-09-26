@@ -26,6 +26,7 @@ body.kitchen-page button {
 .kitchen-hero,
 .kitchen-columns > div,
 .kitchen-order,
+.kitchen-history,
 .kitchen-error {
   border: 1px solid #e1d2ac;
   background: rgba(255, 255, 255, 0.96);
@@ -283,6 +284,55 @@ body.kitchen-page button {
   color: #087187;
   font-weight: 900;
   text-align: center;
+}
+
+.kitchen-history {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 24px;
+}
+
+.kitchen-history h2 {
+  margin: 0 0 14px;
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.kitchen-history-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.kitchen-history-list article,
+.kitchen-history-list p {
+  margin: 0;
+  padding: 13px;
+  border-radius: 16px;
+  background: #f7f2e7;
+}
+
+.kitchen-history-list strong,
+.kitchen-history-list span,
+.kitchen-history-list small {
+  display: block;
+}
+
+.kitchen-history-list strong {
+  color: #101827;
+  font-size: 18px;
+}
+
+.kitchen-history-list span {
+  margin-top: 4px;
+  color: #087187;
+  font-weight: 900;
+}
+
+.kitchen-history-list small,
+.kitchen-history-list p {
+  color: #5d6677;
+  font-weight: 800;
 }
 
 @media (max-width: 1000px) {

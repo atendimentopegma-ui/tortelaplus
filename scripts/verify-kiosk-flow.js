@@ -80,7 +80,7 @@ assert(kioskSource.includes("data-remove-cart-index"), "Totem: carrinho precisa 
 assert(kioskSource.includes("button.dataset.removeCartIndex"), "Totem: clique em Remover item precisa atualizar o carrinho.");
 assert(kioskSource.includes("scheduleSuccessReset()"), "Totem: pedido concluido precisa iniciar novo pedido automaticamente.");
 assert(!kioskSource.includes('id="tk-new-order"'), "Totem: tela de sucesso nao deve depender do botao Novo pedido.");
-assert(kioskHtml.includes("totem-auto-new-order-v1"), "Totem: cache bust do novo pedido automatico nao foi atualizado.");
+assert(!/\?v=/.test(kioskHtml), "Totem: nao use sufixos versionados nos assets; mantenha o mesmo dominio/URL.");
 
 (async () => {
   const port = await freePort();
@@ -161,6 +161,9 @@ assert(kioskHtml.includes("totem-auto-new-order-v1"), "Totem: cache bust do novo
       orderId: order.orderId,
       status: "Entregue"
     });
+    const deliveredBoard = await requestJson(baseUrl, "GET", "/api/public/kiosk/orders?unidade=cliente-exemplo");
+    assert(!deliveredBoard.orders.some((item) => Number(item.id) === Number(order.orderId)), "Pedido entregue continuou na fila ativa da cozinha/telao.");
+    assert((deliveredBoard.history || []).some((item) => Number(item.id) === Number(order.orderId) && item.status === "Entregue"), "Pedido entregue nao apareceu no historico operacional.");
 
     const cancelOrder = await requestJson(baseUrl, "POST", "/api/public/kiosk/orders", {
       tenantCode: "cliente-exemplo",

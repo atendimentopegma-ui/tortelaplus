@@ -78,6 +78,7 @@ function orderCard(order) {
 
 function renderKitchen(payload) {
   const orders = (payload.orders || []).filter((order) => !["Entregue", "Cancelado"].includes(order.status));
+  const history = (payload.history || []).slice(0, 6);
   const ready = orders.filter((order) => order.status === "Pronto");
   const preparing = orders.filter((order) => order.status !== "Pronto");
   const now = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -114,6 +115,18 @@ function renderKitchen(payload) {
         <div>
           <h2>Prontos para entrega</h2>
           <div class="kitchen-list">${ready.map(orderCard).join("") || `<p>Nenhum pedido pronto.</p>`}</div>
+        </div>
+      </section>
+      <section class="kitchen-history">
+        <h2>Ultimos finalizados</h2>
+        <div class="kitchen-history-list">
+          ${history.map((order) => `
+            <article>
+              <strong>Senha ${ticket(order)}</strong>
+              <span>${kitchenEscape(order.status || "Finalizado")}</span>
+              <small>${kitchenEscape(order.delivery || "Retirada no balcao")} · ${kitchenMoney(order.total || 0)}</small>
+            </article>
+          `).join("") || `<p>Nenhum pedido finalizado ainda.</p>`}
         </div>
       </section>
     </main>
