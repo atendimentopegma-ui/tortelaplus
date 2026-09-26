@@ -53,7 +53,5 @@ services:
         value: 22
       - key: DATABASE_URL
         sync: false
-      - key: PEGMA_CENTRAL_PASSWORD
-        generateValue: true
       - key: PEGMA_SURFACE
         value: network
