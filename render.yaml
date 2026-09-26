@@ -18,7 +18,7 @@ envVarGroups:
       - key: PEGMA_CENTRAL_USER
         value: admin
       - key: PEGMA_CENTRAL_PASSWORD
-        sync: false
+        generateValue: true
       - key: PEGMA_BACKUP_DIR
         sync: false
 
