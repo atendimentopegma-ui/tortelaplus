@@ -22,9 +22,10 @@
     "verify:kitchen": "node scripts/verify-kitchen-display.js",
     "verify:kiosk": "node scripts/verify-kiosk-flow.js",
     "verify:implantation": "node scripts/implantation-status.js",
+    "verify:post-deploy": "node scripts/verify-post-deploy.js",
     "implantation:status": "node scripts/implantation-status.js",
     "fiscal:rules:import": "node scripts/import-fiscal-rules.js",
-    "verify": "node --check server.js && node --check fiscal-agent.js && node --check src/app.js && node --check src/loja-tortela.js && node --check src/totem-tortela.js && node --check src/cozinha-tortela.js && node --check src/telao-tortela.js && node --check src/central-rede.js && node --check src/central-lojista.js && node --check src/central-saas.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
+    "verify": "node --check server.js && node --check fiscal-agent.js && node --check scripts/verify-post-deploy.js && node --check src/app.js && node --check src/loja-tortela.js && node --check src/totem-tortela.js && node --check src/cozinha-tortela.js && node --check src/telao-tortela.js && node --check src/central-rede.js && node --check src/central-lojista.js && node --check src/central-saas.js && node --check src/cadastro-cliente.js && node --check src/server/fiscal-documents.js && node --check src/server/postgres-store.js"
   },
   "keywords": [
     "erp",
