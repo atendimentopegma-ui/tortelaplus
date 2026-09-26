@@ -1187,6 +1187,28 @@ function moneyRound(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
 
+function financeBalance(row) {
+  if (row?.cancelled) return 0;
+  return Math.max(0, Number(row?.value || 0) + Number(row?.interest || 0) - Number(row?.discount || 0) - Number(row?.paidValue || 0));
+}
+
+function receivableForSale(receivables, sale, customer, payment, history) {
+  const row = {
+    id: Math.max(0, ...receivables.map((item) => Number(item.id) || 0)) + 1,
+    customer,
+    due: today(),
+    value: Number(sale.total || 0),
+    paidValue: 0,
+    paid: false,
+    accountCode: "3.1.01",
+    payment,
+    history,
+    sourceSaleId: sale.id
+  };
+  row.balance = financeBalance(row);
+  return row;
+}
+
 function normalizeText(value = "") {
   return String(value || "")
     .normalize("NFD")
@@ -2593,17 +2615,7 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     tenantState.sales.push(sale);
-    tenantState.receivables.push({
-      id: Math.max(0, ...tenantState.receivables.map((row) => Number(row.id) || 0)) + 1,
-      customer: customer.name,
-      due: today(),
-      value: total,
-      paidValue: 0,
-      paid: false,
-      accountCode: "3.1.01",
-      history: `Pedido online ${sale.id} - ${payment}`,
-      sourceSaleId: sale.id
-    });
+    tenantState.receivables.push(receivableForSale(tenantState.receivables, sale, customer.name, payment, `Pedido online ${sale.id} - ${payment}`));
     writeTenantState(tenant.tenantCode, tenantState);
     appendTenantAudit(tenant.tenantCode, "Pedido online recebido", `${customer.name} ${moneyRound(total)}`, "loja-online");
     sendJson(res, 201, { ok: true, orderId: sale.id, tenantCode: tenant.tenantCode, unit: tenant.tradeName, total, payment, paymentInfo });
@@ -2695,17 +2707,7 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     tenantState.sales.push(sale);
-    tenantState.receivables.push({
-      id: Math.max(0, ...tenantState.receivables.map((row) => Number(row.id) || 0)) + 1,
-      customer: sale.customer,
-      due: today(),
-      value: total,
-      paidValue: 0,
-      paid: false,
-      accountCode: "3.1.01",
-      history: `Totem ${sale.kioskTicketNumber} - ${payment}`,
-      sourceSaleId: sale.id
-    });
+    tenantState.receivables.push(receivableForSale(tenantState.receivables, sale, sale.customer, payment, `Totem ${sale.kioskTicketNumber} - ${payment}`));
     const fiscalRow = enqueueSaleNfce(tenantState, sale);
     writeTenantState(tenant.tenantCode, tenantState);
     appendTenantAudit(tenant.tenantCode, "Pedido do totem recebido", `Senha ${sale.kioskTicketNumber} - ${moneyRound(total)}`, "totem");
@@ -2950,8 +2952,8 @@ async function handleApi(req, res, urlPath) {
       const fiscalPending = fiscalRows.filter((row) => !["Autorizada", "Cancelada"].includes(row.status)).length;
       const payables = (tenantState.payables || []).filter((row) => !row.paid && !row.cancelled);
       const receivables = (tenantState.receivables || []).filter((row) => !row.paid && !row.cancelled);
-      const payableOpen = payables.reduce((sum, row) => sum + Number(row.balance ?? row.value ?? 0), 0);
-      const receivableOpen = receivables.reduce((sum, row) => sum + Number(row.balance ?? row.value ?? 0), 0);
+      const payableOpen = payables.reduce((sum, row) => sum + financeBalance(row), 0);
+      const receivableOpen = receivables.reduce((sum, row) => sum + financeBalance(row), 0);
       const purchasesTotal = (tenantState.purchases || []).reduce((sum, row) => sum + Number(row.total || 0), 0);
       const orders = tenantState.automaticOrders || [];
       const tenantPromotions = (tenantState.networkPromotions || []).filter(activePromotion);

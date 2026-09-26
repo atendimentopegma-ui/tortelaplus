@@ -7352,7 +7352,8 @@ async function finishSaleRecord() {
       due: today(),
       value: paymentInfo.storeCredit,
       paid: false,
-      history: `Venda PDV ${sale.id} - Crediario`
+      history: `Venda PDV ${sale.id} - Crediario`,
+      sourceSaleId: sale.id
     });
   }
   paymentInfo.cashEntries.forEach((entry) => {
@@ -7599,22 +7600,27 @@ function pdvPaymentBreakdown(total) {
     Crediario: num("pay-store-credit")
   };
   if (Object.values(raw).every((value) => value <= 0)) raw.Dinheiro = total;
-  const paid = Object.values(raw).reduce((sum, value) => sum + value, 0);
-  const change = Math.round(Math.max(0, paid - total) * 100) / 100;
-  const storeCredit = Math.max(0, Math.min(raw.Crediario, total - raw.Dinheiro - raw.PIX - raw["Cartao debito"] - raw["Cartao credito"]));
+  const immediate = raw.Dinheiro + raw.PIX + raw["Cartao debito"] + raw["Cartao credito"];
+  const storeCredit = Math.round(Math.max(0, Math.min(raw.Crediario, total - immediate)) * 100) / 100;
+  const paid = Math.round((immediate + storeCredit) * 100) / 100;
+  const cashNeeded = Math.max(0, total - raw.PIX - raw["Cartao debito"] - raw["Cartao credito"] - storeCredit);
+  const change = Math.round(Math.max(0, raw.Dinheiro - cashNeeded) * 100) / 100;
   const cashEntries = [];
   Object.entries(raw).forEach(([method, value]) => {
     if (value <= 0 || method === "Crediario") return;
     const out = method === "Dinheiro" ? change : 0;
     cashEntries.push({ method, in: Math.max(0, value - out), out });
   });
+  const payments = Object.entries({ ...raw, Crediario: storeCredit })
+    .filter(([, value]) => value > 0)
+    .map(([method, value]) => ({ method, value }));
   return {
     paid,
     change,
     storeCredit,
-    payments: Object.entries(raw).filter(([, value]) => value > 0).map(([method, value]) => ({ method, value })),
+    payments,
     cashEntries,
-    label: Object.entries(raw).filter(([, value]) => value > 0).map(([method]) => method).join(" + ") || "Dinheiro"
+    label: payments.map(({ method }) => method).join(" + ") || "Dinheiro"
   };
 }
 
