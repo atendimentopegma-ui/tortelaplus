@@ -1,11 +1,13 @@
 const fs = require("fs");
 const path = require("path");
 const { PostgresStore } = require("../src/server/postgres-store");
+const { envValue } = require("../src/server/deployment-readiness");
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("Configure DATABASE_URL antes de executar a migracao.");
   const root = path.resolve(__dirname, "..");
-  const dataDir = process.env.PEGMA_DB_DIR ? path.resolve(process.env.PEGMA_DB_DIR) : path.join(root, "data");
+  const configuredDataDir = envValue(process.env, "TORTELAPLUS_DB_DIR", "PEGMA_DB_DIR");
+  const dataDir = configuredDataDir ? path.resolve(configuredDataDir) : path.join(root, "data");
   const store = new PostgresStore(process.env.DATABASE_URL);
   await store.initialize();
 

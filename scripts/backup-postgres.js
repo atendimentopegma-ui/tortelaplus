@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { PostgresStore } = require("../src/server/postgres-store");
+const { envValue } = require("../src/server/deployment-readiness");
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("Configure DATABASE_URL.");
@@ -9,7 +10,7 @@ async function main() {
   const provider = await store.readProvider();
   if (!provider) throw new Error("Central SaaS nao encontrada no PostgreSQL.");
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const target = path.resolve(process.env.PEGMA_BACKUP_DIR || path.join(__dirname, "..", "data", "external-backups"), stamp);
+  const target = path.resolve(envValue(process.env, "TORTELAPLUS_BACKUP_DIR", "PEGMA_BACKUP_DIR") || path.join(__dirname, "..", "data", "external-backups"), stamp);
   fs.mkdirSync(target, { recursive: true });
   fs.writeFileSync(path.join(target, "provider-state.json"), JSON.stringify(provider, null, 2));
   for (const client of provider.clients || []) {

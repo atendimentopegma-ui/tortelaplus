@@ -12,23 +12,23 @@ const {
   parseAcbrResponse,
   importNfeXml
 } = require("./src/server/fiscal-documents");
-const { buildDeploymentReadiness, buildSecurityHeaders } = require("./src/server/deployment-readiness");
+const { buildDeploymentReadiness, buildSecurityHeaders, envValue } = require("./src/server/deployment-readiness");
 
 const root = __dirname;
 const port = Number(process.env.PORT || 4173);
-const dataDir = process.env.PEGMA_DB_DIR ? path.resolve(process.env.PEGMA_DB_DIR) : path.join(root, "data");
+const dataDir = envValue(process.env, "TORTELAPLUS_DB_DIR", "PEGMA_DB_DIR") ? path.resolve(envValue(process.env, "TORTELAPLUS_DB_DIR", "PEGMA_DB_DIR")) : path.join(root, "data");
 const tenantsDir = path.join(dataDir, "tenants");
 const storageDir = path.join(dataDir, "storage");
 const backupsDir = path.join(dataDir, "backups");
 const legacyStateFile = path.join(dataDir, "app-state.json");
 const providerFile = path.join(dataDir, "provider-state.json");
-const providerAdminToken = process.env.PEGMA_PROVIDER_TOKEN || "";
-const fiscalSecretKey = process.env.PEGMA_SECRET_KEY || "";
+const providerAdminToken = envValue(process.env, "TORTELAPLUS_PROVIDER_TOKEN", "PEGMA_PROVIDER_TOKEN") || "";
+const fiscalSecretKey = envValue(process.env, "TORTELAPLUS_SECRET_KEY", "PEGMA_SECRET_KEY") || "";
 const databaseMode = process.env.DATABASE_URL ? "postgresql-schema-per-tenant" : "local-json-contingency";
 const securityHeaders = buildSecurityHeaders(process.env);
-const appSurface = String(process.env.PEGMA_SURFACE || "all").toLowerCase();
-const acbrHost = process.env.PEGMA_ACBR_HOST || "";
-const acbrPort = Number(process.env.PEGMA_ACBR_PORT || 3436);
+const appSurface = String(envValue(process.env, "TORTELAPLUS_SURFACE", "PEGMA_SURFACE") || "all").toLowerCase();
+const acbrHost = envValue(process.env, "TORTELAPLUS_ACBR_HOST", "PEGMA_ACBR_HOST") || "";
+const acbrPort = Number(envValue(process.env, "TORTELAPLUS_ACBR_PORT", "PEGMA_ACBR_PORT") || 3436);
 const fiscalRuntimeDir = path.join(root, "runtime", "fiscal");
 const acbrLibDll = path.join(fiscalRuntimeDir, "ACBrLib", "ACBrNFe64.dll");
 const acbrNfseDll = path.join(fiscalRuntimeDir, "ACBrLib", "ACBrNFSe64.dll");
@@ -44,9 +44,9 @@ const loginAttempts = new Map();
 const tenantCache = new Map();
 let providerCache = null;
 let postgresStore = null;
-const sessionTtlMs = Number(process.env.PEGMA_SESSION_TTL_MINUTES || 480) * 60000;
-const backupIntervalMs = Math.max(15, Number(process.env.PEGMA_BACKUP_INTERVAL_MINUTES || 360)) * 60000;
-const backupRetentionDays = Math.max(7, Number(process.env.PEGMA_BACKUP_RETENTION_DAYS || 30));
+const sessionTtlMs = Number(envValue(process.env, "TORTELAPLUS_SESSION_TTL_MINUTES", "PEGMA_SESSION_TTL_MINUTES") || 480) * 60000;
+const backupIntervalMs = Math.max(15, Number(envValue(process.env, "TORTELAPLUS_BACKUP_INTERVAL_MINUTES", "PEGMA_BACKUP_INTERVAL_MINUTES") || 360)) * 60000;
+const backupRetentionDays = Math.max(7, Number(envValue(process.env, "TORTELAPLUS_BACKUP_RETENTION_DAYS", "PEGMA_BACKUP_RETENTION_DAYS") || 30));
 
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -92,9 +92,9 @@ const initialProvider = {
     {
       id: 1,
       name: "Administrador da Central",
-      username: process.env.PEGMA_CENTRAL_USER || "admin",
+      username: envValue(process.env, "TORTELAPLUS_CENTRAL_USER", "PEGMA_CENTRAL_USER") || "admin",
       active: true,
-      passwordHash: hashPassword(process.env.PEGMA_CENTRAL_PASSWORD || "Pegma@2026")
+      passwordHash: hashPassword(envValue(process.env, "TORTELAPLUS_CENTRAL_PASSWORD", "PEGMA_CENTRAL_PASSWORD") || "Pegma@2026")
     }
   ],
   auditLogs: [],
@@ -699,8 +699,8 @@ function normalizeProviderAdmins(admins) {
 }
 
 function configuredProviderAdmin() {
-  const username = String(process.env.PEGMA_CENTRAL_USER || "").trim();
-  const password = String(process.env.PEGMA_CENTRAL_PASSWORD || "");
+  const username = String(envValue(process.env, "TORTELAPLUS_CENTRAL_USER", "PEGMA_CENTRAL_USER") || "").trim();
+  const password = String(envValue(process.env, "TORTELAPLUS_CENTRAL_PASSWORD", "PEGMA_CENTRAL_PASSWORD") || "");
   if (!username || !password) return null;
   return {
     id: 1,
@@ -803,7 +803,7 @@ function simpleHash(text) {
 }
 
 function defaultPublicTerminalToken(tenantCode) {
-  const secret = process.env.PEGMA_PUBLIC_LINK_SECRET || process.env.PEGMA_SECRET_KEY || "tortela-local-dev-secret";
+  const secret = envValue(process.env, "TORTELAPLUS_PUBLIC_LINK_SECRET", "PEGMA_PUBLIC_LINK_SECRET") || envValue(process.env, "TORTELAPLUS_SECRET_KEY", "PEGMA_SECRET_KEY") || "tortela-local-dev-secret";
   return crypto.createHash("sha256").update(`${normalizeTenantCode(tenantCode)}|${secret}|totem`).digest("base64url").slice(0, 24);
 }
 
@@ -915,13 +915,13 @@ function saveFiscalResponse(tenantCode, filename, response) {
 }
 
 function saveFiscalSecrets(tenantCode, secrets) {
-  if (fiscalSecretKey.length < 32) throw new Error("Configure PEGMA_SECRET_KEY com pelo menos 32 caracteres no provedor.");
+  if (fiscalSecretKey.length < 32) throw new Error("Configure TORTELAPLUS_SECRET_KEY com pelo menos 32 caracteres no provedor.");
   const payload = encryptVaultPayload(secrets);
   fs.writeFileSync(path.join(tenantStorageDir(tenantCode, "secrets"), "fiscal-vault.json"), JSON.stringify(payload));
 }
 
 function encryptVaultPayload(secrets) {
-  if (fiscalSecretKey.length < 32) throw new Error("Configure PEGMA_SECRET_KEY com pelo menos 32 caracteres no provedor.");
+  if (fiscalSecretKey.length < 32) throw new Error("Configure TORTELAPLUS_SECRET_KEY com pelo menos 32 caracteres no provedor.");
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", crypto.createHash("sha256").update(fiscalSecretKey).digest(), iv);
   const encrypted = Buffer.concat([cipher.update(JSON.stringify(secrets), "utf8"), cipher.final()]);
@@ -939,7 +939,7 @@ function loadFiscalSecrets(tenantCode) {
 }
 
 function decryptVaultPayload(payload) {
-  if (fiscalSecretKey.length < 32) throw new Error("Configure PEGMA_SECRET_KEY com pelo menos 32 caracteres no provedor.");
+  if (fiscalSecretKey.length < 32) throw new Error("Configure TORTELAPLUS_SECRET_KEY com pelo menos 32 caracteres no provedor.");
   const decipher = crypto.createDecipheriv("aes-256-gcm", crypto.createHash("sha256").update(fiscalSecretKey).digest(), Buffer.from(payload.iv, "base64"));
   decipher.setAuthTag(Buffer.from(payload.tag, "base64"));
   return JSON.parse(Buffer.concat([decipher.update(Buffer.from(payload.data, "base64")), decipher.final()]).toString("utf8"));

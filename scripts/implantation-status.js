@@ -23,6 +23,12 @@ function any(states, fn) {
   return states.some(fn);
 }
 
+function envValue(primary, fallback) {
+  const value = process.env[primary];
+  if (value !== undefined && String(value).trim() !== "") return value;
+  return fallback ? process.env[fallback] : undefined;
+}
+
 function percent(checks) {
   return Math.round(checks.filter(([, ok]) => ok).length / checks.length * 100);
 }
@@ -72,7 +78,7 @@ const operationalChecks = [
   ["Usuario administrador cadastrado", any(states, (state) => (state.users || []).some((user) => user.active !== false && user.role === "Administrador"))],
   ["Produtos Tortela ativos no catalogo", any(states, (state) => (state.products || []).some((product) => product.active !== false && /tortela|torta|milk shake|combo/i.test(product.description || "")))],
   ["Caixa operacional aberto para piloto", any(states, (state) => state.cashRegister?.open === true)],
-  ["Backup local/externo configuravel", Boolean(process.env.PEGMA_BACKUP_DIR) || exists("scripts/backup-postgres.js")],
+  ["Backup local/externo configuravel", Boolean(envValue("TORTELAPLUS_BACKUP_DIR", "PEGMA_BACKUP_DIR")) || exists("scripts/backup-postgres.js")],
   ["Banco PostgreSQL configurado no ambiente atual", Boolean(process.env.DATABASE_URL)]
 ];
 

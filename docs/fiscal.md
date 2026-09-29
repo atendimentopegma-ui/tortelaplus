@@ -74,7 +74,7 @@ Arquivos instalados no projeto:
 - Inutilizacao, cancelamento, carta de correcao e contingencia usam operacoes reais da ACBrLib e arquivam os retornos por cliente.
 - As operacoes fiscais dependem da homologacao e dos parametros reais da empresa, certificado, UF e municipio antes do uso em producao.
 
-Os campos para preenchimento no provedor ficam em `Configuracoes`: dados da empresa, IE/IM, endereco, regime, credenciamento e UF SEFAZ, certificado A1, validade, senha protegida, CSC/ID CSC e configuracao do municipio/provedor NFS-e. Senha do certificado e CSC sao criptografados no cofre fiscal quando `PEGMA_SECRET_KEY` estiver configurada.
+Os campos para preenchimento no provedor ficam em `Configuracoes`: dados da empresa, IE/IM, endereco, regime, credenciamento e UF SEFAZ, certificado A1, validade, senha protegida, CSC/ID CSC e configuracao do municipio/provedor NFS-e. Senha do certificado e CSC sao criptografados no cofre fiscal quando `TORTELAPLUS_SECRET_KEY` estiver configurada.
 
 Referencias oficiais:
 

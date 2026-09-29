@@ -76,7 +76,7 @@ Quando o backend estiver hospedado fora do Windows, configure em cada unidade a 
 Inicie o agente separado na maquina Windows:
 
 ```text
-PEGMA_AGENT_TOKEN=um-token-longo-e-seguro
+TORTELAPLUS_AGENT_TOKEN=um-token-longo-e-seguro
 npm run agent
 ```
 
@@ -93,18 +93,18 @@ O agente deve ficar protegido por HTTPS/VPN. Ele utiliza somente a copia ACBr de
 
 - Sem `DATABASE_URL`, o servidor usa os arquivos locais somente como contingencia de desenvolvimento.
 - Com `DATABASE_URL`, a Central fica no schema `public` e cada unidade recebe um schema PostgreSQL exclusivo `tenant_<codigo>`.
-- Em provedor pago, configure `PEGMA_PUBLIC_LINK_SECRET` para gerar tokens exclusivos de totem, cozinha e telao por unidade.
+- Em provedor pago, configure `TORTELAPLUS_PUBLIC_LINK_SECRET` para gerar tokens exclusivos de totem, cozinha e telao por unidade.
 - Para os primeiros testes online, o PostgreSQL gratuito recomendado e o Neon Free: https://neon.com/pricing
 - A migracao inicial dos JSON existentes pode ser executada com `npm run db:migrate`.
 - A migracao inclui os arquivos XML, PDF, imagens e anexos armazenados por cliente.
 - Depois da migracao, execute `npm run db:verify` para conferir unidades, schemas e quantidades das colecoes principais.
-- Execute `npm run db:backup` com `PEGMA_BACKUP_DIR` apontando para um armazenamento externo.
+- Execute `npm run db:backup` com `TORTELAPLUS_BACKUP_DIR` apontando para um armazenamento externo.
 - O servidor cria backups programados individuais e gerais da Central da Rede, inclui XMLs/PDFs fiscais, permite restauracao completa, aplica retencao configuravel e remove sessoes expiradas automaticamente.
 - A Central da Rede monitora pendencias fiscais, titulos atrasados, estoque minimo, prontidao e periodo fechado.
 - Auditorias da Central e das unidades possuem hashes encadeados para indicar alteracoes indevidas.
 - Periodos operacionais podem ser fechados em Configuracoes, bloqueando alteracoes retroativas em vendas, compras, financeiro, caixa e fiscal.
 - A Central da Rede exige login administrativo, registra auditoria e nao envia senha-base de licenca ao navegador.
-- Configure `PEGMA_CENTRAL_USER` e `PEGMA_CENTRAL_PASSWORD` antes da publicacao.
+- Configure `TORTELAPLUS_CENTRAL_USER` e `TORTELAPLUS_CENTRAL_PASSWORD` antes da publicacao.
 
 ## Publicacao gratuita atual
 

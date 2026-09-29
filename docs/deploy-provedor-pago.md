@@ -16,24 +16,24 @@ Configure no provedor:
 
 ```text
 NODE_ENV=production
-PEGMA_ENV=production-paid
-PEGMA_REQUIRE_PAID_PROVIDER=true
+TORTELAPLUS_ENV=production-paid
+TORTELAPLUS_REQUIRE_PAID_PROVIDER=true
 DATABASE_URL=postgresql://usuario:senha@host:5432/tortelaplus
 PGSSL=require
-PEGMA_ALLOWED_ORIGINS=https://app.seudominio.com.br,https://central.seudominio.com.br
-PEGMA_CENTRAL_USER=admin
-PEGMA_CENTRAL_PASSWORD=<senha forte com 32+ caracteres>
-PEGMA_SECRET_KEY=<chave forte com 32+ caracteres>
-PEGMA_PUBLIC_LINK_SECRET=<chave forte com 32+ caracteres para totem/cozinha/telao>
-PEGMA_PROVIDER_TOKEN=<token forte com 32+ caracteres>
-PEGMA_BACKUP_DIR=<pasta persistente ou storage externo>
+TORTELAPLUS_ALLOWED_ORIGINS=https://app.seudominio.com.br,https://central.seudominio.com.br
+TORTELAPLUS_CENTRAL_USER=admin
+TORTELAPLUS_CENTRAL_PASSWORD=<senha forte com 32+ caracteres>
+TORTELAPLUS_SECRET_KEY=<chave forte com 32+ caracteres>
+TORTELAPLUS_PUBLIC_LINK_SECRET=<chave forte com 32+ caracteres para totem/cozinha/telao>
+TORTELAPLUS_PROVIDER_TOKEN=<token forte com 32+ caracteres>
+TORTELAPLUS_BACKUP_DIR=<pasta persistente ou storage externo>
 ```
 
 Para fiscal em nuvem:
 
 ```text
-PEGMA_ACBR_AGENT_URL=https://agente-fiscal-da-unidade
-PEGMA_ACBR_AGENT_TOKEN=<token forte por unidade>
+TORTELAPLUS_ACBR_AGENT_URL=https://agente-fiscal-da-unidade
+TORTELAPLUS_ACBR_AGENT_TOKEN=<token forte por unidade>
 ```
 
 ## 3. Validacao antes de publicar
@@ -79,8 +79,8 @@ npm run db:verify-isolation
 
 - Isolamento por schema PostgreSQL por franquia para reduzir risco de mistura de dados.
 - Segredos fora do codigo por variaveis de ambiente.
-- `PEGMA_SECRET_KEY` para criptografar senha de certificado e CSC fiscal.
-- `PEGMA_PUBLIC_LINK_SECRET` para gerar tokens de unidade nos links de totem, cozinha e telao.
+- `TORTELAPLUS_SECRET_KEY` para criptografar senha de certificado e CSC fiscal.
+- `TORTELAPLUS_PUBLIC_LINK_SECRET` para gerar tokens de unidade nos links de totem, cozinha e telao.
 - Headers de seguranca: `nosniff`, `SAMEORIGIN`, `Referrer-Policy`, `Permissions-Policy` e origem HTTP controlada.
 - Cadastro publico exige consentimento do cliente antes de gravar dados.
 - Auditoria operacional e backups para rastreabilidade.

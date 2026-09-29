@@ -6,11 +6,17 @@ const { spawn } = require("child_process");
 const { parseAcbrResponse } = require("./src/server/fiscal-documents");
 
 const root = __dirname;
-const host = process.env.PEGMA_AGENT_HOST || "127.0.0.1";
-const port = Number(process.env.PEGMA_AGENT_PORT || 4180);
-const token = process.env.PEGMA_AGENT_TOKEN || "";
-const runtime = path.resolve(process.env.PEGMA_AGENT_RUNTIME || path.join(root, "runtime", "fiscal"));
-const workDir = path.resolve(process.env.PEGMA_AGENT_DATA || path.join(root, "data", "fiscal-agent"));
+function envValue(primary, fallback) {
+  const value = process.env[primary];
+  if (value !== undefined && String(value).trim() !== "") return value;
+  return fallback ? process.env[fallback] : undefined;
+}
+
+const host = envValue("TORTELAPLUS_AGENT_HOST", "PEGMA_AGENT_HOST") || "127.0.0.1";
+const port = Number(envValue("TORTELAPLUS_AGENT_PORT", "PEGMA_AGENT_PORT") || 4180);
+const token = envValue("TORTELAPLUS_AGENT_TOKEN", "PEGMA_AGENT_TOKEN") || "";
+const runtime = path.resolve(envValue("TORTELAPLUS_AGENT_RUNTIME", "PEGMA_AGENT_RUNTIME") || path.join(root, "runtime", "fiscal"));
+const workDir = path.resolve(envValue("TORTELAPLUS_AGENT_DATA", "PEGMA_AGENT_DATA") || path.join(root, "data", "fiscal-agent"));
 const bridge = path.join(runtime, "Bridge", "ProdutoFiscal.AcbrLibBridge.exe");
 const baseIni = path.join(runtime, "ACBrLib", "ACBrLib.ini");
 const engines = {

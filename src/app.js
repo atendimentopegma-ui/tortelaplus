@@ -6229,7 +6229,7 @@ async function saveSettingsRecord() {
       state.settings.whatsappWebhookTokenConfigured = result.whatsappWebhookTokenConfigured;
       state.settings.emailWebhookTokenConfigured = result.emailWebhookTokenConfigured;
     } catch {
-      alert("Dados comuns salvos. Para guardar senha do certificado e CSC, configure PEGMA_SECRET_KEY no provedor.");
+      alert("Dados comuns salvos. Para guardar senha do certificado e CSC, configure TORTELAPLUS_SECRET_KEY no provedor.");
     }
   }
   audit("Configuracoes alteradas", `${state.settings.company} - ${state.settings.regime}`);

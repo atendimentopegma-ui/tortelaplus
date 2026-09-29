@@ -29,6 +29,12 @@ function ok(value) {
   return Boolean(String(value || "").trim());
 }
 
+function envValue(primary, fallback) {
+  const value = process.env[primary];
+  if (value !== undefined && String(value).trim() !== "") return value;
+  return fallback ? process.env[fallback] : undefined;
+}
+
 function readTenantState() {
   if (!fs.existsSync(tenantPath)) return null;
   return JSON.parse(fs.readFileSync(tenantPath, "utf8"));
@@ -95,7 +101,7 @@ groups.push(group("Fiscal homologacao", [
   { label: "Credenciamento SEFAZ marcado", ok: settings.sefazCredentialed === true },
   { label: "CSC e ID CSC quando usar NFC-e", ok: !usesNfce || (settings.cscConfigured === true && ok(settings.cscId)) },
   { label: "Municipio/padrao NFS-e quando usar NFS-e", ok: !usesNfse || (ok(settings.nfseStandard) && ok(settings.nfseCityCode) && ok(settings.nfseProvider)) },
-  { label: "Agente fiscal ACBr configurado", ok: ok(settings.acbrApiUrl) || ok(settings.acbrHost) || ok(process.env.PEGMA_ACBR_AGENT_URL) || ok(process.env.PEGMA_ACBR_HOST) }
+  { label: "Agente fiscal ACBr configurado", ok: ok(settings.acbrApiUrl) || ok(settings.acbrHost) || ok(envValue("TORTELAPLUS_ACBR_AGENT_URL", "PEGMA_ACBR_AGENT_URL")) || ok(envValue("TORTELAPLUS_ACBR_HOST", "PEGMA_ACBR_HOST")) }
 ]));
 
 groups.push(group("Pagamentos reais", [
@@ -115,7 +121,7 @@ groups.push(group("WhatsApp e notificacoes", [
 
 groups.push(group("Seguranca dos arquivos", [
   { label: "Nenhum certificado/chave encontrado no repositorio", ok: riskyFiles.length === 0 },
-  { label: "Backup externo definido por ambiente ou rotina existente", ok: ok(process.env.PEGMA_BACKUP_DIR) || fs.existsSync(path.join(root, "scripts", "backup-postgres.js")) }
+  { label: "Backup externo definido por ambiente ou rotina existente", ok: ok(envValue("TORTELAPLUS_BACKUP_DIR", "PEGMA_BACKUP_DIR")) || fs.existsSync(path.join(root, "scripts", "backup-postgres.js")) }
 ]));
 
 if (riskyFiles.length) {

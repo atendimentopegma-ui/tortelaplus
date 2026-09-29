@@ -55,7 +55,7 @@ Para os primeiros ajustes online, use:
 
 1. **Neon Free** para PostgreSQL. Crie o banco e copie a connection string para `DATABASE_URL`.
 2. **Render Free** para a API/web. O arquivo `render.yaml` ja declara o servico e as variaveis obrigatorias.
-3. Configure no Render: `DATABASE_URL`, `PEGMA_SECRET_KEY`, `PEGMA_CENTRAL_USER` e `PEGMA_CENTRAL_PASSWORD`.
+3. Configure no Render: `DATABASE_URL`, `TORTELAPLUS_SECRET_KEY`, `TORTELAPLUS_CENTRAL_USER` e `TORTELAPLUS_CENTRAL_PASSWORD`.
 4. Execute `npm run db:migrate` uma vez com a `DATABASE_URL` configurada.
 5. Valide em `/api/health` se a persistencia aparece como `postgresql-schema-per-tenant`.
 

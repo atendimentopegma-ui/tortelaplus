@@ -24,6 +24,12 @@ function ok(value) {
   return Boolean(String(value || "").trim());
 }
 
+function envValue(primary, fallback) {
+  const value = process.env[primary];
+  if (value !== undefined && String(value).trim() !== "") return value;
+  return fallback ? process.env[fallback] : undefined;
+}
+
 function urlOk(value) {
   try {
     const parsed = new URL(String(value || ""));
@@ -53,8 +59,8 @@ const usesNfce = fiscalRules.some((rule) => rule.model === "NFC-e");
 const usesNfse = fiscalRules.some((rule) => rule.model === "NFS-e");
 const realCnpj = /^\d{14}$/.test(digits(settings.document)) && !/^(\d)\1{13}$/.test(digits(settings.document));
 const homologationMode = settings.fiscalEnvironment === "Homologacao";
-const acbrConfigured = ok(settings.acbrApiUrl) || ok(settings.acbrHost) || ok(process.env.PEGMA_ACBR_AGENT_URL) || ok(process.env.PEGMA_ACBR_HOST);
-const acbrProtected = !ok(settings.acbrApiUrl) || settings.acbrApiTokenConfigured === true || ok(process.env.PEGMA_ACBR_AGENT_TOKEN) || ok(process.env.PEGMA_SECRET_KEY);
+const acbrConfigured = ok(settings.acbrApiUrl) || ok(settings.acbrHost) || ok(envValue("TORTELAPLUS_ACBR_AGENT_URL", "PEGMA_ACBR_AGENT_URL")) || ok(envValue("TORTELAPLUS_ACBR_HOST", "PEGMA_ACBR_HOST"));
+const acbrProtected = !ok(settings.acbrApiUrl) || settings.acbrApiTokenConfigured === true || ok(envValue("TORTELAPLUS_ACBR_AGENT_TOKEN", "PEGMA_ACBR_AGENT_TOKEN")) || ok(envValue("TORTELAPLUS_SECRET_KEY", "PEGMA_SECRET_KEY"));
 
 const groups = [];
 

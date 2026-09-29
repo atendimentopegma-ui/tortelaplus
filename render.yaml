@@ -3,23 +3,23 @@ envVarGroups:
     envVars:
       - key: PGSSL
         value: require
-      - key: PEGMA_ENV
+      - key: TORTELAPLUS_ENV
         value: production-paid
-      - key: PEGMA_REQUIRE_PAID_PROVIDER
+      - key: TORTELAPLUS_REQUIRE_PAID_PROVIDER
         value: true
-      - key: PEGMA_ALLOWED_ORIGINS
+      - key: TORTELAPLUS_ALLOWED_ORIGINS
         value: https://tortelaplus-app.onrender.com,https://tortelaplus-rede.onrender.com
-      - key: PEGMA_SECRET_KEY
+      - key: TORTELAPLUS_SECRET_KEY
         generateValue: true
-      - key: PEGMA_PROVIDER_TOKEN
+      - key: TORTELAPLUS_PROVIDER_TOKEN
         generateValue: true
-      - key: PEGMA_PUBLIC_LINK_SECRET
+      - key: TORTELAPLUS_PUBLIC_LINK_SECRET
         generateValue: true
-      - key: PEGMA_CENTRAL_USER
+      - key: TORTELAPLUS_CENTRAL_USER
         value: admin
-      - key: PEGMA_CENTRAL_PASSWORD
+      - key: TORTELAPLUS_CENTRAL_PASSWORD
         generateValue: true
-      - key: PEGMA_BACKUP_DIR
+      - key: TORTELAPLUS_BACKUP_DIR
         sync: false
 
 services:
@@ -37,7 +37,7 @@ services:
         value: 22
       - key: DATABASE_URL
         sync: false
-      - key: PEGMA_SURFACE
+      - key: TORTELAPLUS_SURFACE
         value: client
   - type: web
     name: tortelaplus-rede
@@ -53,5 +53,5 @@ services:
         value: 22
       - key: DATABASE_URL
         sync: false
-      - key: PEGMA_SURFACE
+      - key: TORTELAPLUS_SURFACE
         value: network

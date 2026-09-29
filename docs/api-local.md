@@ -27,7 +27,7 @@ data/storage/<codigo-do-cliente>/<categoria>/<arquivo>
 O diretorio do banco local pode ser alterado por variavel de ambiente:
 
 ```text
-PEGMA_DB_DIR=C:\pegmaplus-data
+TORTELAPLUS_DB_DIR=C:\tortelaplus-data
 ```
 
 Se `DATABASE_URL` existir no ambiente, a API sinaliza `external-database-configured` no `/api/health`. A ligacao com Postgres/MySQL real deve usar a mesma camada de persistencia, mantendo banco central separado dos bancos dos clientes.
@@ -67,7 +67,7 @@ Arquivos em `/storage/<tenantCode>/<categoria>/<arquivo>` ficam separados por pa
 
 ## Observacao
 
-As rotas operacionais do cliente exigem sessao Bearer gerada no login. A Central SaaS pode exigir token de provedor quando a variavel `PEGMA_PROVIDER_TOKEN` estiver configurada.
+As rotas operacionais do cliente exigem sessao Bearer gerada no login. A Central SaaS pode exigir token de provedor quando a variavel `TORTELAPLUS_PROVIDER_TOKEN` estiver configurada.
 
 Exemplo:
 
@@ -137,8 +137,8 @@ O motor fiscal definido para o Pegma Plus e o Projeto ACBr. O servidor conecta a
 Variaveis previstas:
 
 ```text
-PEGMA_ACBR_HOST=127.0.0.1
-PEGMA_ACBR_PORT=3436
+TORTELAPLUS_ACBR_HOST=127.0.0.1
+TORTELAPLUS_ACBR_PORT=3436
 ```
 
 Se o ACBrMonitor estiver indisponivel, a transmissao e bloqueada com erro claro. O sistema nao gera mais protocolo ficticio como se fosse autorizacao.
