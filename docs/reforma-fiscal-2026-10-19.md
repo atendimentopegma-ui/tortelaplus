@@ -1,5 +1,7 @@
 # Revisão fiscal — 19/10/2026
 
+Esta revisão foi ampliada pela versão MULTI. Consulte [Suporte a múltiplas empresas e regimes](suporte-regimes-tributarios.md) para os CRT 1/2/3/4, ICMS-ST anteriormente retido, FCP, diferimento do ICMS e as limitações atuais. O texto abaixo registra a primeira etapa da revisão.
+
 Esta versão corrige os quatro erros reproduzidos na auditoria: diferimento indevido no CST 000, precedência incorreta da CBS do produto, bases de ICMS/PIS/COFINS sem desconto e alíquotas estaduais/municipais incorretas em 2027. A conferência dos totalizadores utiliza a soma independente dos itens. O preço de venda em 2027 é tratado como inclusivo de IBS/CBS; esses tributos não são somados novamente ao total cobrado.
 
 ## Campos e regras

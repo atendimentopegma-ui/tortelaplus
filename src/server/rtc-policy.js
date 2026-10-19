@@ -1,6 +1,7 @@
+const {profile}=require('../fiscal-regimes');
 // Sources and activation dates are pinned: publication is not automatic activation.
 const RTC_RELEASE = {
-  version: "RTC-2026-10-19",
+  version: "RTC-2026-10-19-MULTI",
   nfe: "NT 2025.002 v1.52", netPrices: "NT 2026.008 v1.00", payments: "NT 2026.006 v1.00",
   homologation: "2026-10-26", production: "2026-11-16",
   source: "https://www.nfe.fazenda.gov.br/portal/informe.aspx?AspxAutoDetectCookieSupport=1&Informe=p51cQJEX57A%3D&ehCTG=false"
@@ -14,7 +15,7 @@ function fiscalDate(row = {}) {
 }
 function rtcPolicy(settings = {}, row = {}) {
   const date=fiscalDate(row),year=Number(date.slice(0,4));
-  const crt=String(settings.crt || (settings.regime === "Simples Nacional" ? "1" : "3"));
+  const crt=profile(settings).crt;
   const production=settings.fiscalEnvironment === "Producao";
   const activated=date >= (production ? RTC_RELEASE.production : RTC_RELEASE.homologation);
   // Mandatory fiscal reporting policy is distinct from the UB12-10 rejection,

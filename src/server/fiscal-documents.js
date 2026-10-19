@@ -1,3 +1,5 @@
+const domesticIcms=require('./icms-domestic');
+const {profile,regimes}=require('../fiscal-regimes');
 const crypto = require("crypto");
 const { DEFAULT_REFORM_TAX_TABLES, validateClassificationPair, validateReformTaxTables } = require("./reform-tax-tables");
 
@@ -86,6 +88,7 @@ function itemRule(state, row, item) {
     candidate.active !== false
     && candidate.model === row.model
     && candidate.regime === state.settings.regime
+    && (!candidate.crt || String(candidate.crt) === profile(state.settings).crt)
     && candidate.uf === state.settings.uf
     && (!candidate.validFrom || candidate.validFrom <= fiscalDate(row))
     && (!candidate.validTo || candidate.validTo >= fiscalDate(row))
@@ -94,7 +97,7 @@ function itemRule(state, row, item) {
   const reform = product.reform || {};
   const productValues = {
     ...product,
-    csosn: fiscal.csosn ?? product.csosn,
+    csosn: fiscal.csosn ?? product.csosn ?? (/^\d{3}$/.test(String(product.cst)) ? product.cst : undefined),
     cst: fiscal.cst ?? product.cst,
     pisCofinsCst: fiscal.pisOutCst ?? product.pisCofinsCst,
     origin: fiscal.origin ?? product.origin,
@@ -106,6 +109,15 @@ function itemRule(state, row, item) {
     icmsExternalRate: fiscal.icmsExternalRate ?? product.icmsExternalRate,
     baseReductionRate: fiscal.icmsBaseReduction ?? product.baseReductionRate,
     mvaRate: fiscal.mva ?? product.mvaRate,
+    icmsDeferralRate: fiscal.icmsDeferralRate ?? product.icmsDeferralRate,
+    retainedStBase: fiscal.retainedStBase ?? product.retainedStBase,
+    retainedStRate: fiscal.retainedStRate ?? product.retainedStRate,
+    retainedStValue: fiscal.retainedStValue ?? product.retainedStValue,
+    icmsSubstituteValue: fiscal.icmsSubstituteValue ?? product.icmsSubstituteValue,
+    retainedFcpBase: fiscal.retainedFcpBase ?? product.retainedFcpBase,
+    retainedFcpRate: fiscal.retainedFcpRate ?? product.retainedFcpRate,
+    retainedFcpValue: fiscal.retainedFcpValue ?? product.retainedFcpValue,
+
     fcpRate: fiscal.fcpRate ?? product.fcpRate,
     ipiCst: fiscal.ipiCst ?? product.ipiCst,
     ipiRate: fiscal.ipiRate ?? product.ipiRate,
@@ -137,6 +149,10 @@ function itemRule(state, row, item) {
     adRemRate: reform.adRemRate ?? product.adRemRate,
     adRemUnit: reform.adRemUnit ?? product.adRemUnit,
   };
+  // Configured retention amounts are per unit. Item overrides are document totals.
+  for(const field of ['retainedStBase','retainedStValue','icmsSubstituteValue','retainedFcpBase','retainedFcpValue']){
+    if(productValues[field]!==undefined&&productValues[field]!==null&&productValues[field]!=='')productValues[field]=rounded(Number(productValues[field])*Number(item.qty));
+  }
   const merged = {...rule, ...Object.fromEntries(Object.entries(productValues).filter(([,value]) => value !== undefined && value !== null)), ...item};
   if (Object.hasOwn(item,"cbsRate")) merged.cbsFederalRate = item.cbsRate;
   const indicator=DEFAULT_REFORM_TAX_TABLES.cstIndicators.find(c=>c.cst===merged.ibsCbsCst);
@@ -145,32 +161,19 @@ function itemRule(state, row, item) {
 }
 
 function icmsXml(settings, rule, value) {
-  const origin = digits(rule.origin || "0").slice(0, 1);
-  if (settings.regime === "Simples Nacional") {
-    const csosn = digits(rule.csosn || rule.cst || "102").padStart(3, "0");
-    if (csosn === "101") {
-      const rate = Number(rule.creditRate || rule.icmsCreditRate || 0);
-      return `<ICMSSN101><orig>${origin}</orig><CSOSN>101</CSOSN><pCredSN>${decimal(rate, 4)}</pCredSN><vCredICMSSN>${decimal(value * rate / 100)}</vCredICMSSN></ICMSSN101>`;
+  const supported=domesticIcms.xml(settings,rule,value);if(supported)return supported;
+  const origin=digits(rule.origin||'0').slice(0,1);
+  if(profile(settings).icmsSimple){
+    const code=String(rule.csosn);
+    if(code==='101'){
+      const rate=number(rule.creditRate??rule.icmsCreditRate);
+      return `<ICMSSN101><orig>${origin}</orig><CSOSN>101</CSOSN><pCredSN>${decimal(rate,4)}</pCredSN><vCredICMSSN>${decimal(rounded(value*rate/100))}</vCredICMSSN></ICMSSN101>`;
     }
-    if (["201", "202", "203"].includes(csosn)) {
-      const mva = Number(rule.mvaRate || 0);
-      const rate = Number(rule.icmsRate || 0);
-      const base = value * (1 + mva / 100);
-      return `<ICMSSN202><orig>${origin}</orig><CSOSN>${csosn}</CSOSN><modBCST>4</modBCST><pMVAST>${decimal(mva, 4)}</pMVAST><vBCST>${decimal(base)}</vBCST><pICMSST>${decimal(rate, 4)}</pICMSST><vICMSST>${decimal(base * rate / 100)}</vICMSST></ICMSSN202>`;
-    }
-    return `<ICMSSN102><orig>${origin}</orig><CSOSN>${csosn}</CSOSN></ICMSSN102>`;
+    if(['102','103','300','400'].includes(code))return `<ICMSSN102><orig>${origin}</orig><CSOSN>${code}</CSOSN></ICMSSN102>`;
+  }else if(['40','41','50'].includes(String(rule.cst))){
+    return `<ICMS40><orig>${origin}</orig><CST>${rule.cst}</CST></ICMS40>`;
   }
-  const cst = digits(rule.cst || "00").padStart(2, "0");
-  const rate = Number(rule.icmsRate || 0);
-  if (["40", "41", "50"].includes(cst)) {
-    return `<ICMS40><orig>${origin}</orig><CST>${cst}</CST>${rule.taxBenefitCode ? `<cBenef>${xml(rule.taxBenefitCode)}</cBenef>` : ""}</ICMS40>`;
-  }
-  if (cst === "20") {
-    const reduction = Number(rule.baseReductionRate || 0);
-    const base = rounded(value * (1 - reduction / 100));
-    return `<ICMS20><orig>${origin}</orig><CST>20</CST><modBC>3</modBC><pRedBC>${decimal(reduction, 4)}</pRedBC><vBC>${decimal(base)}</vBC><pICMS>${decimal(rate, 4)}</pICMS><vICMS>${decimal(base * rate / 100)}</vICMS></ICMS20>`;
-  }
-  return `<ICMS00><orig>${origin}</orig><CST>${cst}</CST><modBC>3</modBC><vBC>${decimal(value)}</vBC><pICMS>${decimal(rate, 4)}</pICMS><vICMS>${decimal(value * rate / 100)}</vICMS></ICMS00>`;
+  throw Error('Grupo ICMS nao implementado para CST/CSOSN informado');
 }
 
 function paymentCode(method) {
@@ -318,7 +321,8 @@ function validateNfeState(state, row) {
   const settings = state.settings || {};
   const missing = [];
   const reformTables = DEFAULT_REFORM_TAX_TABLES;
-  const validRegimes = ["Simples Nacional", "Lucro Presumido", "Lucro Real"];
+  const validRegimes = regimes.map(item=>item.name);
+  missing.push(...profile(settings).errors);
   validateReformTaxTables(reformTables).forEach((error) => missing.push(error));
   if (!validRegimes.includes(settings.regime)) missing.push("regime tributario valido");
   if (!UF_CODES[String(settings.uf || "").toUpperCase()]) missing.push("UF valida do emitente");
@@ -328,22 +332,30 @@ function validateNfeState(state, row) {
   if (!settings.address || !settings.number || !settings.district || !settings.city || digits(settings.cep).length !== 8) missing.push("endereco completo do emitente");
   if (!["NF-e", "NFC-e"].includes(row.model)) missing.push("modelo fiscal");
   if (Number(row.serie || 1) <= 0 || Number(row.number || row.id || 0) <= 0) missing.push("serie e numero validos");
-  if (!["1","3"].includes(rtcPolicy(settings,row).crt)) missing.push("CRT 2/4 exige emissor especializado");
   const items = resolveItems(state, row);
   if (!items.length) missing.push("itens da nota");
   items.forEach((item, index) => {
     const rule = itemRule(state, row, item);
-    if (settings.regime === "Simples Nacional" && !['101','102','103','300','400'].includes(String(rule.csosn))) missing.push(`CSOSN especial sem suporte validado no item ${index+1}`);
-    if (settings.regime !== "Simples Nacional" && !['00','20','40','41','50'].includes(String(rule.cst))) missing.push(`CST ICMS especial sem suporte validado no item ${index+1}`);
-    if (number(rule.fcpRate)||number(rule.ipiRate)||number(rule.taxRefundRate)||number(rule.reformTaxRefund)||number(rule.vDevTrib)) missing.push(`FCP/IPI/devolucao de tributo exige emissor especializado no item ${index+1}`);
+    if (profile(settings).icmsSimple && !profile(settings).icmsCodes.includes(String(rule.csosn))) missing.push(`CSOSN especial sem suporte validado no item ${index+1}`);
+    if (!profile(settings).icmsSimple && !profile(settings).icmsCodes.includes(String(rule.cst))) missing.push(`CST ICMS especial sem suporte validado no item ${index+1}`);
+    if(row.model==='NFC-e'&&((profile(settings).icmsSimple&&!['102','103','300','400','500','900'].includes(String(rule.csosn)))||(!profile(settings).icmsSimple&&!['00','20','40','41','60','90'].includes(String(rule.cst)))))missing.push(`CST/CSOSN incompativel com NFC-e no item ${index+1}`);
+    if (number(rule.ipiRate)||number(rule.taxRefundRate)||number(rule.reformTaxRefund)||number(rule.vDevTrib)) missing.push(`IPI/devolucao de tributo exige emissor especializado no item ${index+1}`);
     if ([rule.ibsUfRate,rule.ibsCityRate,rule.cbsFederalRate,rule.icmsRate,rule.pisRate,rule.cofinsRate].some(v=>v!==undefined&&(!Number.isFinite(Number(v))||Number(v)<0||Number(v)>100))) missing.push(`aliquota invalida no item ${index+1}`);
+    missing.push(...domesticIcms.errors(settings,rule).map(error=>`${error} no item ${index+1}`));
     if (digits(rule.ncm).length !== 8 || /^0+$/.test(digits(rule.ncm))) missing.push(`NCM do item ${index + 1}`);
     if (digits(rule.cfop).length !== 4) missing.push(`CFOP do item ${index + 1}`);
+    if(profile(settings).mei){
+      const meiCodes=row.model==='NFC-e'?['102','300']:['102','300','400','900'];
+      if(!meiCodes.includes(String(rule.csosn)))missing.push(`CSOSN incompativel com modelo fiscal do MEI no item ${index+1}`);
+      if(!['0','2'].includes(String(rule.origin??'0').slice(0,1)))missing.push(`origem permitida para MEI no item ${index+1}`);
+      const allowed=String(rule.csosn)==='102'?['5102','6102']:['1202','1904','2202','2904','5202','5904','6202','6904','1501','1503','1504','1505','1506','1553','2501','2503','2504','2505','2506','2553','5501','5502','5504','5505','5551','5933','6501','6502','6504','6505','6551','6933'];
+      if((['102','900'].includes(String(rule.csosn))&&!allowed.includes(String(rule.cfop)))||(row.model==='NFC-e'&&String(rule.cfop)!=='5102'))missing.push(`CFOP incompativel com MEI no item ${index+1}`);
+    }
     const returnOperation=Number(row.purpose)===4||['return','exchange-return'].includes(row.operationType);
     if(returnOperation&&!/^[123]/.test(String(rule.cfop)))missing.push(`CFOP de entrada para devolucao no item ${index+1}`);
     if(!returnOperation&&!/^[567]/.test(String(rule.cfop)))missing.push(`CFOP de saida no item ${index+1}`);
-    if (settings.regime === "Simples Nacional" && digits(rule.csosn).length !== 3) missing.push(`CSOSN do item ${index + 1}`);
-    if (settings.regime !== "Simples Nacional" && digits(rule.cst).length !== 2) missing.push(`CST do item ${index + 1}`);
+    if (profile(settings).icmsSimple && digits(rule.csosn).length !== 3) missing.push(`CSOSN do item ${index + 1}`);
+    if (!profile(settings).icmsSimple && digits(rule.cst).length !== 2) missing.push(`CST do item ${index + 1}`);
     if (digits(rule.pisCofinsCst).length !== 2) missing.push(`CST PIS/COFINS do item ${index + 1}`);
     if (reformRequired(state,row)) {
       const pairErrors=validateClassificationPair(reformTables,{cst:rule.ibsCbsCst,classTrib:rule.ibsClass||rule.cbsClass,model:row.model,date:fiscalDate(row)});
@@ -376,6 +388,10 @@ function validateNfeState(state, row) {
   documentFieldsErrors(settings,row,items).forEach(error=>missing.push(error));
   if (row.model === "NF-e" && !digits(row.customerDocument || findCustomer(state, row).document)) missing.push("CPF/CNPJ do destinatario da NF-e");
   const customer = findCustomer(state, row);
+  const recipientType=Number(row.indIEDest || (customer.taxpayerType==='Contribuinte ICMS'?1:customer.taxpayerType==='Isento'?2:9));
+  if(![1,2,9].includes(recipientType))missing.push('Indicador de IE do destinatario invalido');
+  if(row.model==='NF-e'&&recipientType===1&&!digits(row.customerIE||customer.stateRegistration))missing.push('IE do destinatario contribuinte');
+  if(row.model==='NF-e'&&recipientType===9&&profile(settings).icmsSimple&&items.some(item=>['101','201'].includes(String(itemRule(state,row,item).csosn)))&&!['return','exchange-return'].includes(row.operationType)&&Number(row.purpose)!==4)missing.push('Credito do Simples exige destinatario contribuinte');
   const destinationUf = String(customer.uf || row.customerUf || settings.uf || "").toUpperCase();
   if(destinationUf!==String(settings.uf).toUpperCase())missing.push('Operacao interestadual exige apuracao DIFAL e emissor especializado');
   if (row.model === "NF-e" && !UF_CODES[destinationUf]) missing.push("UF valida do destinatario da NF-e");
@@ -388,6 +404,8 @@ function validateNfeState(state, row) {
   if (row.total!==undefined && Math.abs(Number(row.total)-totals.net)>0.01) missing.push("total informado difere dos itens");
   if (!(["return","exchange-return"].includes(row.operationType)||Number(row.purpose)===4) && Math.abs(paymentTotal - totals.net - change) > 0.01) missing.push("total dos pagamentos igual ao total da nota");
   if (row.model === "NFC-e" && (!settings.cscConfigured || !settings.cscId)) missing.push("CSC e ID CSC da NFC-e");
+  if (row.model === "NFC-e" && (!nfceQrCodeUrl(settings) || !nfceConsultaUrl(settings))) missing.push("URLs de QR Code e consulta NFC-e da UF/ambiente da empresa");
+  if (row.model === "NFC-e" && row.finalConsumer===false) missing.push("NFC-e exige consumidor final");
   return [...new Set(missing)];
 }
 
@@ -398,10 +416,9 @@ function fiscalLedger(state,row) {
     const rule=itemRule(state,row,item),gross=rounded(number(item.qty)*number(item.price));
     const discount=rounded(splitValue(totals.discount,totals.gross,gross,index,items.length,discounts));discounts=rounded(discounts+discount);
     const other=rounded(splitValue(totals.other,totals.gross,gross,index,items.length,others));others=rounded(others+other);
-    const net=rounded(gross-discount+other),isSimple=state.settings.regime==='Simples Nacional';
-    const icmsTaxed=!isSimple&&!['40','41','50'].includes(String(rule.cst));
-    const icmsBase=icmsTaxed?rounded(net*(1-number(rule.baseReductionRate)/100)):0;
-    const icms=rounded(icmsBase*number(rule.icmsRate)/100);
+    const net=rounded(gross-discount+other),isSimple=profile(state.settings).icmsSimple;
+    const icmsDetails=domesticIcms.calculate(state.settings,rule,net);
+    const icmsBase=icmsDetails.base,icms=icmsDetails.icms,fcp=icmsDetails.fcp;
     const pisCst=String(rule.pisCofinsCst||rule.pisCst||'01'),cofinsCst=String(rule.cofinsCst||rule.pisCofinsCst||'01');
     const nonTax=['04','06','07','08','09'];
     const pis=nonTax.includes(pisCst)?0:rounded(net*number(rule.pisRate)/100);
@@ -409,11 +426,11 @@ function fiscalLedger(state,row) {
     const taxableRtc=policy.emit&&!['400','410'].includes(rule.ibsCbsCst);
     const reference=reformValues(rule,100);
     const effective=(reference.ibsUfRate*(1-reference.ibsReduction/100)*(1-reference.ufDeferral/100)+reference.ibsCityRate*(1-reference.ibsReduction/100)*(1-reference.cityDeferral/100)+reference.cbsRate*(1-reference.cbsReduction/100)*(1-reference.cbsDeferral/100))/100;
-    const numerator=rounded(Math.max(0,net-icms-pis-cofins));
+    const numerator=rounded(Math.max(0,net-icms-fcp-pis-cofins));
     const rtcBase=taxableRtc?rounded(policy.taxesInProduct?numerator/(1+effective):numerator):0;
     const reform=reformValues(taxableRtc?rule:{},rtcBase);
-    const productLiquid=rounded(gross-icms-pis-cofins-(policy.taxesInProduct?reform.vIBS+reform.vCBS+reform.vIS:0));
-    return {item,rule,gross,discount,other,net,icmsBase,icms,pis,cofins,pisCst,cofinsCst,reform,productLiquid,unitLiquid:productLiquid/number(item.qty),vItem:net};
+    const productLiquid=rounded(gross-icms-fcp-pis-cofins-(policy.taxesInProduct?reform.vIBS+reform.vCBS+reform.vIS:0));
+    return {item,rule,gross,discount,other,net,icmsBase,icms,fcp,pis,cofins,pisCst,cofinsCst,reform,productLiquid,unitLiquid:productLiquid/number(item.qty),vItem:net};
   });
 }
 function validateReformTotals(totals, netTotal, lines) {
@@ -441,6 +458,8 @@ function generateNfeXml(state, row, options = {}) {
   const totals = totalsFromItems(items, row);
   const ledger=fiscalLedger(state,row),policy=rtcPolicy(settings,row);
   const totalIcms=rounded(ledger.reduce((n,line)=>n+line.icms,0));
+  const totalFcp=rounded(ledger.reduce((n,line)=>n+line.fcp,0));
+  const totalFcpRetained=rounded(ledger.reduce((n,line)=>n+number(line.rule.retainedFcpValue),0));
   const totalIcmsBase=rounded(ledger.reduce((n,line)=>n+line.icmsBase,0));
   const totalPis=rounded(ledger.reduce((n,line)=>n+line.pis,0)),totalCofins=rounded(ledger.reduce((n,line)=>n+line.cofins,0));
   const reformTotals = { hasReform: false, base: 0, vDifIBSUF: 0, vDifIBSMun: 0, vDifCBS: 0, vIBSUF: 0, vIBSMun: 0, vIBS: 0, vCBS: 0, vIS: 0 };
@@ -458,7 +477,7 @@ function generateNfeXml(state, row, options = {}) {
     reformTotals.vIBS += reform.vIBS;
     reformTotals.vCBS += reform.vCBS;
     reformTotals.vIS += reform.vIS;
-    return `<det nItem="${index + 1}"><prod><cProd>${xml(item.id || item.productId || index + 1)}</cProd><cEAN>${digits(rule.barcode) || "SEM GTIN"}</cEAN><xProd>${xml(item.description || rule.description)}</xProd><NCM>${digits(rule.ncm)}</NCM>${rule.cest ? `<CEST>${digits(rule.cest)}</CEST>` : ""}<CFOP>${digits(rule.cfop)}</CFOP><uCom>${xml(item.unit || rule.unit || "UN")}</uCom><qCom>${decimal(item.qty, 4)}</qCom><vUnCom>${decimal(item.price, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd>${policy.netPriceFields && row.useNetPriceFields ? `<vUnComLiq>${decimal(line.unitLiquid,10)}</vUnComLiq><vProdLiq>${decimal(line.productLiquid)}</vProdLiq>` : ""}<cEANTrib>${digits(rule.barcode) || "SEM GTIN"}</cEANTrib><uTrib>${xml(item.unit || rule.unit || "UN")}</uTrib><qTrib>${decimal(item.qty, 4)}</qTrib><vUnTrib>${decimal(item.price, 10)}</vUnTrib>${itemDiscount ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}${itemOther ? `<vOutro>${decimal(itemOther)}</vOutro>` : ""}<indTot>1</indTot></prod><imposto><ICMS>${icmsXml(settings, rule, line.net)}</ICMS><PIS>${pisCofinsXml("PIS", line.pisCst, line.net, pisRate)}</PIS><COFINS>${pisCofinsXml("COFINS", line.cofinsCst, line.net, cofinsRate)}</COFINS>${reformRequired(state,row) ? selectiveTaxXml(rule, reform) + ibsCbsXml(rule, reform) : ""}</imposto><vItem>${decimal(line.vItem)}</vItem>${itemReferenceXml(settings,row,item)}</det>`;
+    return `<det nItem="${index + 1}"><prod><cProd>${xml(item.id || item.productId || index + 1)}</cProd><cEAN>${digits(rule.barcode) || "SEM GTIN"}</cEAN><xProd>${xml(item.description || rule.description)}</xProd><NCM>${digits(rule.ncm)}</NCM>${rule.cest ? `<CEST>${digits(rule.cest)}</CEST>` : ""}${rule.taxBenefitCode?`<cBenef>${xml(rule.taxBenefitCode)}</cBenef>`:""}<CFOP>${digits(rule.cfop)}</CFOP><uCom>${xml(item.unit || rule.unit || "UN")}</uCom><qCom>${decimal(item.qty, 4)}</qCom><vUnCom>${decimal(item.price, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd>${policy.netPriceFields && row.useNetPriceFields ? `<vUnComLiq>${decimal(line.unitLiquid,10)}</vUnComLiq><vProdLiq>${decimal(line.productLiquid)}</vProdLiq>` : ""}<cEANTrib>${digits(rule.barcode) || "SEM GTIN"}</cEANTrib><uTrib>${xml(item.unit || rule.unit || "UN")}</uTrib><qTrib>${decimal(item.qty, 4)}</qTrib><vUnTrib>${decimal(item.price, 10)}</vUnTrib>${itemDiscount ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}${itemOther ? `<vOutro>${decimal(itemOther)}</vOutro>` : ""}<indTot>1</indTot></prod><imposto><ICMS>${icmsXml(settings, rule, line.net)}</ICMS><PIS>${pisCofinsXml("PIS", line.pisCst, line.net, pisRate)}</PIS><COFINS>${pisCofinsXml("COFINS", line.cofinsCst, line.net, cofinsRate)}</COFINS>${reformRequired(state,row) ? selectiveTaxXml(rule, reform) + ibsCbsXml(rule, reform) : ""}</imposto><vItem>${decimal(line.vItem)}</vItem>${itemReferenceXml(settings,row,item)}</det>`;
   }).join("");
   const reformTotalErrors = validateReformTotals(reformTotals, totals.net, ledger);
   if (reformTotalErrors.length) throw new Error(`XML ${row.model} com totalizadores da reforma invalidos: ${reformTotalErrors.join(", ")}`);
@@ -467,7 +486,9 @@ function generateNfeXml(state, row, options = {}) {
 
   const reformTotalsXml = `${reformTotals.vIS ? `<ISTot><vIS>${decimal(reformTotals.vIS)}</vIS></ISTot>` : ""}${ibsCbsTotalsXml(reformTotals)}${reformTotals.hasReform ? `<vNFTot>${decimal(reformTotalAmount)}</vNFTot>` : ""}`;
   const document = digits(customer.document);
-  const destination = document ? `<dest><${document.length === 11 ? "CPF" : "CNPJ"}>${document}</${document.length === 11 ? "CPF" : "CNPJ"}><xNome>${xml(customer.name || row.customer)}</xNome><enderDest><xLgr>${xml(customer.address || "Nao informado")}</xLgr><nro>${xml(customer.number || "SN")}</nro><xBairro>${xml(customer.district || "Nao informado")}</xBairro><cMun>${digits(customer.cityCode || settings.cityCode)}</cMun><xMun>${xml(customer.city || settings.city)}</xMun><UF>${xml(customer.uf || settings.uf)}</UF><CEP>${digits(customer.cep || settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderDest><indIEDest>9</indIEDest></dest>` : "";
+  const recipientType=Number(row.indIEDest || (customer.taxpayerType==='Contribuinte ICMS'?1:customer.taxpayerType==='Isento'?2:9));
+  const finalConsumer=row.model==='NFC-e'?1:row.finalConsumer===undefined?(recipientType===9?1:0):(row.finalConsumer?1:0);
+  const destination = document ? `<dest><${document.length === 11 ? "CPF" : "CNPJ"}>${document}</${document.length === 11 ? "CPF" : "CNPJ"}><xNome>${xml(customer.name || row.customer)}</xNome><enderDest><xLgr>${xml(customer.address || "Nao informado")}</xLgr><nro>${xml(customer.number || "SN")}</nro><xBairro>${xml(customer.district || "Nao informado")}</xBairro><cMun>${digits(customer.cityCode || settings.cityCode)}</cMun><xMun>${xml(customer.city || settings.city)}</xMun><UF>${xml(customer.uf || settings.uf)}</UF><CEP>${digits(customer.cep || settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderDest><indIEDest>${recipientType}</indIEDest>${recipientType===1?`<IE>${digits(row.customerIE||customer.stateRegistration)}</IE>`:""}</dest>` : "";
   const isReturn = Number(row.purpose)===4 || row.operationType === "return" || row.operationType === "exchange-return";
   const paymentsSource = isReturn ? [{method:"Sem pagamento",value:0}] : row.payments?.length ? row.payments : [{ method: row.payment || "Outros", value: totals.net }];
   const payments = paymentsSource.map((pay) => `<detPag><tPag>${paymentCode(pay.method)}</tPag><vPag>${decimal(pay.value ?? totals.net)}</vPag></detPag>`).join("");
@@ -477,7 +498,7 @@ function generateNfeXml(state, row, options = {}) {
     ? `<dhCont>${isoDateTime(row.contingencyAt)}</dhCont><xJust>${xml(row.contingencyReason || "Indisponibilidade temporaria de comunicacao com a SEFAZ")}</xJust>`
     : "";
   const reference = isReturn && !policy.returnItemReference && /^\d{44}$/.test(digits(row.referencedKey)) ? `<NFref><refNFe>${digits(row.referencedKey)}</refNFe></NFref>` : "";
-  const nfe = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00"><ide><cUF>${UF_CODES[settings.uf]}</cUF><cNF>${key.slice(35, 43)}</cNF><natOp>${xml(row.nature || (isReturn ? "Devolucao de venda" : "Venda de mercadoria"))}</natOp><mod>${model}</mod><serie>${Number(row.serie || 1)}</serie><nNF>${Number(row.number || row.id || 1)}</nNF><dhEmi>${isoDateTime(row.issuedAt || (row.date ? row.date + "T12:00:00-03:00" : new Date()))}</dhEmi><tpNF>${isReturn ? "0" : "1"}</tpNF><idDest>1</idDest><cMunFG>${digits(settings.cityCode)}</cMunFG><tpImp>${model === "65" ? "4" : "1"}</tpImp><tpEmis>${Number(row.emissionType || 1)}</tpEmis><cDV>${key.slice(-1)}</cDV><tpAmb>${settings.fiscalEnvironment === "Producao" ? "1" : "2"}</tpAmb><finNFe>${Number(row.purpose || (isReturn ? 4 : 1))}</finNFe><indFinal>1</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TortelaPlus-0.1.0</verProc>${contingency}${reference}</ide><emit><CNPJ>${digits(settings.document)}</CNPJ><xNome>${xml(settings.legalName || settings.company)}</xNome><enderEmit><xLgr>${xml(settings.address)}</xLgr><nro>${xml(settings.number)}</nro><xBairro>${xml(settings.district)}</xBairro><cMun>${digits(settings.cityCode)}</cMun><xMun>${xml(settings.city)}</xMun><UF>${xml(settings.uf)}</UF><CEP>${digits(settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>${digits(settings.stateRegistration)}</IE><CRT>${policy.crt}</CRT></emit>${destination}${details}<total>${liquidTotalXml}<ICMSTot><vBC>${decimal(totalIcmsBase)}</vBC><vICMS>${decimal(totalIcms)}</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>0.00</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>0.00</vFCPSTRet><vProd>${decimal(totals.gross)}</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>${decimal(totals.discount)}</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>${decimal(totalPis)}</vPIS><vCOFINS>${decimal(totalCofins)}</vCOFINS><vOutro>${decimal(totals.other)}</vOutro><vNF>${decimal(totals.net)}</vNF></ICMSTot>${reformTotalsXml}</total><transp><modFrete>9</modFrete></transp><pag>${payments}${change ? `<vTroco>${decimal(change)}</vTroco>` : ""}</pag>${paymentLinksXml(row)}${settings.fiscalResponsible ? `<infAdic><infCpl>${xml(`Responsavel fiscal: ${settings.fiscalResponsible}`)}</infCpl></infAdic>` : ""}</infNFe></NFe>`;
+  const nfe = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00"><ide><cUF>${UF_CODES[settings.uf]}</cUF><cNF>${key.slice(35, 43)}</cNF><natOp>${xml(row.nature || (isReturn ? "Devolucao de venda" : "Venda de mercadoria"))}</natOp><mod>${model}</mod><serie>${Number(row.serie || 1)}</serie><nNF>${Number(row.number || row.id || 1)}</nNF><dhEmi>${isoDateTime(row.issuedAt || (row.date ? row.date + "T12:00:00-03:00" : new Date()))}</dhEmi><tpNF>${isReturn ? "0" : "1"}</tpNF><idDest>1</idDest><cMunFG>${digits(settings.cityCode)}</cMunFG><tpImp>${model === "65" ? "4" : "1"}</tpImp><tpEmis>${Number(row.emissionType || 1)}</tpEmis><cDV>${key.slice(-1)}</cDV><tpAmb>${settings.fiscalEnvironment === "Producao" ? "1" : "2"}</tpAmb><finNFe>${Number(row.purpose || (isReturn ? 4 : 1))}</finNFe><indFinal>${finalConsumer}</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TortelaPlus-0.1.0</verProc>${contingency}${reference}</ide><emit><CNPJ>${digits(settings.document)}</CNPJ><xNome>${xml(settings.legalName || settings.company)}</xNome><enderEmit><xLgr>${xml(settings.address)}</xLgr><nro>${xml(settings.number)}</nro><xBairro>${xml(settings.district)}</xBairro><cMun>${digits(settings.cityCode)}</cMun><xMun>${xml(settings.city)}</xMun><UF>${xml(settings.uf)}</UF><CEP>${digits(settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>${digits(settings.stateRegistration)}</IE><CRT>${policy.crt}</CRT></emit>${destination}${details}<total>${liquidTotalXml}<ICMSTot><vBC>${decimal(totalIcmsBase)}</vBC><vICMS>${decimal(totalIcms)}</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>${decimal(totalFcp)}</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>${decimal(totalFcpRetained)}</vFCPSTRet><vProd>${decimal(totals.gross)}</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>${decimal(totals.discount)}</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>${decimal(totalPis)}</vPIS><vCOFINS>${decimal(totalCofins)}</vCOFINS><vOutro>${decimal(totals.other)}</vOutro><vNF>${decimal(totals.net)}</vNF></ICMSTot>${reformTotalsXml}</total><transp><modFrete>9</modFrete></transp><pag>${payments}${change ? `<vTroco>${decimal(change)}</vTroco>` : ""}</pag>${paymentLinksXml(row)}${settings.fiscalResponsible ? `<infAdic><infCpl>${xml(`Responsavel fiscal: ${settings.fiscalResponsible}`)}</infCpl></infAdic>` : ""}</infNFe></NFe>`;
   const supplement = model === "65" ? nfceSupplement(settings, key, options) : "";
   return `<?xml version="1.0" encoding="UTF-8"?>${nfe.replace("</infNFe></NFe>", `</infNFe>${supplement}</NFe>`)}`;
 }
@@ -498,7 +519,7 @@ function generateNfseIni(state, row) {
     "Tipo=1",
     `DataEmissao=${new Date(row.issuedAt || Date.now()).toLocaleDateString("pt-BR")}`,
     "NaturezaOperacao=1",
-    `OptanteSimplesNacional=${settings.regime === "Simples Nacional" ? 1 : 2}`,
+    `OptanteSimplesNacional=${profile(settings).federalSimple ? 1 : 2}`,
     "IncentivadorCultural=2",
     `Competencia=${new Date().toLocaleDateString("pt-BR")}`,
     "",

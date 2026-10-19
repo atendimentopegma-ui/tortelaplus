@@ -24,11 +24,13 @@ doc.getroot().append(node)
 nfe = etree.XMLSchema(doc)
 dps = etree.XMLSchema(etree.parse(str(schemas / 'NFSeNacional/DPS_v1.01.xsd')))
 results = []
-for name in ['NF-e', 'NFC-e', 'NF-e-reducao', 'NF-e-diferimento', 'NF-e-isencao', 'DPS']:
-    schema = dps if name == 'DPS' else nfe
-    xml = etree.parse(str(fixtures / (name + '.xml'))).getroot()
-    if name != 'DPS':
+for file in sorted(fixtures.glob('*.xml')):
+    name = file.stem
+    xml = etree.parse(str(file)).getroot()
+    is_dps = etree.QName(xml).localname == 'DPS'
+    schema = dps if is_dps else nfe
+    if not is_dps:
         xml = xml[0]
     results.append({'fixture': name, 'passed': schema.validate(xml), 'errors': str(schema.error_log)})
 print(json.dumps(results, ensure_ascii=True, indent=2))
-sys.exit(0 if all(result['passed'] for result in results) else 1)
+sys.exit(0 if results and all(result['passed'] for result in results) else 1)

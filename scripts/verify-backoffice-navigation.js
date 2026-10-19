@@ -190,7 +190,7 @@ assert(publicUnitLink.includes("!publicTerminalGateDisabled && state.settings.pu
 assert(app.includes("terminalSecure = !publicTerminalGateDisabled"), "Links publicos: cartoes precisam indicar link protegido em ambiente real.");
 includesAll("Cache bust da retaguarda", index + app + serviceWorker, [
   "settings-tabs-cleanup-v11",
-  "tortelaplus-operacao-v12-rtc",
+  "tortelaplus-operacao-v13-regimes",
   'navigator.serviceWorker.register("/sw.js?v=settings-tabs-cleanup-v11")'
 ]);
 

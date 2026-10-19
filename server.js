@@ -1759,6 +1759,7 @@ function findFiscalRuleFromState(tenantState, model, nature = "") {
     item.active !== false &&
     item.model === model &&
     item.regime === tenantState.settings.regime &&
+    (!item.crt || String(item.crt)===require("./src/fiscal-regimes").profile(tenantState.settings).crt) &&
     item.uf === tenantState.settings.uf &&
     (!item.validFrom || item.validFrom <= todayText) &&
     (!item.validTo || item.validTo >= todayText) &&
@@ -1767,6 +1768,7 @@ function findFiscalRuleFromState(tenantState, model, nature = "") {
     item.active !== false &&
     item.model === model &&
     item.regime === tenantState.settings.regime &&
+    (!item.crt || String(item.crt)===require("./src/fiscal-regimes").profile(tenantState.settings).crt) &&
     item.uf === tenantState.settings.uf
   ) || {};
 }
@@ -1787,9 +1789,9 @@ function validateFiscalDocumentFromState(tenantState, row) {
   } else {
     if (!settings.stateRegistration) missing.push("inscricao estadual");
     if (row.model === "NFC-e" && (!settings.cscConfigured || !settings.cscId)) missing.push("CSC e ID CSC");
-    if (!rule.ncm) missing.push("NCM");
-    if (settings.regime === "Simples Nacional" && !rule.csosn) missing.push("CSOSN");
-    if (settings.regime !== "Simples Nacional" && !rule.cst) missing.push("CST");
+    // NCM is validated per item by validateNfeState, not from a generic rule.
+    if (require("./src/fiscal-regimes").profile(settings).icmsSimple && !rule.csosn) missing.push("CSOSN");
+    if (!require("./src/fiscal-regimes").profile(settings).icmsSimple && !rule.cst) missing.push("CST");
     missing.push(...validateNfeState(tenantState, row));
   }
   return [...new Set(missing)];

@@ -124,6 +124,7 @@ context.window.sessionStorage = context.sessionStorage;
 context.window.caches = context.caches;
 context.globalThis = context;
 
+context.window.TortelaFiscalRegimes = require("../src/fiscal-regimes");
 vm.createContext(context);
 vm.runInContext(source, context, { filename: "src/app.js" });
 

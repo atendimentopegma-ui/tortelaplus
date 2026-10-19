@@ -1,10 +1,12 @@
+const {profile}=require('../fiscal-regimes');
 const tables=require('./reform-tax-tables-official.json');
-const {fiscalDate}=require('./rtc-policy');
+const {fiscalDate,rtcPolicy}=require('./rtc-policy');
 const esc=v=>String(v??'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
 const digits=v=>String(v??'').replace(/\D/g,'');
 function addressXml(person){const code=digits(person.cityCode),cep=digits(person.cep);if(code.length!==7||cep.length!==8||!person.address||!person.district)return '';return `<end><endNac><cMun>${code}</cMun><CEP>${cep}</CEP></endNac><xLgr>${esc(person.address)}</xLgr><nro>${esc(person.number||'SN')}</nro><xBairro>${esc(person.district)}</xBairro></end>`;}
 function generateNationalDps(state,row){
  const s=state.settings||{},service=row.service||{},rtc=service.reform||{},errors=[];
+ const includeRtc=rtcPolicy(s,row).emit;
  const city=digits(s.nfseCityCode||s.cityCode),document=digits(s.document),date=fiscalDate(row);
  if(document.length!==14)errors.push('CNPJ do prestador');
  if(city.length!==7)errors.push('municipio IBGE da emissao');
@@ -12,10 +14,10 @@ function generateNationalDps(state,row){
  if(nationalCode.length!==6)errors.push('codigo de tributacao nacional do servico com 6 digitos (nao apenas o item LC116)');
  if(!service.description||Number(row.total)<=0)errors.push('discriminacao e valor do servico');
  const classification=tables.classTrib.find(c=>c.code===rtc.classTrib&&c.cst===rtc.cst&&c.nfseAllowed);
- if(!classification)errors.push('CST/cClassTrib permitido na NFS-e');
+ if(includeRtc&&!classification)errors.push('CST/cClassTrib permitido na NFS-e');
  if(classification&&(classification.requiresRegularTaxation||classification.requiresCreditReversal||!['000','200','400','410','510','515'].includes(rtc.cst)))errors.push('enquadramento especial NFS-e exige emissor especializado');
  const operation=require('./nfse-operation-codes.json').operations.find(o=>o.code===rtc.operationCode);
- if(!operation)errors.push('indicador de operacao cIndOp inexistente na tabela oficial');
+ if(includeRtc&&!operation)errors.push('indicador de operacao cIndOp inexistente na tabela oficial');
  if(operation?.field.includes('prest/end')&&!addressXml(s))errors.push('endereco completo do prestador para cIndOp');
  if(classification&&(classification.validFrom>date||(classification.validTo&&classification.validTo<date)))errors.push('classificacao RTC fora da vigencia');
  if(rtc.creditCode||rtc.regularClass||rtc.governmentType||row.purpose&&Number(row.purpose)!==1)errors.push('situacao especial NFS-e exige emissor especializado');
@@ -31,7 +33,9 @@ function generateNationalDps(state,row){
  if(deferrals.some(v=>v<0||v>100)||!indicator?.allowsDeferral&&deferrals.some(v=>v!==0))throw Error('Diferimento NFS-e incompativel com CST');
  const dif=indicator?.requiresDeferral?`<gDif><pDifUF>${deferrals[0].toFixed(2)}</pDifUF><pDifMun>${deferrals[1].toFixed(2)}</pDifMun><pDifCBS>${deferrals[2].toFixed(2)}</pDifCBS></gDif>`:'';
  const iss=Number(service.issRate||0);if(!Number.isFinite(iss)||iss<0||iss>5)throw Error('Aliquota ISS invalida');
- const simp=s.regime==='Simples Nacional';
- return `<?xml version="1.0" encoding="UTF-8"?><DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infDPS Id="${id}"><tpAmb>${s.fiscalEnvironment==='Producao'?1:2}</tpAmb><dhEmi>${date}T12:00:00-03:00</dhEmi><verAplic>TortelaPlus-RTC</verAplic><serie>${Number(row.serie||1)}</serie><nDPS>${Number(row.number||row.id||1)}</nDPS><dCompet>${date}</dCompet><tpEmit>1</tpEmit><cLocEmi>${city}</cLocEmi><prest><CNPJ>${document}</CNPJ>${s.municipalRegistration?`<IM>${esc(s.municipalRegistration)}</IM>`:''}${addressXml(s)}<regTrib><opSimpNac>${simp?3:1}</opSimpNac>${simp?'<regApTribSN>1</regApTribSN>':''}<regEspTrib>0</regEspTrib></regTrib></prest>${toma}<serv><locPrest><cLocPrestacao>${digits(service.cityCode||city)}</cLocPrestacao></locPrest><cServ><cTribNac>${nationalCode}</cTribNac>${service.cityServiceCode?`<cTribMun>${esc(service.cityServiceCode)}</cTribMun>`:''}<xDescServ>${esc(service.description)}</xDescServ>${service.nbs?`<cNBS>${digits(service.nbs)}</cNBS>`:''}</cServ></serv><valores><vServPrest><vServ>${Number(row.serviceValue ?? Number(row.total)+Number(row.discount||0)).toFixed(2)}</vServ></vServPrest>${Number(row.discount)>0?`<vDescCondIncond><vDescIncond>${Number(row.discount).toFixed(2)}</vDescIncond></vDescCondIncond>`:''}<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>${service.issWithheld===true||service.issWithheld==="true"?2:1}</tpRetISSQN>${!simp?`<pAliq>${iss.toFixed(2)}</pAliq>`:''}</tribMun><totTrib><indTotTrib>0</indTotTrib></totTrib></trib></valores><IBSCBS><finNFSe>0</finNFSe><indFinal>${rtc.finalConsumer===false?0:1}</indFinal><cIndOp>${esc(rtc.operationCode)}</cIndOp><indDest>0</indDest><valores><trib><gIBSCBS><CST>${rtc.cst}</CST><cClassTrib>${rtc.classTrib}</cClassTrib>${dif}</gIBSCBS></trib></valores></IBSCBS></infDPS></DPS>`;
+ const regime=profile(s);if(regime.errors.length)throw Error(regime.errors.join(', '));
+ const simp=regime.federalSimple,opSimple=regime.mei?2:simp?3:1;
+ const issRegime=Number(s.nfseSimpleAssessment||1);if(![1,2,3].includes(issRegime))throw Error('Regime de apuracao NFS-e invalido');
+ return `<?xml version="1.0" encoding="UTF-8"?><DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01"><infDPS Id="${id}"><tpAmb>${s.fiscalEnvironment==='Producao'?1:2}</tpAmb><dhEmi>${date}T12:00:00-03:00</dhEmi><verAplic>TortelaPlus-RTC</verAplic><serie>${Number(row.serie||1)}</serie><nDPS>${Number(row.number||row.id||1)}</nDPS><dCompet>${date}</dCompet><tpEmit>1</tpEmit><cLocEmi>${city}</cLocEmi><prest><CNPJ>${document}</CNPJ>${s.municipalRegistration?`<IM>${esc(s.municipalRegistration)}</IM>`:''}${addressXml(s)}<regTrib><opSimpNac>${opSimple}</opSimpNac>${opSimple===3?`<regApTribSN>${issRegime}</regApTribSN>`:''}<regEspTrib>0</regEspTrib></regTrib></prest>${toma}<serv><locPrest><cLocPrestacao>${digits(service.cityCode||city)}</cLocPrestacao></locPrest><cServ><cTribNac>${nationalCode}</cTribNac>${service.cityServiceCode?`<cTribMun>${esc(service.cityServiceCode)}</cTribMun>`:''}<xDescServ>${esc(service.description)}</xDescServ>${service.nbs?`<cNBS>${digits(service.nbs)}</cNBS>`:''}</cServ></serv><valores><vServPrest><vServ>${Number(row.serviceValue ?? Number(row.total)+Number(row.discount||0)).toFixed(2)}</vServ></vServPrest>${Number(row.discount)>0?`<vDescCondIncond><vDescIncond>${Number(row.discount).toFixed(2)}</vDescIncond></vDescCondIncond>`:''}<trib><tribMun><tribISSQN>1</tribISSQN><tpRetISSQN>${service.issWithheld===true||service.issWithheld==="true"?2:1}</tpRetISSQN>${(!simp||issRegime>1)?`<pAliq>${iss.toFixed(2)}</pAliq>`:''}</tribMun><totTrib><indTotTrib>0</indTotTrib></totTrib></trib></valores>${includeRtc?`<IBSCBS><finNFSe>0</finNFSe><indFinal>${rtc.finalConsumer===false?0:1}</indFinal><cIndOp>${esc(rtc.operationCode)}</cIndOp><indDest>0</indDest><valores><trib><gIBSCBS><CST>${rtc.cst}</CST><cClassTrib>${rtc.classTrib}</cClassTrib>${dif}</gIBSCBS></trib></valores></IBSCBS>`:''}</infDPS></DPS>`;
 }
 module.exports={generateNationalDps};

@@ -1718,7 +1718,7 @@ function productTab() {
         <p class="muted">Campos espelhados do ERP desktop para a emissao fiscal, DANFE/DANFCE e reforma tributaria.</p>
         <div class="grid four">
           <div class="field"><label>Origem</label><select id="product-origin">${["0 Nacional", "1 Estrangeira direta", "2 Estrangeira mercado interno", "3 Nacional importacao superior 40%", "4 Nacional PPB", "5 Nacional importacao inferior 40%", "6 Estrangeira sem similar", "7 Estrangeira mercado interno sem similar", "8 Nacional importacao superior 70%"].map((item) => `<option ${fiscal.origin === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
-          <div class="field"><label>cBenef</label><input id="product-cbenef" value="${escapeAttr(fiscal.cbenef || "")}" /></div>
+          <div class="field"><label>CST ICMS (CRT 2/3)</label><input id="product-fiscal-cst" maxlength="2" value="${escapeAttr(fiscal.cst ?? (String(draft.cst||"").length===2?draft.cst:""))}" /></div><div class="field"><label>CSOSN (CRT 1/4)</label><input id="product-fiscal-csosn" maxlength="3" value="${escapeAttr(fiscal.csosn ?? draft.csosn ?? (String(draft.cst||"").length===3?draft.cst:""))}" /></div><div class="field"><label>cBenef</label><input id="product-cbenef" value="${escapeAttr(fiscal.cbenef || "")}" /></div>
           <div class="field"><label>Motivo desoneracao</label><input id="product-mot-deson" value="${escapeAttr(fiscal.motDeson || "")}" /></div>
           <div class="field"><label>Aliquota interna ICMS %</label><input id="product-icms-internal-rate" type="number" step="0.01" value="${Number(fiscal.icmsInternalRate || 0)}" /></div>
           <div class="field"><label>CFOP externo</label><input id="product-cfop-external" value="${escapeAttr(fiscal.cfopExternal || "")}" /></div>
@@ -1730,7 +1730,15 @@ function productTab() {
           <div class="field"><label>ICMS-ST retido %</label><input id="product-icms-st-rate" type="number" step="0.01" value="${Number(fiscal.icmsStRate || 0)}" /></div>
           <div class="field"><label>MVA %</label><input id="product-mva" type="number" step="0.01" value="${Number(fiscal.mva || 0)}" /></div>
           <div class="field"><label>FCP %</label><input id="product-fcp-rate" type="number" step="0.01" value="${Number(fiscal.fcpRate || 0)}" /></div>
-          <div class="field"><label>IPI CST</label><input id="product-ipi-cst" value="${escapeAttr(fiscal.ipiCst || "")}" /></div>
+          <div class="field"><label>Diferimento ICMS próprio %</label><input id="product-icms-deferral" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.icmsDeferralRate ?? "")}" /></div>
+<div class="field"><label>Base ICMS-ST retido (documento origem) por unidade</label><input id="product-retained-st-base" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.retainedStBase ?? "")}" /></div>
+<div class="field"><label>Alíquota ST retido %</label><input id="product-retained-st-rate" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.retainedStRate ?? "")}" /></div>
+<div class="field"><label>Valor ICMS-ST retido por unidade</label><input id="product-retained-st-value" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.retainedStValue ?? "")}" /></div>
+<div class="field"><label>ICMS próprio do substituto por unidade</label><input id="product-icms-substitute-value" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.icmsSubstituteValue ?? "")}" /></div>
+<div class="field"><label>Base FCP-ST retido por unidade</label><input id="product-retained-fcp-base" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.retainedFcpBase ?? "")}" /></div>
+<div class="field"><label>FCP-ST retido %</label><input id="product-retained-fcp-rate" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.retainedFcpRate ?? "")}" /></div>
+<div class="field"><label>Valor FCP-ST retido por unidade</label><input id="product-retained-fcp-value" type="number" min="0" step="0.01" value="${escapeAttr(fiscal.retainedFcpValue ?? "")}" /></div>
+<div class="field"><label>IPI CST</label><input id="product-ipi-cst" value="${escapeAttr(fiscal.ipiCst || "")}" /></div>
           <div class="field"><label>IPI %</label><input id="product-ipi-rate" type="number" step="0.01" value="${Number(fiscal.ipiRate || 0)}" /></div>
           <div class="field"><label>PIS entrada CST</label><input id="product-pis-in-cst" value="${escapeAttr(fiscal.pisInCst || "")}" /></div>
           <div class="field"><label>PIS saida CST</label><input id="product-pis-out-cst" value="${escapeAttr(fiscal.pisOutCst || "")}" /></div>
@@ -2706,7 +2714,7 @@ function financeTab() {
 }
 
 function renderFiscal() {
-  ensureFiscalRuleCoverage();
+  // Fiscal rules are configured explicitly; opening a screen must not create client data.
   const tabs = ["nfe", "nfce", "nfse", "cte", "cteos", "mdfe", "sat", "mfe", "sped", "sintegra", "fila"];
   if (!tabs.includes(currentFiscalTab)) currentFiscalTab = "fila";
   const availableTabs = tabs.filter((tab) => tab === "fila" || contractedFiscalModule(tab));
@@ -2739,8 +2747,8 @@ function renderFiscal() {
       <input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />
 
       <div class="card">
-        <h3>Conferência tributária</h3>
-        <p>${state.settings.regime === "Simples Nacional" ? "Simples Nacional: a política de informação considera regime e ano; a ativação de cada rejeição da SEFAZ é controlada separadamente pela nota técnica. Em 2026, este emissor permite informar IBS/CBS quando aplicável sem confundir a obrigação legal com uma rejeição futura." : "Regime regular: conferir IBS estadual, IBS municipal e CBS conforme o ano da emissão e a classificação do produto."}</p>
+        <h3>Conferência tributária</h3><p>Empresa: ${escapeHtml(state.settings.company)}. Regime: ${escapeHtml(state.settings.regime)}. CRT: ${escapeHtml(window.TortelaFiscalRegimes.profile(state.settings).crt)}. ${window.TortelaFiscalRegimes.profile(state.settings).icmsSimple?"CSOSN":"CST ICMS"} com suporte neste emissor: ${window.TortelaFiscalRegimes.profile(state.settings).icmsCodes.join(", ")}. As regras são específicas desta empresa; modalidades especiais dependem de suporte e homologação próprios.</p>
+        <p>${window.TortelaFiscalRegimes.profile(state.settings).federalSimple ? "Simples Nacional/MEI: a política de informação considera regime e ano; a ativação de cada rejeição da SEFAZ é controlada separadamente pela nota técnica. Em 2026, este emissor permite informar IBS/CBS quando aplicável sem confundir a obrigação legal com uma rejeição futura." : "Regime regular: conferir IBS estadual, IBS municipal e CBS conforme o ano da emissão e a classificação do produto."}</p>
         <p>Produtos ativos com NCM ausente ou zerado: <strong>${state.products.filter(p => p.active !== false && (!/^\d{8}$/.test(String(p.ncm || "")) || /^0+$/.test(String(p.ncm || "")))).length}</strong>. A emissão fiscal desses produtos fica bloqueada até a correção.</p>
         <p>Produtos ativos com classificação IBS/CBS incompleta: <strong>${state.products.filter(p => p.active !== false && (!/^\d{3}$/.test(String(p.reform?.cst || p.ibsCbsCst || "")) || !/^\d{6}$/.test(String(p.reform?.classTrib || p.ibsClass || "")))).length}</strong>. Confirme o enquadramento com o responsável fiscal antes da vigência aplicável.</p>
         <p>Tabela de classificações: ${escapeHtml(state.reformTaxTables?.version || "Não informada")}. A emissão real também exige certificado, CSC e credenciamento na SEFAZ. NT 2025.002 v1.52: novas referências por item e preços líquidos seguem as datas do ambiente (homologação 26/10/2026; produção 16/11/2026).</p>
@@ -2895,7 +2903,7 @@ function renderNfseIssueForm(serviceRules) {
         <div class="field"><label>Codigo IBGE municipio</label><input id="nfse-city-code" placeholder="3552502" /></div>
         <div class="field"><label>Item lista servico LC 116</label><input id="nfse-service-code" value="${escapeAttr(defaultRule.serviceCode || "14.01")}" /></div>
         <div class="field"><label>Tributação nacional (6 dígitos)</label><input id="nfse-national-code" maxlength="6" /></div>
-        <div class="field"><label>CST IBS/CBS do serviço</label><input id="nfse-rtc-cst" maxlength="3" /></div>
+        <div class="field"><label>IBS/CBS no serviço</label><select id="nfse-include-rtc"><option value="false">Conforme regime e vigência</option><option value="true">Informar IBS/CBS</option></select></div><div class="field"><label>CST IBS/CBS do serviço</label><input id="nfse-rtc-cst" maxlength="3" /></div>
         <div class="field"><label>cClassTrib do serviço</label><input id="nfse-rtc-class" maxlength="6" /></div>
         <div class="field"><label>Diferimento IBS UF %</label><input id="nfse-uf-deferral" type="number" min="0" max="100" step="0.01" value="0" /></div><div class="field"><label>Diferimento IBS municipal %</label><input id="nfse-city-deferral" type="number" min="0" max="100" step="0.01" value="0" /></div><div class="field"><label>Diferimento CBS %</label><input id="nfse-cbs-deferral" type="number" min="0" max="100" step="0.01" value="0" /></div><div class="field"><label>Indicador da operação cIndOp</label><input id="nfse-rtc-operation" maxlength="6" /></div>
         <div class="field"><label>Codigo municipal</label><input id="nfse-city-service-code" value="${escapeAttr(defaultRule.cityServiceCode || "")}" /></div>
@@ -3255,7 +3263,7 @@ function reportTable() {
 }
 
 function renderSettings() {
-  ensureFiscalRuleCoverage();
+  // Fiscal rules are configured explicitly; opening a screen must not create client data.
   const users = state.users || [];
   const readiness = operationReadiness();
   const editingRule = (state.fiscalRules || []).find((rule) => Number(rule.id) === Number(editingFiscalRuleId)) || {};
@@ -3316,8 +3324,8 @@ function renderSettings() {
             <div class="field"><label>Inscricao municipal</label><input id="set-im" value="${state.settings.municipalRegistration || ""}" /></div>
           </div>
           <div class="field"><label>UF</label><input id="set-uf" value="${state.settings.uf}" maxlength="2" /></div>
-          <div class="field"><label>Regime tributario</label><select id="set-regime"><option>Simples Nacional</option><option>Lucro Presumido</option><option>Lucro Real</option></select></div>
-          <div class="field"><label>CRT aplicado</label><input value="${taxRegimeCode(state.settings.regime)}" readonly /></div>
+          <div class="field"><label>Regime tributario</label><select id="set-regime">${window.TortelaFiscalRegimes.regimes.map(item=>`<option>${escapeHtml(item.name)}</option>`).join('')}</select></div>
+          <div class="field"><label>CRT aplicado</label><select id="set-crt"><option value="">Automático pelo regime</option><option value="1">1 - Simples Nacional</option><option value="2">2 - Simples: excesso de sublimite</option><option value="3">3 - Regime normal</option><option value="4">4 - MEI</option></select></div>
         </div>
         <div class="form-card ${settingsPaneClass("endereco")}" data-settings-pane="endereco">
           <h3 class="settings-section-title">Endereco fiscal da unidade</h3>
@@ -3360,7 +3368,7 @@ function renderSettings() {
             <div class="field"><label>URL QR Code NFC-e</label><input id="set-nfce-qrcode-url" value="${escapeAttr(state.settings.nfceQrCodeUrl || "")}" placeholder="Padrao da UF quando vazio" /></div>
             <div class="field"><label>URL consulta NFC-e</label><input id="set-nfce-consulta-url" value="${escapeAttr(state.settings.nfceConsultaUrl || "")}" placeholder="Padrao da UF quando vazio" /></div>
             <div class="field"><label>Padrao NFS-e</label><select id="set-nfse-standard"><option>Nacional</option><option>Municipal</option></select></div>
-            <div class="field"><label>Provedor NFS-e municipal</label><input id="set-nfse-provider" value="${escapeAttr(state.settings.nfseProvider || "")}" placeholder="Ex.: padrao nacional ou provedor municipal" /></div>
+            <div class="field"><label>Apuração NFS-e do Simples ME/EPP</label><select id="set-nfse-simple-assessment"><option value="1">Federais e ISS no Simples</option><option value="2">Federais no Simples; ISS fora</option><option value="3">Federais e ISS fora do Simples</option></select></div><div class="field"><label>Provedor NFS-e municipal</label><input id="set-nfse-provider" value="${escapeAttr(state.settings.nfseProvider || "")}" placeholder="Ex.: padrao nacional ou provedor municipal" /></div>
             <div class="field"><label>Codigo municipio NFS-e</label><input id="set-nfse-city-code" value="${escapeAttr(state.settings.nfseCityCode || "")}" /></div>
           </div>
           <div class="actions">
@@ -3373,7 +3381,7 @@ function renderSettings() {
           <div class="grid four">
             <div class="field"><label>Nome da regra</label><input id="rule-name" value="${ruleValue("name")}" placeholder="Venda interna" /></div>
             <div class="field"><label>Modelo</label><select id="rule-model"><option ${ruleSelected("model", "NF-e", "NF-e")}>NF-e</option><option ${ruleSelected("model", "NFC-e", "NF-e")}>NFC-e</option><option ${ruleSelected("model", "NFS-e", "NF-e")}>NFS-e</option></select></div>
-            <div class="field"><label>Regime</label><select id="rule-regime"><option ${ruleSelected("regime", "Simples Nacional", "Simples Nacional")}>Simples Nacional</option><option ${ruleSelected("regime", "Lucro Presumido", "Simples Nacional")}>Lucro Presumido</option><option ${ruleSelected("regime", "Lucro Real", "Simples Nacional")}>Lucro Real</option></select></div>
+            <div class="field"><label>Regime</label><select id="rule-regime">${window.TortelaFiscalRegimes.regimes.map(item=>`<option ${ruleSelected("regime",item.name,"Simples Nacional")}>${escapeHtml(item.name)}</option>`).join('')}</select></div>
             <div class="field"><label>UF</label><input id="rule-uf" value="${ruleValue("uf", state.settings.uf)}" maxlength="2" /></div>
             <div class="field"><label>Municipio</label><input id="rule-municipio" value="${ruleValue("municipio", state.settings.city || "")}" /></div>
             <div class="field"><label>Operacao</label><input id="rule-operation" value="${ruleValue("operation", "Venda de mercadoria")}" /></div>
@@ -3383,7 +3391,7 @@ function renderSettings() {
             <div class="field"><label>NCM</label><input id="rule-ncm" value="${ruleValue("ncm", "19059090")}" /></div>
             <div class="field"><label>CEST</label><input id="rule-cest" value="${ruleValue("cest")}" /></div>
             <div class="field"><label>Origem</label><input id="rule-origin" value="${ruleValue("origin", "0")}" /></div>
-            <div class="field"><label>CST PIS/COFINS</label><input id="rule-pis-cofins-cst" value="${ruleValue("pisCofinsCst", "49")}" /></div>
+            <div class="field"><label>CRT da regra</label><select id="rule-crt"><option value="">Automático pelo regime</option>${["1","2","3","4"].map(code=>`<option value="${code}" ${String(editingRule.crt||"")===code?"selected":""}>${code}</option>`).join('')}</select></div><div class="field"><label>CST PIS/COFINS</label><input id="rule-pis-cofins-cst" value="${ruleValue("pisCofinsCst", "49")}" /></div>
             <div class="field"><label>PIS %</label><input id="rule-pis-rate" type="number" step="0.01" value="${ruleNumber("pisRate")}" /></div>
             <div class="field"><label>COFINS %</label><input id="rule-cofins-rate" type="number" step="0.01" value="${ruleNumber("cofinsRate")}" /></div>
             <div class="field"><label>ICMS %</label><input id="rule-icms-rate" type="number" step="0.01" value="${ruleNumber("icmsRate")}" /></div>
@@ -3960,10 +3968,13 @@ function bindCurrentModule() {
   const saveSettings = byId("save-settings");
   if (saveSettings) {
     byId("set-regime").value = state.settings.regime || "Simples Nacional";
+    byId("set-crt").value = state.settings.crt || "";
+    byId("set-regime").addEventListener("change",()=>{byId("set-crt").value="";});
     byId("set-env").value = state.settings.fiscalEnvironment || "Homologacao";
     byId("set-fiscal-engine").value = state.settings.fiscalEngine || "ACBrLib";
     byId("set-sefaz-credentialed").value = String(Boolean(state.settings.sefazCredentialed));
     byId("set-nfse-standard").value = state.settings.nfseStandard || "Nacional";
+    byId("set-nfse-simple-assessment").value=String(state.settings.nfseSimpleAssessment||1);
     saveSettings.addEventListener("click", saveSettingsRecord);
   }
 
@@ -4918,6 +4929,9 @@ function captureProductDraft() {
   pendingProductDraft.nutritionCalories = byId("product-nutrition-calories")?.value ?? pendingProductDraft.nutritionCalories ?? "";
   pendingProductDraft.nutritionProtein = byId("product-nutrition-protein")?.value ?? pendingProductDraft.nutritionProtein ?? "";
   pendingProductDraft.fiscal = {
+    ...(pendingProductDraft.fiscal || {}),
+    cst: byId("product-fiscal-cst")?.value ?? pendingProductDraft.fiscal?.cst,
+    csosn: byId("product-fiscal-csosn")?.value ?? pendingProductDraft.fiscal?.csosn,
     origin: byId("product-origin")?.value ?? pendingProductDraft.fiscal?.origin ?? "0 Nacional",
     cbenef: byId("product-cbenef")?.value ?? pendingProductDraft.fiscal?.cbenef ?? "",
     motDeson: byId("product-mot-deson")?.value ?? pendingProductDraft.fiscal?.motDeson ?? "",
@@ -4927,6 +4941,14 @@ function captureProductDraft() {
     icmsExternalRate: byId("product-icms-external-rate")?.value ?? pendingProductDraft.fiscal?.icmsExternalRate ?? 0,
     icmsBaseReduction: byId("product-icms-base-reduction")?.value ?? pendingProductDraft.fiscal?.icmsBaseReduction ?? 0,
     icmsStRate: byId("product-icms-st-rate")?.value ?? pendingProductDraft.fiscal?.icmsStRate ?? 0,
+    icmsDeferralRate: byId("product-icms-deferral")?.value ?? pendingProductDraft.fiscal?.icmsDeferralRate,
+    retainedStBase: byId("product-retained-st-base")?.value ?? pendingProductDraft.fiscal?.retainedStBase,
+    retainedStRate: byId("product-retained-st-rate")?.value ?? pendingProductDraft.fiscal?.retainedStRate,
+    retainedStValue: byId("product-retained-st-value")?.value ?? pendingProductDraft.fiscal?.retainedStValue,
+    icmsSubstituteValue: byId("product-icms-substitute-value")?.value ?? pendingProductDraft.fiscal?.icmsSubstituteValue,
+    retainedFcpBase: byId("product-retained-fcp-base")?.value ?? pendingProductDraft.fiscal?.retainedFcpBase,
+    retainedFcpRate: byId("product-retained-fcp-rate")?.value ?? pendingProductDraft.fiscal?.retainedFcpRate,
+    retainedFcpValue: byId("product-retained-fcp-value")?.value ?? pendingProductDraft.fiscal?.retainedFcpValue,
     mva: byId("product-mva")?.value ?? pendingProductDraft.fiscal?.mva ?? 0,
     fcpRate: byId("product-fcp-rate")?.value ?? pendingProductDraft.fiscal?.fcpRate ?? 0,
     ipiCst: byId("product-ipi-cst")?.value ?? pendingProductDraft.fiscal?.ipiCst ?? "",
@@ -4941,6 +4963,7 @@ function captureProductDraft() {
     note: byId("product-fiscal-note")?.value ?? pendingProductDraft.fiscal?.note ?? ""
   };
   pendingProductDraft.reform = {
+    ...(pendingProductDraft.reform || {}),
     classTrib: byId("product-class-trib")?.value ?? pendingProductDraft.reform?.classTrib ?? pendingProductDraft.ibsClass ?? "000001",
     cst: byId("product-reform-cst")?.value ?? pendingProductDraft.reform?.cst ?? "",
     rateYear: byId("product-cbs-rate-year")?.value ?? pendingProductDraft.reform?.rateYear,
@@ -6089,12 +6112,15 @@ async function saveSettingsRecord() {
   if (document && ![11, 14].includes(document.length)) return alert("CNPJ/CPF da empresa deve possuir 14 ou 11 digitos.");
   if (uf.length !== 2) return alert("Informe uma UF valida.");
   if (cep && cep.length !== 8) return alert("CEP da empresa deve possuir 8 digitos.");
+  const fiscalProfile=window.TortelaFiscalRegimes.profile({regime:byId("set-regime").value,crt:byId("set-crt").value});
+  if(fiscalProfile.errors.length)return alert(fiscalProfile.errors.join(", "));
   state.settings.company = company;
   state.settings.document = document;
   state.settings.stateRegistration = byId("set-ie").value;
   state.settings.municipalRegistration = byId("set-im").value;
   state.settings.uf = uf;
   state.settings.regime = byId("set-regime").value;
+  state.settings.crt = byId("set-crt").value;
   state.settings.fiscalEnvironment = byId("set-env").value;
   state.settings.fiscalEngine = byId("set-fiscal-engine").value;
   state.settings.acbrHost = byId("set-acbr-host").value;
@@ -6119,6 +6145,7 @@ async function saveSettingsRecord() {
   state.settings.nfceQrCodeUrl = byId("set-nfce-qrcode-url").value.trim();
   state.settings.nfceConsultaUrl = byId("set-nfce-consulta-url").value.trim();
   state.settings.nfseStandard = byId("set-nfse-standard").value;
+  state.settings.nfseSimpleAssessment=Number(byId("set-nfse-simple-assessment").value);
   state.settings.nfseProvider = byId("set-nfse-provider").value;
   state.settings.nfseCityCode = byId("set-nfse-city-code").value;
   state.settings.cep = cep;
@@ -6280,7 +6307,7 @@ function saveFiscalRuleRecord() {
     id: existingRule?.id || nextId(state.fiscalRules),
     name: byId("rule-name").value || "Regra fiscal",
     regime,
-    crt: taxRegimeCode(regime),
+    crt: byId("rule-crt")?.value || taxRegimeCode(regime),
     uf,
     municipio,
     model,
@@ -6439,56 +6466,11 @@ async function changeOwnPassword() {
 }
 
 function taxRegimeCode(regime) {
-  return regime === "Simples Nacional" ? "1" : "3";
+  return window.TortelaFiscalRegimes.profile({regime}).crt;
 }
 
 function ensureFiscalRuleCoverage() {
-  state.fiscalRules = state.fiscalRules || [];
-  const regimes = ["Simples Nacional", "Lucro Presumido", "Lucro Real"];
-  const models = ["NF-e", "NFC-e", "NFS-e"];
-  for (const regime of regimes) {
-    for (const model of models) {
-      if (state.fiscalRules.some((rule) => rule.regime === regime && rule.model === model && rule.uf === state.settings.uf)) continue;
-      state.fiscalRules.push({
-        id: nextId(state.fiscalRules),
-        name: `${model} ${regime} - revisar com contador`,
-        regime,
-        crt: taxRegimeCode(regime),
-        uf: state.settings.uf,
-        municipio: model === "NFS-e" ? state.settings.city || "" : "",
-        model,
-        operation: model === "NFS-e" ? "Prestacao de servico" : "Venda de mercadoria",
-        cfop: model === "NFS-e" ? "5933" : "5102",
-        cst: regime === "Simples Nacional" ? "" : "00",
-        csosn: regime === "Simples Nacional" ? "102" : "",
-        ncm: "",
-        origin: "0",
-        pisCofinsCst: regime === "Simples Nacional" ? "49" : "01",
-        ibsCbsCst: "000",
-        ibsClass: "000001",
-        cbsClass: "000001",
-        ibsRate: 0,
-        cbsRate: 0,
-        ibsUfRate: 0,
-        ibsCityRate: 0,
-        cbsFederalRate: 0,
-        presumedCreditRate: 0,
-        transitionYear: "2026",
-        reformReductionRate: 0,
-        reformDeferralRate: 0,
-        selectiveTaxRate: 0,
-        selectiveTaxCst: "",
-        selectiveTaxClass: "",
-        monophase: false,
-        adRemRate: 0,
-        adRemUnit: "",
-        serviceCode: model === "NFS-e" ? "14.01" : "",
-        validFrom: "2026-01-01",
-        active: true,
-        requiresAccountantReview: true
-      });
-    }
-  }
+  return state.fiscalRules || []; // Read-only: rules must be added explicitly.
 }
 
 function validateFiscalDocument(row) {
@@ -6514,9 +6496,9 @@ function validateFiscalDocument(row) {
       if (![11, 14].includes(customerDocument.length)) missing.push("CPF/CNPJ do destinatario da NF-e");
     }
     if (row.model === "NFC-e" && (!state.settings.cscConfigured || !state.settings.cscId)) missing.push("CSC e ID CSC");
-    if (!rule.ncm) missing.push("NCM na regra fiscal");
-    if (state.settings.regime === "Simples Nacional" && !rule.csosn) missing.push("CSOSN");
-    if (state.settings.regime !== "Simples Nacional" && !rule.cst) missing.push("CST");
+    // NCM is validated per item by the server, including product overrides.
+    if (window.TortelaFiscalRegimes.profile(state.settings).icmsSimple && !rule.csosn) missing.push("CSOSN");
+    if (!window.TortelaFiscalRegimes.profile(state.settings).icmsSimple && !rule.cst) missing.push("CST");
   }
   return missing;
 }
@@ -6549,6 +6531,7 @@ function findFiscalRule(model, nature = "") {
     item.active !== false &&
     item.model === model &&
     item.regime === state.settings.regime &&
+    (!item.crt || String(item.crt)===window.TortelaFiscalRegimes.profile(state.settings).crt) &&
     item.uf === state.settings.uf &&
     (!item.validFrom || item.validFrom <= todayText) &&
     (!item.validTo || item.validTo >= todayText) &&
@@ -6557,6 +6540,7 @@ function findFiscalRule(model, nature = "") {
     item.active !== false &&
     item.model === model &&
     item.regime === state.settings.regime &&
+    (!item.crt || String(item.crt)===window.TortelaFiscalRegimes.profile(state.settings).crt) &&
     item.uf === state.settings.uf
   ) || {};
 }
@@ -6677,6 +6661,7 @@ async function createNfseRecord() {
   const row = {
     id: nextId(state.fiscalQueue),
     model: "NFS-e",
+    includeIbsCbs:byId("nfse-include-rtc").value==='true',
     serie: byId("nfse-serie").value || "1",
     nature: byId("nfse-nature").value || "Prestacao de servico",
     status: "Pendente",
