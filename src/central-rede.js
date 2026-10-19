@@ -4,6 +4,9 @@ let currentModule = sessionStorage.getItem("tortela-central-module") || "overvie
 
 const modules = [
   ["overview", "Painel", "Visao geral"],
+  ["franchisees", "Franqueados", "Cadastros e poderes"],
+  ["users", "Usuarios da Central", "Acessos por setor"],
+  ["myaccess", "Meu acesso", "Alterar minha senha"],
   ["sales", "Vendas", "Hora, dia e mes"],
   ["products", "Produtos", "Ranking e estoque"],
   ["orders", "Pedidos", "Automaticos"],
@@ -175,9 +178,10 @@ async function boot() {
 }
 
 function render() {
+  if(!centralModuleAllowed(currentModule))currentModule=modules.find(([key])=>centralModuleAllowed(key))?.[0]||"myaccess";
   byId("app").innerHTML = `
     <header class="topbar tortela-topbar">
-      <div class="brand">${brandMarkup()}<div><strong>Central Tortela</strong><small>Gestao consolidada das franquias</small></div></div>
+      <div class="brand">${brandMarkup()}<div><strong>Central do Administrador</strong><small>Gestao e acessos dos franqueados</small></div></div>
       <div class="top-right">
         <button class="btn network-white" id="refresh">Atualizar</button>
         <a class="btn network-white" href="./loja.html">Loja online</a>
@@ -194,16 +198,23 @@ function render() {
   bindRender();
 }
 
+function centralModuleAllowed(key) {
+  return key === "myaccess" || (summary.centralPermissions || modules.map(([key])=>key)).includes(key);
+}
 function renderNav() {
-  return modules.map(([key, label, detail]) => `
+  return modules.filter(([key])=>centralModuleAllowed(key)).map(([key, label, detail]) => `
     <button data-network-module="${key}" class="${currentModule === key ? "active" : ""}">
       ${label}<small>${detail}</small>
     </button>`).join("");
 }
 
 function renderCurrentModule() {
+  if(!centralModuleAllowed(currentModule))currentModule=modules.find(([key])=>centralModuleAllowed(key))?.[0]||"myaccess";
   const renderers = {
     overview: renderOverview,
+    franchisees: () => window.CentralAdministration.render("franchisees"),
+    users: () => window.CentralAdministration.render("users"),
+    myaccess: () => window.CentralAdministration.render("myaccess"),
     sales: renderSales,
     products: renderProducts,
     orders: renderOrders,
@@ -811,6 +822,7 @@ function renderReports() {
 }
 
 function bindRender() {
+  if(window.CentralAdministration)window.CentralAdministration.bind({api});
   const unitSelect = byId("terminal-unit");
   if (unitSelect && window.PdvTerminalSettings) {
     const loadTerminals = () => { if (unitSelect.value) window.PdvTerminalSettings.mount(byId("pdv-terminal-settings"), { api, tenantCode: unitSelect.value }); };

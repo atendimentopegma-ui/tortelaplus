@@ -5,6 +5,9 @@ const crypto = require("crypto");
 const net = require("net");
 const { spawn } = require("child_process");
 const { PostgresStore, tenantSchema } = require("./src/server/postgres-store");
+const { tenantModuleAllowed } = require("./src/server/tenant-modules");
+const { assertTenantWriteScope } = require("./src/server/tenant-write-scope");
+const { centralPermissions, permissionsFor, fullAccess, centralRouteAllowed, scopedSummary } = require("./src/server/central-permissions");
 const { validTerminalId, registerTerminal, updateTerminal, listTerminals } = require("./src/server/pdv-terminals");
 const { createStateCoordinator } = require("./src/server/coordinated-state");
 const {
@@ -461,8 +464,9 @@ async function initializePersistence() {
   providerCache = storedProvider || readJson(providerFile, initialProvider);
   const configuredAdmin = configuredProviderAdmin();
   if (configuredAdmin) {
+    const storedAdmin = normalizeProviderAdmins(providerCache.providerAdmins).find(admin => admin.username === configuredAdmin.username);
     providerCache.providerAdmins = [
-      configuredAdmin,
+      {...configuredAdmin,...storedAdmin,passwordHash:storedAdmin?.credentialUpdatedAt ? storedAdmin.passwordHash : configuredAdmin.passwordHash},
       ...normalizeProviderAdmins(providerCache.providerAdmins).filter(
         (admin) => admin.id !== configuredAdmin.id && String(admin.username).toLowerCase() !== configuredAdmin.username.toLowerCase()
       )
@@ -552,7 +556,7 @@ function writeTenantState(tenantCode, state, allowTerminalSettings = false) {
   const normalized = withTenantStateDefaults({
     ...current,
     ...stripped,
-    users: stripped.users || current.users || initialTenantState.users
+    users: (stripped.users || current.users || initialTenantState.users).map(user => ({...user, passwordHash: user.passwordHash || current.users.find(existing => existing.id === user.id)?.passwordHash}))
   }, code);
   if (!allowTerminalSettings) normalized.settings.pdvTerminals = structuredClone(current.settings.pdvTerminals || []);
   normalized._meta = {
@@ -719,6 +723,8 @@ function normalizeProviderAdmins(admins) {
     name: admin.name || admin.username || "Administrador",
     username: admin.username || "admin",
     active: admin.active !== false,
+    permissions: permissionsFor(admin),
+    credentialUpdatedAt: admin.credentialUpdatedAt || "",
     passwordHash: admin.passwordHash || hashPassword(admin.password || "Pegma@2026")
   }));
 }
@@ -1223,13 +1229,13 @@ function publicProvider(provider) {
   const { providerAdmins, ...safe } = provider;
   return {
     ...safe,
-    clients: (safe.clients || []).map(({ licensePassword, ...client }) => client)
+    clients: (safe.clients || []).map(publicTenant)
   };
 }
 
 function publicTenant(tenant) {
-  const { licensePassword, ...safe } = tenant;
-  return safe;
+  const { licensePassword, activeSessions, ...safe } = tenant;
+  return {...safe, activeSessions:(activeSessions||[]).map(({sessionId,...session})=>session)};
 }
 
 function moneyRound(value) {
@@ -1699,6 +1705,9 @@ function providerAccess(req) {
     if (token) providerSessions.delete(token);
     return null;
   }
+  const admin = readProvider().providerAdmins.find(user => user.username === session.username && user.active);
+  if (!admin) { providerSessions.delete(token); return null; }
+  Object.assign(session, { id: admin.id, name: admin.name, permissions: permissionsFor(admin) });
   session.lastSeenAt = Date.now();
   return session;
 }
@@ -1745,7 +1754,12 @@ function sessionAccess(req, provider, tenantCode, requiredPermission = "") {
   const sessionId = bearerToken(req);
   const session = (tenant.activeSessions || []).find((item) => item.sessionId === sessionId);
   if (!session) return { error: { status: 401, message: "Sessao invalida ou expirada" } };
-  const permissions = validPermissions(session.permissions, session.role);
+  const currentUser = findUser(readTenantState(tenantCode), session.user);
+  if (!currentUser || !currentUser.active) return { error: { status: 401, message: "Usuario bloqueado ou removido" } };
+  session.role = currentUser.role;
+  session.permissions = validPermissions(currentUser.permissions, currentUser.role);
+  const permissions = session.permissions;
+  if(requiredPermission && !tenantModuleAllowed(tenant,requiredPermission))return {error:{status:403,message:"Este setor nao esta liberado pela Central para a unidade"}};
   if (requiredPermission && !permissions.includes(requiredPermission)) {
     return { error: { status: 403, message: "Perfil sem permissao para esta operacao" } };
   }
@@ -2452,6 +2466,10 @@ async function databaseIsolationStatus(provider) {
 }
 
 async function handleApi(req, res, urlPath) {
+  const centralAccess = providerAccess(req);
+  if (centralAccess && !urlPath.startsWith("/api/public/") && urlPath !== "/api/health" && !centralRouteAllowed(centralAccess, urlPath)) {
+    return sendJson(res, 403, { ok: false, error: "Seu usuario da Central nao possui acesso a este setor." });
+  }
   if (req.method === "OPTIONS") {
     send(res, 204, "");
     return;
@@ -3197,7 +3215,7 @@ async function handleApi(req, res, urlPath) {
       .sort((a, b) => Number(b.daysSinceLastPurchase || 0) - Number(a.daysSinceLastPurchase || 0));
     const deployment = buildDeploymentReadiness(process.env, { databaseMode });
     const databaseIsolation = await databaseIsolationStatus(provider);
-    sendJson(res, 200, {
+    sendJson(res, 200, scopedSummary({
       ok: true,
       generatedAt: new Date().toISOString(),
       deployment,
@@ -3231,7 +3249,7 @@ async function handleApi(req, res, urlPath) {
       productionCapacity: productionCapacity.slice(0, 80),
       customerConsumption: customerConsumption.slice(0, 120),
       inactiveCustomers: inactiveCustomers.slice(0, 120)
-    });
+    }, access));
     return;
   }
 
@@ -3455,6 +3473,56 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if (urlPath === "/api/network/franchisees" && req.method === "GET") {
+    const access = providerAccess(req);
+    if (!access) return sendJson(res, 401, {ok:false,error:"Sessao administrativa obrigatoria"});
+    const clients = readProvider().clients.map(({tenantCode,tradeName,document,plan,maxTerminals,renewalDays,status,modules,adminUser,licenseExpiresAt}) => ({tenantCode,tradeName,document,plan,maxTerminals,renewalDays,status,modules,adminUser,licenseExpiresAt}));
+    return sendJson(res, 200, {ok:true,clients});
+  }
+
+  const centralAdminMatch = urlPath.match(/^\/api\/provider\/admins(?:\/(\d+))?$/);
+  if (centralAdminMatch && ["GET","POST"].includes(req.method)) {
+    const access = providerAccess(req);
+    if (!access) return sendJson(res,401,{ok:false,error:"Sessao administrativa obrigatoria"});
+    const provider = readProvider();
+    const safe = user => ({id:user.id,name:user.name,username:user.username,active:user.active,permissions:permissionsFor(user)});
+    if (req.method === "GET") return sendJson(res,200,{ok:true,users:provider.providerAdmins.map(safe),permissions:centralPermissions,assignablePermissions:permissionsFor(access)});
+    const body = await readBody(req);
+    const id = Number(centralAdminMatch[1] || 0);
+    let user = id ? provider.providerAdmins.find(row=>Number(row.id)===id) : null;
+    if (id && !user) return sendJson(res,404,{ok:false,error:"Usuario da Central nao encontrado"});
+    const rights = permissionsFor({permissions:body.permissions === undefined ? (user?.permissions || []) : body.permissions});
+    if (rights.some(permission=>!permissionsFor(access).includes(permission))) return sendJson(res,403,{ok:false,error:"Nao e permitido conceder poderes que voce nao possui"});
+    if (!id) {
+      const username=String(body.username||"").trim();
+      if (!username || !validNewPassword(body.password)) return sendJson(res,400,{ok:false,error:"Informe login e senha inicial de pelo menos 8 caracteres"});
+      if (provider.providerAdmins.some(row=>row.username.toLowerCase()===username.toLowerCase())) return sendJson(res,409,{ok:false,error:"Login ja cadastrado"});
+      user={id:Math.max(0,...provider.providerAdmins.map(row=>Number(row.id)))+1,username,passwordHash:hashPassword(body.password),active:true};
+      provider.providerAdmins.push(user);
+    }
+    user.name=String(body.name||user.name||user.username).trim();
+    user.permissions=rights;
+    if(body.active!==undefined)user.active=Boolean(body.active);
+    if (!provider.providerAdmins.some(row=>row.active && fullAccess(row))) return sendJson(res,400,{ok:false,error:"Mantenha pelo menos um administrador ativo com acesso total"});
+    writeProvider(provider);
+    appendProviderAudit(id?"Poderes de usuario da Central alterados":"Usuario da Central criado",user.username,access.username,requestIp(req));
+    return sendJson(res,id?200:201,{ok:true,user:safe(user)});
+  }
+
+  if (urlPath === "/api/provider/auth/password" && req.method === "POST") {
+    const access=providerAccess(req);
+    if(!access)return sendJson(res,401,{ok:false,error:"Sessao administrativa obrigatoria"});
+    const body=await readBody(req),provider=readProvider();
+    const user=provider.providerAdmins.find(row=>row.username===access.username);
+    if(!user || !verifyPassword(body.currentPassword,user.passwordHash))return sendJson(res,403,{ok:false,error:"Senha atual invalida"});
+    if(String(body.newPassword||"").length<6)return sendJson(res,400,{ok:false,error:"A nova senha deve possuir pelo menos 6 caracteres"});
+    user.passwordHash=hashPassword(body.newPassword);user.credentialUpdatedAt=new Date().toISOString();
+    writeProvider(provider);
+    for(const [key,session] of providerSessions)if(session.username===user.username && key!==bearerToken(req))providerSessions.delete(key);
+    appendProviderAudit("Senha da Central alterada",user.username,access.username,requestIp(req));
+    return sendJson(res,200,{ok:true});
+  }
+
   if (req.method === "POST" && urlPath === "/api/provider/auth/login") {
     const body = await readBody(req);
     const ipAddress = requestIp(req);
@@ -3473,9 +3541,9 @@ async function handleApi(req, res, urlPath) {
     }
     loginAttempts.delete(key);
     const sessionId = `C-${crypto.randomBytes(32).toString("base64url")}`;
-    providerSessions.set(sessionId, { username: admin.username, name: admin.name, role: "Administrador", ipAddress, createdAt: Date.now(), lastSeenAt: Date.now() });
+    providerSessions.set(sessionId, { id: admin.id, permissions: permissionsFor(admin), username: admin.username, name: admin.name, role: "Administrador", ipAddress, createdAt: Date.now(), lastSeenAt: Date.now() });
     appendProviderAudit("Login na Central Tortela", "Sessao administrativa iniciada", admin.username, ipAddress);
-    sendJson(res, 200, { ok: true, sessionId, user: { name: admin.name, username: admin.username, role: "Administrador" } });
+    sendJson(res, 200, { ok: true, sessionId, user: { id: admin.id, permissions: permissionsFor(admin), name: admin.name, username: admin.username, role: "Administrador" } });
     return;
   }
 
@@ -3555,6 +3623,7 @@ async function handleApi(req, res, urlPath) {
       const existing = findTenant(current, client.tenantCode);
       return {
         ...client,
+        activeSessions: existing?.activeSessions || [],
         licensePassword: existing?.licensePassword || client.licensePassword || "PEGMA-2026"
       };
     });
@@ -3714,7 +3783,7 @@ async function handleApi(req, res, urlPath) {
     const provider = readProvider();
     const access = tenantAccessOrProvider(req, provider, tenantCode);
     if (access.error) return deny(res, access);
-    if (req.method === "POST" && !access.session.provider && !["Administrador", "Gerente"].includes(access.session.role)) return sendJson(res, 403, { ok: false, error: "Somente administrador ou gerente pode configurar a emissao do terminal." });
+    if (req.method === "POST" && !access.session.provider && !access.session.permissions.includes("settings") && !(access.session.role === "Gerente" && access.session.permissions.includes("fiscal_transmit"))) return sendJson(res, 403, { ok: false, error: "Seu usuario nao possui permissao para configurar a emissao do terminal." });
     const tenantState = readTenantState(tenantCode);
     if (req.method === "POST") {
       const body = await readBody(req);
@@ -3738,7 +3807,7 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     writeProvider(provider);
-    sendJson(res, 200, { state: publicTenantState(readTenantState(tenantCode)), provider });
+    sendJson(res, 200, { state: publicTenantState(readTenantState(tenantCode)), provider: publicProvider({clients:[access.tenant],ownerName:provider.ownerName}) });
     return;
   }
 
@@ -3773,7 +3842,13 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 400, { ok: false, error: error.message });
       return;
     }
-    writeTenantState(tenantCode, body.state || body);
+    const incoming = body.state || body;
+    const currentUsers = readTenantState(tenantCode).users.map(publicUser);
+    if (JSON.stringify((incoming.users || []).map(publicUser)) !== JSON.stringify(currentUsers)) return sendJson(res,403,{ok:false,error:"Sem permissao para alterar usuarios"});
+    try { assertTenantWriteScope(currentState, incoming, access.session.permissions, allPermissions); }
+    catch(error) { return sendJson(res,403,{ok:false,error:error.message}); }
+    incoming.users = currentState.users;
+    writeTenantState(tenantCode, incoming);
     writeProvider(provider);
     sendJson(res, 200, { ok: true, tenantCode, revision: readTenantState(tenantCode)._meta?.revision || 0 });
     return;
@@ -4452,6 +4527,13 @@ async function handleApi(req, res, urlPath) {
   }
 
   const tenantUserMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/users$/);
+  if (tenantUserMatch && req.method === "GET") {
+    const tenantCode=normalizeTenantCode(tenantUserMatch[1]),provider=readProvider();
+    const access=sessionAccess(req,provider,tenantCode,"manage_users");
+    if(access.error)return deny(res,access);
+    writeProvider(provider);
+    return sendJson(res,200,{ok:true,users:readTenantState(tenantCode).users.map(publicUser),assignablePermissions:access.session.permissions});
+  }
   if (tenantUserMatch && req.method === "POST") {
     const tenantCode = normalizeTenantCode(tenantUserMatch[1]);
     const provider = readProvider();
@@ -4481,6 +4563,7 @@ async function handleApi(req, res, urlPath) {
       active: body.active !== false,
       passwordHash: hashPassword(body.password)
     };
+    if (user.permissions.some(permission=>!access.session.permissions.includes(permission))) return sendJson(res,403,{ok:false,error:"Nao e permitido conceder poderes que voce nao possui"});
     tenantState.users.push(user);
     writeTenantState(tenantCode, tenantState);
     writeProvider(provider);
@@ -4509,11 +4592,14 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 400, { ok: false, error: "O usuario logado nao pode bloquear a propria conta" });
       return;
     }
+    const requestedRights=body.permissions===undefined?validPermissions(user.permissions,user.role):validPermissions(body.permissions,body.role||user.role);
+    if (requestedRights.some(permission=>!access.session.permissions.includes(permission))) return sendJson(res,403,{ok:false,error:"Nao e permitido conceder poderes que voce nao possui"});
     if (body.name !== undefined) user.name = String(body.name).trim() || user.name;
     if (body.role !== undefined && rolePermissions[body.role]) user.role = body.role;
     if (body.permissions !== undefined) user.permissions = validPermissions(body.permissions, user.role);
     if (body.screenPermissions !== undefined && typeof body.screenPermissions === "object") user.screenPermissions = body.screenPermissions;
     if (body.active !== undefined) user.active = Boolean(body.active);
+    if (!tenantState.users.some(row=>row.active!==false && allPermissions.every(permission=>validPermissions(row.permissions,row.role).includes(permission)))) return sendJson(res,400,{ok:false,error:"Mantenha ao menos um administrador ativo com acesso total na unidade"});
     writeTenantState(tenantCode, tenantState);
     writeProvider(provider);
     appendTenantAudit(tenantCode, "Usuario atualizado", user.username, access.session.user);
@@ -4785,6 +4871,7 @@ async function handleApi(req, res, urlPath) {
     if (body.screenPermissions !== undefined && typeof body.screenPermissions === "object") user.screenPermissions = body.screenPermissions;
     if (body.active !== undefined) user.active = Boolean(body.active);
     if (body.password !== undefined) user.passwordHash = hashPassword(body.password);
+    if (!tenantState.users.some(row=>row.active!==false && allPermissions.every(permission=>validPermissions(row.permissions,row.role).includes(permission)))) return sendJson(res,400,{ok:false,error:"Mantenha ao menos um administrador ativo com acesso total na unidade"});
     writeTenantState(tenantCode, tenantState);
     appendTenantAudit(tenantCode, "Usuario atualizado pela Central Tortela", user.username, access.username);
     appendProviderAudit("Usuario de cliente atualizado", `${tenantCode}: ${user.username}`, access.username, requestIp(req));

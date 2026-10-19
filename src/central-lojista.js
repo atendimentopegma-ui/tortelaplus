@@ -251,7 +251,11 @@ async function boot() {
   if (!sessionId) return renderLogin();
   if (tenant && licenseExpired()) return renderLicenseGate();
   try {
-    state = normalizeState(await api(`/api/tenant/${encodeURIComponent(tenantCode)}/state`));
+    const payload = await api(`/api/tenant/${encodeURIComponent(tenantCode)}/state`);
+    state = normalizeState(payload);
+    tenant = payload.provider?.clients?.find(row=>row.tenantCode===tenantCode) || tenant;
+    const refreshed=state.users.find(user=>user.username===authUser?.username);
+    if(refreshed)authUser=refreshed;
     render();
   } catch {
     logout(false);
@@ -368,14 +372,22 @@ function render() {
   bind();
 }
 
+function allowedStoreModule(key) {
+  const map={overview:"dashboard",channels:"sales",people:"people",products:"products",qr:"stock",stock:"stock",purchases:"purchases",fiscal:"fiscal",imports:"settings",payables:"finance",receivables:"finance",reports:"reports",users:"manage_users"};
+  const permission=map[key]||key;
+  const contract={channels:["PDV"],products:["Estoque","PDV","Compras"],qr:["Estoque"],stock:["Estoque"],purchases:["Compras"],fiscal:["NF-e","NFC-e","NFS-e"],payables:["Financeiro"],receivables:["Financeiro"],reports:["Relatorios"]};
+  return can(permission) && (!contract[key] || contract[key].some(module=>(tenant?.modules || []).includes(module)));
+}
 function renderNav() {
-  return modules.map(([key, label, detail]) => `
+  return modules.filter(([key])=>allowedStoreModule(key)).map(([key, label, detail]) => `
     <button data-store-module="${key}" class="${currentModule === key ? "active" : ""}">
       ${label}<small>${detail}</small>
     </button>`).join("");
 }
 
 function renderCurrentModule() {
+  if(!allowedStoreModule(currentModule))currentModule=modules.find(([key])=>allowedStoreModule(key))?.[0]||"";
+  if(!currentModule)return "<p>Nenhum setor liberado. Solicite acesso ao administrador.</p>";
   const renderers = {
     overview: renderOverview,
     channels: renderChannels,
@@ -1329,31 +1341,7 @@ function exportReport() {
 }
 
 function renderUsers() {
-  const permissions = Object.entries(permissionLabels);
-  return `<div class="network-module compact">
-    ${moduleTitle("Usuarios e hierarquia", "Cadastre usuarios da loja e defina o que cada perfil pode mexer.")}
-    <section class="network-card">
-      <h2>Novo usuario</h2>
-      <form class="network-form" id="user-form">
-        <div class="field"><label>Nome</label><input id="user-name" required /></div>
-        <div class="field"><label>Usuario</label><input id="user-login" required /></div>
-        <div class="field"><label>Senha inicial</label><input id="user-password" type="password" minlength="8" required /></div>
-        <div class="field"><label>Hierarquia</label><select id="user-role">${Object.keys(rolePermissions).map((role) => `<option>${role}</option>`).join("")}</select></div>
-        <div class="field full"><label>Preferencias do que pode mexer</label><div class="store-permission-grid">${permissions.map(([key, label]) => `<label class="check-row"><input class="user-permission" type="checkbox" value="${key}" /> ${label}</label>`).join("")}</div></div>
-        <button class="btn primary full" type="submit">Criar usuario</button>
-      </form>
-    </section>
-    <section class="network-card">
-      ${table(["Usuario", "Nome", "Hierarquia", "Permissoes", "Status", "Acao"], state.users.map((user) => [
-        escapeHtml(user.username || "-"),
-        escapeHtml(user.name || "-"),
-        escapeHtml(user.role || "-"),
-        escapeHtml((user.permissions || rolePermissions[user.role] || []).map((item) => permissionLabels[item] || item).join(", ")),
-        `<span class="badge ${user.active === false ? "danger" : "ok"}">${user.active === false ? "Bloqueado" : "Ativo"}</span>`,
-        `<button class="btn ${user.active === false ? "primary" : "danger"}" data-toggle-user="${user.id}">${user.active === false ? "Ativar" : "Bloquear"}</button>`
-      ]))}
-    </section>
-  </div>`;
+  return `<div class="network-module compact">${moduleTitle("Usuarios e poderes da unidade", "Acesso total ou somente setores especificos desta franquia.")}<section class="network-card" id="unit-user-access"></section></div>`;
 }
 
 function applyRolePermissions() {
@@ -1409,6 +1397,7 @@ async function loadImportFile(event) {
 }
 
 function bind() {
+  if(byId("unit-user-access") && window.UserAccessPanel)window.UserAccessPanel.mount(byId("unit-user-access"),{api,basePath:`/api/tenant/${encodeURIComponent(tenantCode)}/users`,permissions:window.UserAccessPanel.tenantPermissions,onChanged:async()=>{state=normalizeState(await api(`/api/tenant/${encodeURIComponent(tenantCode)}/state`));}});
   document.querySelectorAll("[data-store-module]").forEach((button) => {
     button.addEventListener("click", () => {
       currentModule = button.dataset.storeModule;
