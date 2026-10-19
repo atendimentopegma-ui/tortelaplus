@@ -27,7 +27,8 @@ const state = {
     cep: "08600000",
     fiscalEnvironment: "Homologacao",
     cscConfigured: true,
-    cscId: "1"
+    cscId: "1",
+    reformRegularRegime: true
   },
   reformTaxTables: normalized,
   people: [],

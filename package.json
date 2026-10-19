@@ -28,7 +28,7 @@
     "verify:regression": "node scripts/verify-regression.js",
     "verify:reform-fields": "node scripts/verify-reform-fields.js",
     "verify:fiscal-xml-reform": "node scripts/verify-fiscal-xml-reform.js",
-    "verify:reform-tax-tables": "node scripts/verify-reform-tax-tables.js",
+    "verify:reform-tax-tables": "node scripts/verify-reform-tax-tables.js && node scripts/verify-reform-live-rules.js",
     "verify:operational": "node scripts/verify-operational-readiness.js",
     "real-data:status": "node scripts/real-data-status.js",
     "homologation:status": "node scripts/homologation-status.js",

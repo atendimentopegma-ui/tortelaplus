@@ -1,25 +1,4 @@
-const DEFAULT_REFORM_TAX_TABLES = {
-  version: "IT-2025.002-v1.60-baseline",
-  publishedAt: "2026-06-23",
-  source: "Portal Nacional da NF-e - Documentos/Diversos - Tabela de Classificacao Tributaria do IBS e CBS",
-  cstIndicators: [
-    {
-      cst: "000",
-      description: "Tributacao integral",
-      requiresReduction: false,
-      allowsReduction: false,
-      allowsDeferral: false
-    }
-  ],
-  classTrib: [
-    {
-      code: "000001",
-      cst: "000",
-      description: "Tributacao integral",
-      models: ["NF-e", "NFC-e"]
-    }
-  ]
-};
+const DEFAULT_REFORM_TAX_TABLES = require("./reform-tax-tables-official.json");
 
 function digits(value) {
   return String(value || "").replace(/\D/g, "");
@@ -58,11 +37,13 @@ function validateReformTaxTables(tables = {}) {
   return [...new Set(errors)];
 }
 
-function validateClassificationPair(tables, { cst, classTrib, model }) {
+function validateClassificationPair(tables, { cst, classTrib, model, date = new Date().toISOString().slice(0, 10) }) {
   const normalized = normalizeTables(tables);
-  const cstCode = digits(cst).padStart(3, "0").slice(0, 3);
-  const classCode = digits(classTrib).padStart(6, "0").slice(0, 6);
+  const cstCode = String(cst || "");
+  const classCode = String(classTrib || "");
   const errors = [];
+  if (!/^\d{3}$/.test(cstCode)) errors.push("CST IBS/CBS deve ter exatamente 3 digitos");
+  if (!/^\d{6}$/.test(classCode)) errors.push("cClassTrib deve ter exatamente 6 digitos");
   const cstRow = normalized.cstIndicators.find((row) => digits(row.cst).padStart(3, "0") === cstCode);
   const classRow = normalized.classTrib.find((row) =>
     digits(row.code).padStart(6, "0") === classCode
@@ -70,9 +51,11 @@ function validateClassificationPair(tables, { cst, classTrib, model }) {
   );
   if (!cstRow) errors.push(`CST IBS/CBS ${cstCode} nao existe na tabela ${normalized.version}`);
   if (!classRow) errors.push(`cClassTrib ${classCode} nao permitido para CST ${cstCode} na tabela ${normalized.version}`);
-  if (classRow?.models?.length && !classRow.models.includes(model)) {
+  if (Array.isArray(classRow?.models) && !classRow.models.includes(model)) {
     errors.push(`cClassTrib ${classCode} nao permitido para ${model}`);
   }
+  if (classRow?.validFrom && date < classRow.validFrom) errors.push(`cClassTrib ${classCode} ainda nao vigente`);
+  if (classRow?.validTo && date > classRow.validTo) errors.push(`cClassTrib ${classCode} fora de vigencia`);
   return errors;
 }
 

@@ -129,6 +129,7 @@ function row(model) {
   return {
     id: model === "NF-e" ? 101 : 102,
     model,
+    date: "2027-01-02",
     customer: "Cliente Fiscal",
     customerDocument: model === "NF-e" ? "11144477735" : "",
     total: 100,

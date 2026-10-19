@@ -1,0 +1,16 @@
+const assert=require('assert/strict');
+const {generateNfeXml,validateNfeState}=require('../src/server/fiscal-documents');
+const {DEFAULT_REFORM_TAX_TABLES,validateClassificationPair}=require('../src/server/reform-tax-tables');
+const state={settings:{company:'Empresa de teste',document:'12345678000195',stateRegistration:'110042490114',regime:'Simples Nacional',uf:'SP',cityCode:'3552502',address:'Rua Fiscal',number:'100',district:'Centro',city:'Suzano',cep:'08600000',fiscalEnvironment:'Homologacao',cscConfigured:true,cscId:'1'},products:[{id:1,description:'Item',unit:'UN',ncm:'19059090',cfop:'5102',csosn:'102',fiscal:{pisOutCst:'07',pisRate:0,cofinsRate:0}}],people:[],fiscalRules:[{active:true,model:'NFC-e',regime:'Simples Nacional',uf:'SP',ncm:'22021000',csosn:'102',pisCofinsCst:'01',pisRate:1.65,cofinsRate:7.6,ibsClass:'000001',cbsClass:'000001',ibsCbsCst:'000',ibsUfRate:0.1,ibsCityRate:0,cbsFederalRate:0.9}],reformTaxTables:DEFAULT_REFORM_TAX_TABLES};
+const row={id:1,model:'NFC-e',date:'2026-10-19',total:100,items:[{id:1,qty:1,price:100}]};
+assert.equal(DEFAULT_REFORM_TAX_TABLES.classTrib.length,173);
+let xml=generateNfeXml(state,row,{csc:'TESTE'});
+assert(!xml.includes('<IBSCBS>'),'Simples 2026 nao exige grupo IBS/CBS');assert(xml.includes('<NCM>19059090</NCM>'),'NCM do produto prevalece sobre regra generica');assert(xml.includes('<PISNT><CST>07</CST>'),'Aliquota zero e CST do produto preservados');
+const regular=structuredClone(state);regular.settings.reformRegularRegime=true;
+xml=generateNfeXml(regular,row,{csc:'TESTE'});assert(xml.includes('<vBC>100.00</vBC>'));assert(xml.includes('<vIBSUF>0.10</vIBSUF>'));assert(xml.includes('<vCBS>0.90</vCBS>'));assert(xml.includes('<vNFTot>100.00</vNFTot>'),'Tributos RTC nao somados ao total em 2026');
+regular.products[0].reform={cst:'000',classTrib:'000001',ibsUfRate:17.5,ibsCityRate:2.5,cbsRate:0.9};assert(validateNfeState(regular,row).some(e=>e.includes('deve ser 0.1%')),'Rejeita parametros antigos de IBS');
+const invalid=structuredClone(state);invalid.products[0].ncm='00000000';assert(validateNfeState(invalid,row).some(e=>e.includes('NCM')),'Nao mascara NCM zerado com regra generica');
+invalid.products[0].ncm='19059090';invalid.products[0].reform={cst:'',classTrib:''};assert(validateNfeState(invalid,{...row,date:'2027-01-02'}).some(e=>e.includes('classificacao tributaria')),'2027 exige classificacao explicita');
+assert(validateClassificationPair(DEFAULT_REFORM_TAX_TABLES,{cst:'0000',classTrib:'000001',model:'NFC-e'}).length);
+assert(validateClassificationPair(DEFAULT_REFORM_TAX_TABLES,{cst:'000',classTrib:'000002',model:'NFC-e'}).length);
+console.log('OK - tabela oficial completa, cronograma do Simples, NCM por produto, aliquota zero, taxas 2026 e total de transicao.');

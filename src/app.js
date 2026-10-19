@@ -2730,6 +2730,14 @@ function renderFiscal() {
 
       <input id="fiscal-import-xml" type="file" accept=".xml,text/xml,application/xml" hidden />
 
+      <div class="card">
+        <h3>Conferência tributária</h3>
+        <p>${state.settings.regime === "Simples Nacional" ? "Simples Nacional: os campos de IBS/CBS passam a ser obrigatórios em 2027. Emissão em 2026 mantém o tratamento do Simples, salvo opção expressa pelo regime regular." : "Regime regular: conferir IBS estadual, IBS municipal e CBS conforme o ano da emissão e a classificação do produto."}</p>
+        <p>Produtos ativos com NCM ausente ou zerado: <strong>${state.products.filter(p => p.active !== false && (!/^\d{8}$/.test(String(p.ncm || "")) || /^0+$/.test(String(p.ncm || "")))).length}</strong>. A emissão fiscal desses produtos fica bloqueada até a correção.</p>
+        <p>Produtos ativos com classificação IBS/CBS incompleta: <strong>${state.products.filter(p => p.active !== false && (!/^\d{3}$/.test(String(p.reform?.cst || p.ibsCbsCst || "")) || !/^\d{6}$/.test(String(p.reform?.classTrib || p.ibsClass || "")))).length}</strong>. Confirme o enquadramento com o responsável fiscal antes da vigência aplicável.</p>
+        <p>Tabela de classificações: ${escapeHtml(state.reformTaxTables?.version || "Não informada")}. A emissão real também exige certificado, CSC e credenciamento na SEFAZ.</p>
+      </div>
+
       <div class="desktop-context-strip fiscal-context-strip">
         <button class="active" data-fiscal-step="form" type="button">Documento</button>
         <button data-fiscal-step="rules" type="button">Regras fiscais</button>
