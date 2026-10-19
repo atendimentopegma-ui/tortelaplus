@@ -914,15 +914,13 @@ async function submitManualStockDrop(event) {
 }
 
 function renderFiscal() {
-  const printMode = state.settings?.pdvPrintMode || "Ambos";
   return `<div class="network-module compact">
     ${moduleTitle("Fiscal e impressao da loja", "NF-e/DANFE ficam na Central do Franqueado. O PDV imprime recibo simples ou cupom fiscal conforme configuracao local.")}
+    <section class="network-card" id="pdv-terminal-settings"></section>
     <section class="network-card">
-      <h2>Configuracao do PDV</h2>
+      <h2>Configuracao fiscal da unidade</h2>
       <form class="network-form" id="print-settings-form">
-        <div class="field"><label>Impressao permitida no PDV</label><select id="pdv-print-mode">
-          ${["Ambos", "Recibo simples", "Cupom fiscal"].map((item) => `<option ${printMode === item ? "selected" : ""}>${item}</option>`).join("")}
-        </select></div>
+        <p>A emissao do PDV e definida individualmente nos terminais acima.</p>
         <div class="field"><label>NF-e / DANFE pela Central do Franqueado</label><select id="lojista-danfe-enabled"><option value="true">Sim</option><option value="false" ${state.settings?.lojistaDanfeEnabled === false ? "selected" : ""}>Nao</option></select></div>
         <div class="field"><label>Ambiente fiscal</label><select id="fiscal-environment"><option ${state.settings?.fiscalEnvironment === "Homologacao" ? "selected" : ""}>Homologacao</option><option ${state.settings?.fiscalEnvironment === "Producao" ? "selected" : ""}>Producao</option></select></div>
         <div class="field"><label>Serie NF-e</label><input id="nfe-serie" value="${escapeAttr(state.settings?.nfeSerie || "1")}" /></div>
@@ -948,11 +946,11 @@ async function savePrintSettings(event) {
   event.preventDefault();
   if (!requirePermission("fiscal_transmit")) return;
   state.settings = state.settings || {};
-  state.settings.pdvPrintMode = byId("pdv-print-mode").value;
+  // Emissao por terminal e salva separadamente, sem alterar comprovantes anteriores.
   state.settings.lojistaDanfeEnabled = byId("lojista-danfe-enabled").value === "true";
   state.settings.fiscalEnvironment = byId("fiscal-environment").value;
   state.settings.nfeSerie = byId("nfe-serie").value.trim() || "1";
-  audit("Configuracao fiscal/impressao alterada", `PDV: ${state.settings.pdvPrintMode}; DANFE franqueado: ${state.settings.lojistaDanfeEnabled ? "sim" : "nao"}`);
+  audit("Configuracao fiscal/impressao alterada", `Emissao do PDV por terminal; DANFE franqueado: ${state.settings.lojistaDanfeEnabled ? "sim" : "nao"}`);
   const saved = await saveState("fiscal_transmit", "Configuracao fiscal salva e visivel para a Central Administrativa.");
   if (saved) render();
 }
@@ -961,8 +959,8 @@ async function transmitFiscalRow(id) {
   if (!requirePermission("fiscal_transmit")) return;
   const row = (state.fiscalQueue || []).find((item) => Number(item.id) === Number(id));
   if (!row) return alert("Documento fiscal nao encontrado.");
-  if (row.model === "NFC-e" && state.settings?.pdvPrintMode === "Recibo simples") {
-    return alert("O PDV esta configurado para recibo simples. Altere a configuracao fiscal antes de transmitir NFC-e.");
+  if (row.model === "NFC-e" && (state.sales || []).find(sale => sale.id === row.saleId)?.emissionMode === "receipt") {
+    return alert("Esta venda foi registrada com recibo nao fiscal e nao possui NFC-e.");
   }
   if (row.model === "NF-e" && state.settings?.lojistaDanfeEnabled === false) {
     return alert("NF-e/DANFE esta desativado para a Central do Franqueado.");
@@ -1298,7 +1296,7 @@ function renderReports() {
     <section class="network-card">
       <h2>Fiscal e impressao</h2>
       ${table(["Configuracao", "Valor"], [
-        ["Impressao PDV", escapeHtml(state.settings?.pdvPrintMode || "Ambos")],
+        ["Impressao PDV", "Configurada por terminal"],
         ["NF-e/DANFE na Central do Franqueado", state.settings?.lojistaDanfeEnabled === false ? "Nao" : "Sim"],
         ["Ambiente fiscal", escapeHtml(state.settings?.fiscalEnvironment || "Homologacao")],
         ["Documentos fiscais", amount(fiscalDocs.length)]
@@ -1425,6 +1423,9 @@ function bind() {
   byId("qr-form")?.addEventListener("submit", receiveQr);
   byId("manual-stock-form")?.addEventListener("submit", submitManualStockDrop);
   byId("purchase-form")?.addEventListener("submit", savePurchase);
+  if (byId("pdv-terminal-settings") && window.PdvTerminalSettings) window.PdvTerminalSettings.mount(byId("pdv-terminal-settings"), {
+    api, tenantCode, onSaved: terminals => { state.settings.pdvTerminals = terminals; }
+  });
   byId("print-settings-form")?.addEventListener("submit", savePrintSettings);
   document.querySelectorAll("[data-fiscal-transmit]").forEach((button) => button.addEventListener("click", () => transmitFiscalRow(button.dataset.fiscalTransmit)));
   byId("import-file")?.addEventListener("change", loadImportFile);

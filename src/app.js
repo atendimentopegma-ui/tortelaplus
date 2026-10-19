@@ -577,6 +577,30 @@ async function loadTenantState(tenantCode) {
       localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
 }
 
+function pdvTerminalId() {
+  const key = "tortelaplus-pdv-terminal-id";
+  let id = localStorage.getItem(key);
+  if (!id) { id = `pdv-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`; localStorage.setItem(key, id); }
+  return id;
+}
+
+function currentPdvTerminal() {
+  return (state.settings.pdvTerminals || []).find(row => row.id === pdvTerminalId()) || {
+    id: pdvTerminalId(), name: state.cashRegister?.terminal || "PDV", emissionMode: state.settings.pdvPrintMode === "Recibo simples" ? "receipt" : "nfce"
+  };
+}
+
+async function refreshPdvEmission() {
+  if (apiOnline && sessionId && navigator.onLine) {
+    let result = await api(`/api/tenant/${state.settings.tenantCode}/pdv-terminals`);
+    if (!result.terminals.some(row => row.id === pdvTerminalId())) result = await api(`/api/tenant/${state.settings.tenantCode}/pdv-terminals/register`, {
+      method: "POST", body: JSON.stringify({ terminalId: pdvTerminalId(), name: state.cashRegister?.terminal || state.settings.defaultTerminal || "PDV" })
+    });
+    state.settings.pdvTerminals = result.terminals;
+  }
+  return currentPdvTerminal();
+}
+
 async function startSession(tenantCode, user, password) {
   if (!apiOnline) return;
   const result = await api("/api/auth/login", {
@@ -585,7 +609,8 @@ async function startSession(tenantCode, user, password) {
       tenantCode,
       user,
       password,
-      terminalName: navigator.userAgent.slice(0, 80)
+      terminalId: pdvTerminalId(),
+      terminalName: state.cashRegister?.terminal || state.settings.defaultTerminal || "PDV"
     })
   });
   sessionId = result.sessionId;
@@ -3363,6 +3388,7 @@ function renderSettings() {
             <div class="field"><label>Modelo balanca</label><input id="set-scale-model" value="${escapeAttr(state.settings.scaleModel || "Toledo/Filizola")}" /></div>
             <div class="field"><label>Porta balanca</label><input id="set-scale-port" value="${escapeAttr(state.settings.scalePort || "COM1")}" /></div>
             <div class="field"><label>Etiqueta produto</label><input id="set-label-model" value="${escapeAttr(state.settings.labelModel || "EAN13")}" /></div>
+            <div id="pdv-terminal-settings" class="full"></div>
             <div class="field"><label>Terminal padrao</label><input id="set-default-terminal" value="${escapeAttr(state.settings.defaultTerminal || "SERIE 1")}" /></div>
             <div class="field"><label>SMTP host</label><input id="set-smtp-host" value="${escapeAttr(state.settings.smtpHost || "")}" /></div>
             <div class="field"><label>SMTP porta</label><input id="set-smtp-port" type="number" value="${Number(state.settings.smtpPort || 587)}" /></div>
@@ -3454,6 +3480,7 @@ function renderPdv() {
   const addition = Number(byId("pdv-addition")?.value || 0);
   const total = Math.max(0, subtotal - discount + addition - pendingExchangeCredit);
   const register = state.cashRegister || {};
+  const terminal = currentPdvTerminal();
   const balance = currentCashBalance();
   const staleRegister = isCashRegisterStale();
   if (!register.open) {
@@ -3490,7 +3517,7 @@ function renderPdv() {
         <div class="pdv-brand">
           ${brandMarkup()}
           <strong>${state.settings.company}</strong>
-          <span>${register.terminal || "SERIE 1"} | ${state.settings.user}</span>
+          <span>${escapeHtml(terminal.name)} | ${escapeHtml(state.settings.user)} | ${terminal.emissionMode === "receipt" ? "RECIBO NAO FISCAL" : "NFC-e FISCAL"}</span>
         </div>
         <div class="shortcut-grid">
           <button class="btn" id="focus-sale-search">F2 Produto</button>
@@ -3863,6 +3890,10 @@ function bindCurrentModule() {
     });
   });
 
+  const terminalSettings = byId("pdv-terminal-settings");
+  if (terminalSettings && window.PdvTerminalSettings) window.PdvTerminalSettings.mount(terminalSettings, {
+    api, tenantCode: state.settings.tenantCode, onSaved: terminals => { state.settings.pdvTerminals = terminals; }
+  });
   const saveSettings = byId("save-settings");
   if (saveSettings) {
     byId("set-regime").value = state.settings.regime || "Simples Nacional";
@@ -7272,7 +7303,18 @@ async function addSaleItem() {
   renderShell();
 }
 
+let pdvSaleFinalizing = false;
 async function finishSaleRecord() {
+  if (pdvSaleFinalizing) return;
+  pdvSaleFinalizing = true;
+  try { await finalizePdvSaleRecord(); }
+  finally { pdvSaleFinalizing = false; }
+}
+
+async function finalizePdvSaleRecord() {
+  let terminal;
+  try { terminal = await refreshPdvEmission(); }
+  catch (error) { alert(`Venda nao finalizada. ${error.message}`); return; }
   if (!state.cashRegister?.open) {
     alert("Abra o caixa antes de vender.");
     return;
@@ -7320,6 +7362,9 @@ async function finishSaleRecord() {
     clubCpf: saleClubCpf,
     seller: state.settings.user,
     type: "PDV",
+    terminalId: terminal.id,
+    terminalName: terminal.name,
+    emissionMode: terminal.emissionMode,
     operation: byId("pdv-operation")?.value || "Balcao",
     table: byId("pdv-table")?.value || "",
     deliveryDriver: byId("pdv-delivery-driver")?.value || "",
@@ -7365,8 +7410,11 @@ async function finishSaleRecord() {
     });
   });
   applySaleStock(sale.items, `Venda PDV ${sale.id}`);
-  const fiscalRow = {
+  let fiscalRow;
+  if (terminal.emissionMode === "nfce") {
+  fiscalRow = {
     id: nextId(state.fiscalQueue),
+    terminalId: terminal.id,
     model: "NFC-e",
     serie: "1",
     nature: "Venda de mercadoria",
@@ -7389,13 +7437,14 @@ async function finishSaleRecord() {
   };
   fiscalRow.xml = fiscalXml(fiscalRow);
   state.fiscalQueue.push(fiscalRow);
+  }
   saleItems = [];
   saleClubCpf = "";
   authorizedDiscountValue = 0;
   save();
   await createConfiguredSaleCharges(sale);
   renderShell();
-  if (navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);
+  if (fiscalRow && navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);
 }
 
 async function createConfiguredSaleCharges(sale) {
@@ -7426,13 +7475,13 @@ async function createConfiguredSaleCharges(sale) {
 }
 
 function printLastPdvSale() {
-  const sale = state.sales.find((item) => item.id === lastPdvSaleId) || state.sales.slice().reverse().find((item) => item.type === "PDV");
+  const sale = state.sales.find((item) => item.id === lastPdvSaleId) || state.sales.slice().reverse().find((item) => item.type === "PDV" && (!item.terminalId || item.terminalId === pdvTerminalId()));
   if (!sale) {
     alert("Ainda nao ha venda PDV para imprimir.");
     return;
   }
   const fiscal = state.fiscalQueue.find((row) => row.saleId === sale.id && row.model === "NFC-e" && row.status === "Autorizada");
-  const printMode = state.settings.pdvPrintMode || "Ambos";
+  const printMode = sale.emissionMode ? (sale.emissionMode === "receipt" ? "Recibo simples" : "Cupom fiscal") : (state.settings.pdvPrintMode || "Ambos");
   if (printMode === "Cupom fiscal" && !fiscal) {
     alert("O PDV esta configurado para imprimir somente cupom fiscal. Autorize a NFC-e antes de imprimir.");
     return;
@@ -7445,6 +7494,7 @@ function printLastPdvSale() {
     `Cliente: ${sale.customer}`,
     `CPF Clube Tortela: ${sale.clubCpf || sale.customerDocument || "-"}`,
     `Operador: ${sale.seller}`,
+    `Terminal: ${sale.terminalName || "PDV"}`,
     useFiscal ? `Chave NFC-e: ${fiscal.key || "-"}` : "NFC-e nao autorizada para este comprovante",
     "",
     ...sale.items.map((item) => `${item.qty} ${item.unit} ${item.description} ${money(item.qty * item.price)}`),

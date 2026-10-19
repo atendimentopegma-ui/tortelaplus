@@ -18,7 +18,7 @@
     "verify:finance": "node scripts/verify-finance-flow.js",
     "verify:security": "node scripts/verify-security-flow.js",
     "verify:polish": "node scripts/verify-operational-polish.js",
-    "verify:pdv": "node scripts/verify-pdv-flow.js",
+    "verify:pdv": "node scripts/verify-pdv-flow.js && node scripts/verify-pdv-terminals.js",
     "verify:kitchen": "node scripts/verify-kitchen-display.js",
     "verify:kiosk": "node scripts/verify-kiosk-flow.js",
     "verify:implantation": "node scripts/implantation-status.js",

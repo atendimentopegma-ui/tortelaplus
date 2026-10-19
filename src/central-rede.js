@@ -12,6 +12,7 @@ const modules = [
   ["customers", "Clientes", "Consumo e retorno"],
   ["finance", "Financeiro", "Contas e repasses"],
   ["permissions", "Permissoes", "Acesso das lojas"],
+  ["terminals", "Terminais PDV", "Recibo ou NFC-e"],
   ["production", "Producao", "Capacidade"],
   ["deployment", "Implantacao", "Banco e seguranca"],
   ["reports", "Relatorios", "Consultas"]
@@ -211,6 +212,7 @@ function renderCurrentModule() {
     customers: renderCustomers,
     finance: renderFinance,
     permissions: renderPermissions,
+    terminals: renderPdvTerminals,
     production: renderProduction,
     deployment: renderDeployment,
     reports: renderReports
@@ -577,6 +579,12 @@ function renderCustomers() {
   </div>`;
 }
 
+function renderPdvTerminals() {
+  return `<div class="network-module compact">${moduleTitle("Emissao dos terminais PDV", "Escolha a unidade e configure recibo nao fiscal ou NFC-e para cada terminal.")}
+    <section class="network-card"><div class="field"><label>Unidade<select id="terminal-unit">${summary.permissions.map(row => `<option value="${escapeAttr(row.tenantCode)}">${escapeHtml(row.unit || row.tradeName || row.tenantCode)}</option>`).join("")}</select></label></div></section>
+    <section class="network-card" id="pdv-terminal-settings"></section></div>`;
+}
+
 function renderPermissions() {
   return `<div class="network-module compact">
     ${moduleTitle("Permissoes dos franqueados", "Bloqueio, terminais, sessoes e modulos liberados por unidade.")}
@@ -803,6 +811,12 @@ function renderReports() {
 }
 
 function bindRender() {
+  const unitSelect = byId("terminal-unit");
+  if (unitSelect && window.PdvTerminalSettings) {
+    const loadTerminals = () => { if (unitSelect.value) window.PdvTerminalSettings.mount(byId("pdv-terminal-settings"), { api, tenantCode: unitSelect.value }); };
+    unitSelect.addEventListener("change", loadTerminals);
+    loadTerminals();
+  }
   byId("logout").addEventListener("click", async () => {
     await api("/api/provider/auth/logout", { method: "POST" }).catch(() => {});
     sessionId = "";

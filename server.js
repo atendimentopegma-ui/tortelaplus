@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const net = require("net");
 const { spawn } = require("child_process");
 const { PostgresStore, tenantSchema } = require("./src/server/postgres-store");
+const { validTerminalId, registerTerminal, updateTerminal, listTerminals } = require("./src/server/pdv-terminals");
 const { createStateCoordinator } = require("./src/server/coordinated-state");
 const {
   generateFiscalXml,
@@ -544,7 +545,7 @@ function readTenantState(tenantCode) {
   return withTenantStateDefaults(state, code);
 }
 
-function writeTenantState(tenantCode, state) {
+function writeTenantState(tenantCode, state, allowTerminalSettings = false) {
   const code = normalizeTenantCode(tenantCode);
   const current = readTenantState(code);
   const stripped = stripProvider(state);
@@ -553,6 +554,7 @@ function writeTenantState(tenantCode, state) {
     ...stripped,
     users: stripped.users || current.users || initialTenantState.users
   }, code);
+  if (!allowTerminalSettings) normalized.settings.pdvTerminals = structuredClone(current.settings.pdvTerminals || []);
   normalized._meta = {
     ...(current._meta || {}),
     ...(normalized._meta || {}),
@@ -2258,6 +2260,8 @@ function latestTenantPdf(tenantCode, startedAt, label = "documento auxiliar") {
 
 async function transmitFiscalDocument(tenantCode, row, sessionUser) {
   const tenantState = readTenantState(tenantCode);
+  const sourceSale = (tenantState.sales || []).find(sale => sale.id === row.saleId);
+  if (row.model === "NFC-e" && sourceSale?.emissionMode === "receipt") throw new Error("Esta venda foi registrada com recibo nao fiscal.");
   const missing = validateFiscalDocumentFromState(tenantState, row);
   if (missing.length) throw new Error(`Documento fiscal incompleto: ${missing.join(", ")}`);
   const monitor = await acbrStatus(tenantState);
@@ -3590,12 +3594,17 @@ async function handleApi(req, res, urlPath) {
     refreshTerminalCount(tenant);
     const terminalName = body.terminalName || "Navegador";
     tenant.activeSessions = tenant.activeSessions.filter((session) =>
-      !(session.user === user.username && session.ipAddress === ipAddress)
+      !(body.terminalId ? session.terminalId === body.terminalId : !session.terminalId && session.user === user.username && session.ipAddress === ipAddress)
     );
     refreshTerminalCount(tenant);
     if (tenant.activeSessions.length >= Number(tenant.maxTerminals || 1)) {
       sendJson(res, 403, { ok: false, error: "Limite de terminais atingido" });
       return;
+    }
+    if (body.terminalId && !validTerminalId(body.terminalId)) return sendJson(res, 400, { ok: false, error: "Identificacao do terminal invalida." });
+    if (body.terminalId) {
+      registerTerminal(tenantState, body.terminalId, body.terminalName);
+      writeTenantState(tenant.tenantCode, tenantState, true);
     }
     const sessionId = newSessionId(tenant.tenantCode, body.user || "Operador");
     tenant.activeSessions.push({
@@ -3604,6 +3613,7 @@ async function handleApi(req, res, urlPath) {
       role: user.role,
       permissions: validPermissions(user.permissions, user.role),
       terminalName,
+      terminalId: body.terminalId || "",
       ipAddress,
       startedAt: new Date().toISOString(),
       lastSeenAt: new Date().toISOString()
@@ -3678,6 +3688,43 @@ async function handleApi(req, res, urlPath) {
     }
     appendTenantAudit(tenantCode, "Operacao autorizada", `${action} por ${user.username}`, access.session.user);
     sendJson(res, 200, { ok: true, authorizedBy: user.username, role: user.role });
+    return;
+  }
+
+  const registerPdvTerminalMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/pdv-terminals\/register$/);
+  if (registerPdvTerminalMatch && req.method === "POST") {
+    const tenantCode = normalizeTenantCode(registerPdvTerminalMatch[1]);
+    const provider = readProvider();
+    const access = sessionAccess(req, provider, tenantCode, "pdv");
+    if (access.error) return deny(res, access);
+    const body = await readBody(req);
+    const tenantState = readTenantState(tenantCode);
+    try { registerTerminal(tenantState, body.terminalId, body.name); }
+    catch (error) { return sendJson(res, 400, { ok: false, error: error.message }); }
+    access.session.terminalId = body.terminalId;
+    writeTenantState(tenantCode, tenantState, true);
+    writeProvider(provider);
+    sendJson(res, 200, { ok: true, terminals: listTerminals(readTenantState(tenantCode), access.tenant) });
+    return;
+  }
+
+  const pdvTerminalsMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/pdv-terminals$/);
+  if (pdvTerminalsMatch && ["GET", "POST"].includes(req.method)) {
+    const tenantCode = normalizeTenantCode(pdvTerminalsMatch[1]);
+    const provider = readProvider();
+    const access = tenantAccessOrProvider(req, provider, tenantCode);
+    if (access.error) return deny(res, access);
+    if (req.method === "POST" && !access.session.provider && !["Administrador", "Gerente"].includes(access.session.role)) return sendJson(res, 403, { ok: false, error: "Somente administrador ou gerente pode configurar a emissao do terminal." });
+    const tenantState = readTenantState(tenantCode);
+    if (req.method === "POST") {
+      const body = await readBody(req);
+      try { updateTerminal(tenantState, body.terminalId, body.name, body.emissionMode); }
+      catch (error) { return sendJson(res, 400, { ok: false, error: error.message }); }
+      writeTenantState(tenantCode, tenantState, true);
+      appendTenantAudit(tenantCode, "Emissao do terminal alterada", `${body.terminalId}: ${body.emissionMode}`, access.session.user);
+    }
+    writeProvider(provider);
+    sendJson(res, 200, { ok: true, terminals: listTerminals(readTenantState(tenantCode), access.tenant) });
     return;
   }
 
