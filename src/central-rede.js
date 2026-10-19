@@ -581,7 +581,7 @@ function renderCustomers() {
 
 function renderPdvTerminals() {
   return `<div class="network-module compact">${moduleTitle("Emissao dos terminais PDV", "Escolha a unidade e configure recibo nao fiscal ou NFC-e para cada terminal.")}
-    <section class="network-card"><div class="field"><label>Unidade<select id="terminal-unit">${summary.permissions.map(row => `<option value="${escapeAttr(row.tenantCode)}">${escapeHtml(row.unit || row.tradeName || row.tenantCode)}</option>`).join("")}</select></label></div></section>
+    <section class="network-card" style="min-height:0"><div class="field"><label>Unidade<select id="terminal-unit">${summary.permissions.map(row => `<option value="${escapeAttr(row.tenantCode)}">${escapeHtml(row.unit || row.tradeName || row.tenantCode)}</option>`).join("")}</select></label></div></section>
     <section class="network-card" id="pdv-terminal-settings"></section></div>`;
 }
 

@@ -3388,7 +3388,7 @@ function renderSettings() {
             <div class="field"><label>Modelo balanca</label><input id="set-scale-model" value="${escapeAttr(state.settings.scaleModel || "Toledo/Filizola")}" /></div>
             <div class="field"><label>Porta balanca</label><input id="set-scale-port" value="${escapeAttr(state.settings.scalePort || "COM1")}" /></div>
             <div class="field"><label>Etiqueta produto</label><input id="set-label-model" value="${escapeAttr(state.settings.labelModel || "EAN13")}" /></div>
-            <div id="pdv-terminal-settings" class="full"></div>
+            <div id="pdv-terminal-settings" class="full" style="grid-column:1/-1"></div>
             <div class="field"><label>Terminal padrao</label><input id="set-default-terminal" value="${escapeAttr(state.settings.defaultTerminal || "SERIE 1")}" /></div>
             <div class="field"><label>SMTP host</label><input id="set-smtp-host" value="${escapeAttr(state.settings.smtpHost || "")}" /></div>
             <div class="field"><label>SMTP porta</label><input id="set-smtp-port" type="number" value="${Number(state.settings.smtpPort || 587)}" /></div>
@@ -3488,7 +3488,7 @@ function renderPdv() {
       <div class="pdv closed">
         <aside class="pdv-side">
           <div class="pdv-title">CAIXA FECHADO</div>
-          <div class="pdv-client"><strong>Terminal:</strong> ${register.terminal || "SERIE 1"}</div>
+          <div class="pdv-client"><strong>Terminal:</strong> ${escapeHtml(terminal.name)}<br />ID: ${escapeHtml(terminal.id)}<br />${terminal.emissionMode === "receipt" ? "RECIBO NAO FISCAL" : "NFC-e FISCAL"}</div>
           <div class="empty"><strong>${state.settings.company}</strong><br />Abra o caixa para iniciar vendas.</div>
         </aside>
         <section class="pdv-main">
@@ -3518,6 +3518,7 @@ function renderPdv() {
           ${brandMarkup()}
           <strong>${state.settings.company}</strong>
           <span>${escapeHtml(terminal.name)} | ${escapeHtml(state.settings.user)} | ${terminal.emissionMode === "receipt" ? "RECIBO NAO FISCAL" : "NFC-e FISCAL"}</span>
+          <small>ID do terminal: ${escapeHtml(terminal.id)}</small>
         </div>
         <div class="shortcut-grid">
           <button class="btn" id="focus-sale-search">F2 Produto</button>
