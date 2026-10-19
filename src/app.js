@@ -4103,8 +4103,7 @@ function bindCurrentModule() {
   if (closePdvOptions) closePdvOptions.addEventListener("click", () => setPdvOptions(false));
   const leavePdv = byId("leave-pdv");
   if (leavePdv) leavePdv.addEventListener("click", () => {
-    currentMode = "backoffice";
-    renderShell();
+    navigateBackofficeModule("dashboard");
   });
   const focusSaleSearch = byId("focus-sale-search");
   if (focusSaleSearch) focusSaleSearch.addEventListener("click", () => saleSearch?.focus());
