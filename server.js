@@ -967,23 +967,38 @@ function sendJson(res, status, body) {
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
+    if (req.aborted || req.destroyed) return reject(new Error("Requisicao interrompida"));
     let raw = "";
+    let settled = false;
+    const finish = (error, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      req.removeListener("aborted", aborted);
+      req.removeListener("error", aborted);
+      if (error) reject(error); else resolve(value);
+    };
+    const aborted = () => finish(new Error("Requisicao interrompida"));
+    const timer = setTimeout(() => finish(new Error("Tempo esgotado ao receber requisicao")), 15000);
+    timer.unref();
+    req.once("aborted", aborted);
+    req.once("error", aborted);
     req.on("data", (chunk) => {
       raw += chunk;
       if (raw.length > 12_000_000) {
-        reject(new Error("Payload muito grande"));
+        finish(new Error("Payload muito grande"));
         req.destroy();
       }
     });
     req.on("end", () => {
       if (!raw) {
-        resolve({});
+        finish(null, {});
         return;
       }
       try {
-        resolve(JSON.parse(raw));
+        finish(null, JSON.parse(raw));
       } catch (error) {
-        reject(error);
+        finish(error);
       }
     });
   });
@@ -4976,7 +4991,10 @@ async function startServer() {
   server = http.createServer((req, res) => {
     const urlPath = decodeURIComponent(req.url.split("?")[0]);
     if (urlPath.startsWith("/api/")) {
-      coordinateState(() => handleApi(req, res, urlPath)).catch((error) => {
+      coordinateState(() => {
+        if (req.aborted || res.destroyed) return;
+        return handleApi(req, res, urlPath);
+      }).catch((error) => {
         sendJson(res, 500, { ok: false, error: error.message });
       });
       return;
