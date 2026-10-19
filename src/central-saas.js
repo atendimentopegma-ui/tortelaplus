@@ -8,7 +8,7 @@ const seed = {
       {
         id: 1,
         tradeName: "Tortela Plus",
-        document: "00.000.000/0001-00",
+        document: "",
         tenantCode: "cliente-exemplo",
         plan: "Essencial",
         maxTerminals: 2,

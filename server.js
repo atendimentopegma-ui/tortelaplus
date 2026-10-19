@@ -117,7 +117,7 @@ const initialProvider = {
     {
       id: 1,
       tradeName: "Tortela Plus",
-      document: "00.000.000/0001-00",
+      document: "",
       tenantCode: "cliente-exemplo",
       plan: "Essencial",
       maxTerminals: 2,
@@ -147,7 +147,7 @@ const initialTenantState = {
   ],
   people: [
     { id: 1, type: "Cliente", name: "Consumidor Final", document: "", city: "Padrao", uf: "SP", cep: "", address: "", active: true },
-    { id: 2, type: "Fornecedor", name: "Fornecedor nao identificado", document: "00.000.000/0001-00", city: "Sao Paulo", uf: "SP", cep: "01001000", address: "Praca da Se", active: true }
+    { id: 2, type: "Fornecedor", name: "Fornecedor nao identificado", document: "", city: "Sao Paulo", uf: "SP", cep: "01001000", address: "Praca da Se", active: true }
   ],
   products: [
     {
@@ -258,7 +258,7 @@ const initialTenantState = {
   },
   settings: {
     company: "Tortela",
-    document: "00.000.000/0001-00",
+    document: "",
     stateRegistration: "",
     municipalRegistration: "",
     user: "Operador",
