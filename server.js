@@ -147,7 +147,7 @@ const initialTenantState = {
   ],
   people: [
     { id: 1, type: "Cliente", name: "Consumidor Final", document: "", city: "Padrao", uf: "SP", cep: "", address: "", active: true },
-    { id: 2, type: "Fornecedor", name: "Fornecedor Exemplo", document: "00.000.000/0001-00", city: "Sao Paulo", uf: "SP", cep: "01001000", address: "Praca da Se", active: true }
+    { id: 2, type: "Fornecedor", name: "Fornecedor nao identificado", document: "00.000.000/0001-00", city: "Sao Paulo", uf: "SP", cep: "01001000", address: "Praca da Se", active: true }
   ],
   products: [
     {
@@ -221,7 +221,7 @@ const initialTenantState = {
     { id: 3, code: "3.1.01", name: "Receita de vendas", type: "Receita", active: true },
     { id: 4, code: "4.1.01", name: "Compras e fornecedores", type: "Despesa", active: true }
   ],
-  payables: [{ id: 1, supplier: "Fornecedor Exemplo", due: "2026-06-10", value: 640, paid: false, history: "Compra inicial" }],
+  payables: [{ id: 1, supplier: "Fornecedor nao identificado", due: "2026-06-10", value: 640, paid: false, history: "Compra inicial" }],
   cash: [{ id: 1, date: "2026-06-05", account: "CAIXA", history: "Saldo inicial", in: 45296, out: 0 }],
   cashRegister: { open: true, openedAt: "2026-06-05T10:49:00.000Z", openedBy: "Operador", initialAmount: 45296, terminal: "SERIE 1" },
   heldSales: [],
