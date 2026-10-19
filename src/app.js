@@ -1744,17 +1744,25 @@ function productTab() {
         <div class="grid four">
           <div class="field"><label>cClassTrib</label><input id="product-class-trib" value="${escapeAttr(reform.classTrib || pendingProductDraft.ibsClass || "000001")}" /></div>
           <div class="field"><label>CST CBS/IBS</label><input id="product-reform-cst" value="${escapeAttr(reform.cst || "")}" /></div>
+          <div class="field"><label>Ano de vigência da CBS</label><input id="product-cbs-rate-year" type="number" min="2026" max="2099" value="${Number(reform.rateYear || 2026)}" /></div>
           <div class="field"><label>CBS %</label><input id="product-cbs-rate" type="number" step="0.0001" value="${Number(reform.cbsRate || 0)}" /></div>
           <div class="field"><label>IBS UF %</label><input id="product-ibs-uf-rate" type="number" step="0.0001" value="${Number(reform.ibsUfRate || 0)}" /></div>
           <div class="field"><label>IBS Municipio %</label><input id="product-ibs-city-rate" type="number" step="0.0001" value="${Number(reform.ibsCityRate || 0)}" /></div>
           <div class="field"><label>Reducao CBS/IBS %</label><input id="product-reform-reduction" type="number" step="0.01" value="${Number(reform.reduction || 0)}" /></div>
           <div class="field"><label>Diferimento %</label><input id="product-reform-deferral" type="number" step="0.01" value="${Number(reform.deferral || 0)}" /></div>
-          <div class="field"><label>Credito presumido %</label><input id="product-presumed-credit" type="number" step="0.01" value="${Number(reform.presumedCredit || 0)}" /></div>
+          <div class="field"><label>Redução IBS %</label><input id="product-ibs-reduction" type="number" min="0" max="100" step="0.01" value="${Number(reform.ibsReduction ?? reform.reduction ?? 0)}" /></div>
+          <div class="field"><label>Redução CBS %</label><input id="product-cbs-reduction" type="number" min="0" max="100" step="0.01" value="${Number(reform.cbsReduction ?? reform.reduction ?? 0)}" /></div>
+          <div class="field"><label>Diferimento IBS UF %</label><input id="product-uf-deferral" type="number" min="0" max="100" step="0.01" value="${Number(reform.ibsUfDeferral ?? reform.deferral ?? 0)}" /></div>
+          <div class="field"><label>Diferimento IBS municipal %</label><input id="product-city-deferral" type="number" min="0" max="100" step="0.01" value="${Number(reform.ibsCityDeferral ?? reform.deferral ?? 0)}" /></div>
+          <div class="field"><label>Diferimento CBS %</label><input id="product-cbs-deferral" type="number" min="0" max="100" step="0.01" value="${Number(reform.cbsDeferral ?? reform.deferral ?? 0)}" /></div>
+          <p>O CST e a classificação oficial determinam quais reduções e diferimentos são permitidos. Crédito presumido, ad rem e Imposto Seletivo exigem emissor especializado; este emissor bloqueia seu envio em vez de ignorar valores.</p>
+
+          <div class="field"><label>Crédito presumido % (emissão especializada)</label><input id="product-presumed-credit" type="number" step="0.01" value="${Number(reform.presumedCredit || 0)}" /></div>
           <div class="field"><label>Imposto seletivo %</label><input id="product-selective-tax" type="number" step="0.01" value="${Number(reform.selectiveTax || 0)}" /></div>
           <div class="field"><label>CST Imp. seletivo</label><input id="product-selective-tax-cst" value="${escapeAttr(reform.selectiveTaxCst || "")}" /></div>
           <div class="field"><label>Class. Imp. seletivo</label><input id="product-selective-tax-class" value="${escapeAttr(reform.selectiveTaxClass || "")}" /></div>
           <div class="field"><label>Vigencia inicio</label><input id="product-reform-from" type="date" value="${escapeAttr(reform.from || "")}" /></div>
-          <div class="field"><label>Monofasico/ad rem</label><select id="product-reform-monophase"><option value="false">Nao</option><option value="true" ${reform.monophase ? "selected" : ""}>Sim</option></select></div>
+          <div class="field"><label>Monofásico/ad rem (emissão especializada)</label><select id="product-reform-monophase"><option value="false">Nao</option><option value="true" ${reform.monophase ? "selected" : ""}>Sim</option></select></div>
           <div class="field"><label>Aliquota ad rem</label><input id="product-ad-rem-rate" type="number" step="0.0001" value="${Number(reform.adRemRate || 0)}" /></div>
           <div class="field"><label>Unidade ad rem</label><input id="product-ad-rem-unit" value="${escapeAttr(reform.adRemUnit || "")}" /></div>
           <div class="field"><label>Observacao fiscal</label><input id="product-fiscal-note" value="${escapeAttr(fiscal.note || "")}" /></div>
@@ -2732,10 +2740,10 @@ function renderFiscal() {
 
       <div class="card">
         <h3>Conferência tributária</h3>
-        <p>${state.settings.regime === "Simples Nacional" ? "Simples Nacional: os campos de IBS/CBS passam a ser obrigatórios em 2027. Emissão em 2026 mantém o tratamento do Simples, salvo opção expressa pelo regime regular." : "Regime regular: conferir IBS estadual, IBS municipal e CBS conforme o ano da emissão e a classificação do produto."}</p>
+        <p>${state.settings.regime === "Simples Nacional" ? "Simples Nacional: a política de informação considera regime e ano; a ativação de cada rejeição da SEFAZ é controlada separadamente pela nota técnica. Em 2026, este emissor permite informar IBS/CBS quando aplicável sem confundir a obrigação legal com uma rejeição futura." : "Regime regular: conferir IBS estadual, IBS municipal e CBS conforme o ano da emissão e a classificação do produto."}</p>
         <p>Produtos ativos com NCM ausente ou zerado: <strong>${state.products.filter(p => p.active !== false && (!/^\d{8}$/.test(String(p.ncm || "")) || /^0+$/.test(String(p.ncm || "")))).length}</strong>. A emissão fiscal desses produtos fica bloqueada até a correção.</p>
         <p>Produtos ativos com classificação IBS/CBS incompleta: <strong>${state.products.filter(p => p.active !== false && (!/^\d{3}$/.test(String(p.reform?.cst || p.ibsCbsCst || "")) || !/^\d{6}$/.test(String(p.reform?.classTrib || p.ibsClass || "")))).length}</strong>. Confirme o enquadramento com o responsável fiscal antes da vigência aplicável.</p>
-        <p>Tabela de classificações: ${escapeHtml(state.reformTaxTables?.version || "Não informada")}. A emissão real também exige certificado, CSC e credenciamento na SEFAZ.</p>
+        <p>Tabela de classificações: ${escapeHtml(state.reformTaxTables?.version || "Não informada")}. A emissão real também exige certificado, CSC e credenciamento na SEFAZ. NT 2025.002 v1.52: novas referências por item e preços líquidos seguem as datas do ambiente (homologação 26/10/2026; produção 16/11/2026).</p>
       </div>
 
       <div class="desktop-context-strip fiscal-context-strip">
@@ -2773,7 +2781,7 @@ function renderFiscal() {
           <div class="field"><label>Cliente/Tomador</label><input id="fiscal-customer" value="Consumidor Final" /></div>
           <div class="field"><label>Total</label><input id="fiscal-total" type="number" step="0.01" value="0" /></div>
           <div class="field"><label>Ambiente</label><input value="${state.settings.fiscalEnvironment}" readonly /></div>
-        </div>
+        </div>${renderRtcDocumentFields()}
         `}
         </div>
         <div class="table-wrap fiscal-queue-card" id="fiscal-step-queue" tabindex="-1">
@@ -2821,6 +2829,31 @@ function selectFiscalTab(tab) {
 
 window.selectFiscalTab = selectFiscalTab;
 
+function renderRtcDocumentFields() {
+  return `<div class="card"><h3>Reforma tributária - documento</h3><p>NT 2025.002 v1.52 e NT 2026.008. A data e o ambiente controlam os campos ativos. Compras governamentais, crédito/débito e monofasia exigem emissor especializado.</p><div class="grid four">
+    <div class="field"><label>Finalidade</label><select id="rtc-purpose"><option value="1">Venda normal</option><option value="4">Devolução NF-e</option></select></div>
+    <div class="field"><label>Preços líquidos NT 2026.008</label><select id="rtc-net-prices"><option value="false">Não incluir campos opcionais</option><option value="true">Incluir (exige esquema oficial compatível)</option></select></div><div class="field"><label>IBS/CBS</label><select id="rtc-include"><option value="auto">Conforme regime e vigência</option><option value="true">Informar grupo IBS/CBS</option></select></div>
+    <div class="field"><label>Chave da nota original (devolução)</label><input id="rtc-original-key" maxlength="44" /></div>
+    <div class="field"><label>CFOP de entrada da devolução</label><input id="rtc-return-cfop" maxlength="4" /></div><div class="field"><label>Itens originais, na ordem dos itens devolvidos</label><input id="rtc-original-items" placeholder="Ex.: 1, 3" /></div>
+    <div class="field"><label>ID da transação vinculada (opcional)</label><input id="rtc-payment-id" maxlength="35" /></div>
+    <div class="field"><label>Meio de pagamento do vínculo</label><select id="rtc-payment-method"><option value="17">PIX</option><option value="18">TED</option><option value="20">PIX chave/estático</option><option value="23">PIX automático</option><option value="24">TEF/booktransfer</option><option value="15">Boleto</option></select></div>
+    <div class="field"><label>CNPJ do recebedor</label><input id="rtc-payment-receiver" maxlength="14" /></div>
+    <div class="field"><label>CNPJ base do prestador de pagamento (8 dígitos)</label><input id="rtc-payment-psp" maxlength="8" /></div>
+    </div><p>vItem e totais são calculados e conferidos pelo servidor. Preços líquidos e split payment dependem também da atualização dos esquemas oficiais do agente fiscal. Vínculo de pagamento não é comprovante de liquidação e não será enviado em produção em 2026.</p></div>`;
+}
+function readRtcDocumentFields(items) {
+  const purpose=Number(byId("rtc-purpose")?.value||1),key=digits(byId("rtc-original-key")?.value||"");
+  const map=String(byId("rtc-original-items")?.value||"").split(",").map(v=>Number(v.trim()));
+  const linkId=byId("rtc-payment-id")?.value.trim();
+  return {purpose,useNetPriceFields:byId("rtc-net-prices")?.value==='true',operationType:purpose===4?"return":"sale",includeIbsCbs:byId("rtc-include")?.value==='true',referencedKey:key,
+    items:purpose===4?items.map((item,index)=>({...item,referencedKey:key,referencedItem:map[index],cfop:digits(byId("rtc-return-cfop")?.value)})):items,
+    paymentLinks:linkId?[{idTransacao:linkId,tpMeioPgto:byId("rtc-payment-method").value,CNPJReceb:digits(byId("rtc-payment-receiver").value),CNPJBasePSP:digits(byId("rtc-payment-psp").value)}]:[]};
+}
+async function previewFiscalRecord(row) {
+  if(!apiOnline || !sessionId)throw Error("Conferência fiscal exige conexão com o servidor da unidade.");
+  return api(`/api/tenant/${state.settings.tenantCode}/fiscal/preview`,{method:"POST",body:JSON.stringify({document:row})});
+}
+
 function renderAdvancedFiscalForm(model) {
   const isTransport = ["CTe", "CTe-OS", "MDFe"].includes(model);
   const isFile = ["SPED", "Sintegra"].includes(model);
@@ -2861,6 +2894,10 @@ function renderNfseIssueForm(serviceRules) {
         <div class="field"><label>Municipio prestacao</label><input id="nfse-city" value="${escapeAttr(defaultRule.municipio || state.settings.city || "")}" /></div>
         <div class="field"><label>Codigo IBGE municipio</label><input id="nfse-city-code" placeholder="3552502" /></div>
         <div class="field"><label>Item lista servico LC 116</label><input id="nfse-service-code" value="${escapeAttr(defaultRule.serviceCode || "14.01")}" /></div>
+        <div class="field"><label>Tributação nacional (6 dígitos)</label><input id="nfse-national-code" maxlength="6" /></div>
+        <div class="field"><label>CST IBS/CBS do serviço</label><input id="nfse-rtc-cst" maxlength="3" /></div>
+        <div class="field"><label>cClassTrib do serviço</label><input id="nfse-rtc-class" maxlength="6" /></div>
+        <div class="field"><label>Diferimento IBS UF %</label><input id="nfse-uf-deferral" type="number" min="0" max="100" step="0.01" value="0" /></div><div class="field"><label>Diferimento IBS municipal %</label><input id="nfse-city-deferral" type="number" min="0" max="100" step="0.01" value="0" /></div><div class="field"><label>Diferimento CBS %</label><input id="nfse-cbs-deferral" type="number" min="0" max="100" step="0.01" value="0" /></div><div class="field"><label>Indicador da operação cIndOp</label><input id="nfse-rtc-operation" maxlength="6" /></div>
         <div class="field"><label>Codigo municipal</label><input id="nfse-city-service-code" value="${escapeAttr(defaultRule.cityServiceCode || "")}" /></div>
         <div class="field"><label>NBS</label><input id="nfse-nbs" placeholder="Codigo NBS quando aplicavel" /></div>
         <div class="field"><label>CNAE</label><input id="nfse-cnae" /></div>
@@ -3361,14 +3398,19 @@ function renderSettings() {
             <div class="field"><label>IBS UF %</label><input id="rule-ibs-uf-rate" type="number" step="0.01" value="${ruleNumber("ibsUfRate")}" /></div>
             <div class="field"><label>IBS Municipio %</label><input id="rule-ibs-city-rate" type="number" step="0.01" value="${ruleNumber("ibsCityRate")}" /></div>
             <div class="field"><label>CBS Federal %</label><input id="rule-cbs-federal-rate" type="number" step="0.01" value="${ruleNumber("cbsFederalRate")}" /></div>
-            <div class="field"><label>Credito presumido %</label><input id="rule-presumed-credit-rate" type="number" step="0.01" value="${ruleNumber("presumedCreditRate")}" /></div>
-            <div class="field"><label>Ano transicao</label><input id="rule-transition-year" type="number" value="${ruleValue("transitionYear", "2026")}" /></div>
+            <div class="field"><label>Crédito presumido % (emissão especializada)</label><input id="rule-presumed-credit-rate" type="number" step="0.01" value="${ruleNumber("presumedCreditRate")}" /></div>
+            <div class="field"><label>Ano de vigência da alíquota CBS</label><input id="rule-transition-year" type="number" value="${ruleValue("transitionYear", "2026")}" /></div>
+            <div class="field"><label>Redução IBS %</label><input id="rule-ibs-reduction" type="number" min="0" max="100" step="0.01" value="${ruleNumber("ibsReductionRate")}" /></div>
+            <div class="field"><label>Redução CBS %</label><input id="rule-cbs-reduction" type="number" min="0" max="100" step="0.01" value="${ruleNumber("cbsReductionRate")}" /></div>
+            <div class="field"><label>Diferimento IBS UF %</label><input id="rule-ibs-uf-deferral" type="number" min="0" max="100" step="0.01" value="${ruleNumber("ibsUfDeferral")}" /></div>
+            <div class="field"><label>Diferimento IBS municipal %</label><input id="rule-ibs-city-deferral" type="number" min="0" max="100" step="0.01" value="${ruleNumber("ibsCityDeferral")}" /></div>
+            <div class="field"><label>Diferimento CBS %</label><input id="rule-cbs-deferral" type="number" min="0" max="100" step="0.01" value="${ruleNumber("cbsDeferral")}" /></div>
             <div class="field"><label>Reducao base reforma %</label><input id="rule-reform-reduction-rate" type="number" step="0.01" value="${ruleNumber("reformReductionRate")}" /></div>
-            <div class="field"><label>Imp. seletivo %</label><input id="rule-selective-rate" type="number" step="0.01" value="${ruleNumber("selectiveTaxRate")}" /></div>
+            <div class="field"><label>Imp. seletivo % (emissão especializada)</label><input id="rule-selective-rate" type="number" step="0.01" value="${ruleNumber("selectiveTaxRate")}" /></div>
             <div class="field"><label>Diferimento reforma %</label><input id="rule-reform-deferral-rate" type="number" step="0.01" value="${ruleNumber("reformDeferralRate")}" /></div>
             <div class="field"><label>CST Imp. seletivo</label><input id="rule-selective-cst" value="${ruleValue("selectiveTaxCst")}" /></div>
             <div class="field"><label>Class. Imp. seletivo</label><input id="rule-selective-class" value="${ruleValue("selectiveTaxClass")}" /></div>
-            <div class="field"><label>Monofasico/ad rem</label><select id="rule-monophase"><option value="false">Nao</option><option value="true" ${editingRule.monophase ? "selected" : ""}>Sim</option></select></div>
+            <div class="field"><label>Monofásico/ad rem (emissão especializada)</label><select id="rule-monophase"><option value="false">Nao</option><option value="true" ${editingRule.monophase ? "selected" : ""}>Sim</option></select></div>
             <div class="field"><label>Aliquota ad rem</label><input id="rule-ad-rem-rate" type="number" step="0.0001" value="${ruleNumber("adRemRate")}" /></div>
             <div class="field"><label>Unidade ad rem</label><input id="rule-ad-rem-unit" value="${ruleValue("adRemUnit")}" /></div>
             <div class="field"><label>Servico LC 116</label><input id="rule-service-code" value="${ruleValue("serviceCode")}" /></div>
@@ -4901,9 +4943,15 @@ function captureProductDraft() {
   pendingProductDraft.reform = {
     classTrib: byId("product-class-trib")?.value ?? pendingProductDraft.reform?.classTrib ?? pendingProductDraft.ibsClass ?? "000001",
     cst: byId("product-reform-cst")?.value ?? pendingProductDraft.reform?.cst ?? "",
+    rateYear: byId("product-cbs-rate-year")?.value ?? pendingProductDraft.reform?.rateYear,
     cbsRate: byId("product-cbs-rate")?.value ?? pendingProductDraft.reform?.cbsRate ?? 0,
     ibsUfRate: byId("product-ibs-uf-rate")?.value ?? pendingProductDraft.reform?.ibsUfRate ?? 0,
     ibsCityRate: byId("product-ibs-city-rate")?.value ?? pendingProductDraft.reform?.ibsCityRate ?? 0,
+    ibsReduction: byId("product-ibs-reduction")?.value ?? pendingProductDraft.reform?.ibsReduction,
+    cbsReduction: byId("product-cbs-reduction")?.value ?? pendingProductDraft.reform?.cbsReduction,
+    ibsUfDeferral: byId("product-uf-deferral")?.value ?? pendingProductDraft.reform?.ibsUfDeferral,
+    ibsCityDeferral: byId("product-city-deferral")?.value ?? pendingProductDraft.reform?.ibsCityDeferral,
+    cbsDeferral: byId("product-cbs-deferral")?.value ?? pendingProductDraft.reform?.cbsDeferral,
     reduction: byId("product-reform-reduction")?.value ?? pendingProductDraft.reform?.reduction ?? 0,
     deferral: byId("product-reform-deferral")?.value ?? pendingProductDraft.reform?.deferral ?? 0,
     presumedCredit: byId("product-presumed-credit")?.value ?? pendingProductDraft.reform?.presumedCredit ?? 0,
@@ -6259,6 +6307,11 @@ function saveFiscalRuleRecord() {
     ibsCityRate: num("rule-ibs-city-rate"),
     cbsFederalRate: num("rule-cbs-federal-rate"),
     presumedCreditRate: num("rule-presumed-credit-rate"),
+    ibsReductionRate: num("rule-ibs-reduction"),
+    cbsReductionRate: num("rule-cbs-reduction"),
+    ibsUfDeferral: num("rule-ibs-uf-deferral"),
+    ibsCityDeferral: num("rule-ibs-city-deferral"),
+    cbsDeferral: num("rule-cbs-deferral"),
     transitionYear: byId("rule-transition-year").value || "2026",
     reformReductionRate: num("rule-reform-reduction-rate"),
     selectiveTaxRate: num("rule-selective-rate"),
@@ -6518,7 +6571,7 @@ function escapeXml(value) {
   }[char]));
 }
 
-function createFiscalRecord() {
+async function createFiscalRecord() {
   const model = fiscalTabModel(currentFiscalTab);
   if (advancedFiscalTabs().includes(currentFiscalTab)) return createAdvancedFiscalRecord(model);
   const saleId = Number(byId("fiscal-sale-id")?.value || 0);
@@ -6551,12 +6604,9 @@ function createFiscalRecord() {
     protocol: "",
     xml: ""
   };
-  const missing = validateFiscalDocument(row);
-  if (missing.length) {
-    alert(`Nao foi possivel gerar ${model}. Corrija: ${missing.join(", ")}.`);
-    return;
-  }
-  row.xml = fiscalXml(row);
+  Object.assign(row,readRtcDocumentFields(row.items));
+  try { const preview=await previewFiscalRecord(row); row.xml=preview.xml; row.rtcRelease=preview.release; }
+  catch(error){alert(`Não foi possível gerar ${model}: ${error.message}`);return;}
   state.fiscalQueue.push(row);
   audit("Documento fiscal gerado", `${model} ${row.customer} ${money(row.total)}`);
   save();
@@ -6615,7 +6665,7 @@ function advancedFiscalXml(row) {
   ].join("\n");
 }
 
-function createNfseRecord() {
+async function createNfseRecord() {
   const value = num("nfse-service-value");
   const discount = num("nfse-discount");
   const total = Math.max(0, value - discount);
@@ -6642,6 +6692,8 @@ function createNfseRecord() {
       city: byId("nfse-city").value,
       cityCode: byId("nfse-city-code").value,
       serviceCode: byId("nfse-service-code").value,
+      nationalTaxCode: byId("nfse-national-code").value,
+      reform: {cst:byId("nfse-rtc-cst").value,classTrib:byId("nfse-rtc-class").value,operationCode:byId("nfse-rtc-operation").value,ibsUfDeferral:Number(byId("nfse-uf-deferral").value),ibsCityDeferral:Number(byId("nfse-city-deferral").value),cbsDeferral:Number(byId("nfse-cbs-deferral").value)},
       cityServiceCode: byId("nfse-city-service-code").value,
       nbs: byId("nfse-nbs").value,
       cnae: byId("nfse-cnae").value,
@@ -6651,12 +6703,8 @@ function createNfseRecord() {
       description: byId("nfse-description").value
     }
   };
-  const missing = validateFiscalDocument(row);
-  if (missing.length) {
-    alert(`Nao foi possivel gerar NFS-e. Corrija: ${missing.join(", ")}.`);
-    return;
-  }
-  row.xml = fiscalXml(row);
+  try { const preview=await previewFiscalRecord(row); row.xml=preview.xml; row.rtcRelease=preview.release; }
+  catch(error){alert(`Não foi possível gerar NFS-e: ${error.message}`);return;}
   state.fiscalQueue.push(row);
   state.receivables.push({
     id: nextId(state.receivables),
@@ -7495,15 +7543,15 @@ function returnSaleRecord(id, exchange = false) {
   if (!sale) return false;
   const returnedBefore = sale.returns || [];
   const items = [];
-  for (const item of sale.items || []) {
-    const already = returnedBefore.reduce((sum, record) => sum + (record.items || []).filter((row) => row.id === item.id).reduce((value, row) => value + Number(row.qty || 0), 0), 0);
+  for (const [originalIndex,item] of (sale.items || []).entries()) {
+    const already = returnedBefore.reduce((sum, record) => sum + (record.items || []).filter((row) => (row.referencedItem ? row.referencedItem===originalIndex+1 : row.id === item.id)).reduce((value, row) => value + Number(row.qty || 0), 0), 0);
     const available = Math.max(0, Number(item.qty || 0) - already);
     if (!available) continue;
     const answer = prompt(`${item.description}\nQuantidade a ${exchange ? "trocar" : "devolver"} (disponivel ${available}):`, String(available).replace(".", ","));
     if (answer === null) return false;
     const qty = Number(answer.replace(",", ".") || 0);
     if (qty < 0 || qty > available) return alert(`Quantidade invalida para ${item.description}.`) || false;
-    if (qty > 0) items.push({ ...structuredClone(item), qty });
+    if (qty > 0) items.push({ ...structuredClone(item), qty, referencedItem: originalIndex+1 });
   }
   if (!items.length) return false;
   const returnValue = items.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0), 0);
@@ -7538,7 +7586,7 @@ function returnSaleRecord(id, exchange = false) {
     customer: sale.customer,
     customerDocument: sale.customerDocument || "",
     issuedAt: new Date().toISOString(),
-    items: structuredClone(items),
+    items: items.map(item=>({...structuredClone(item),referencedKey:originalFiscal?.key||"",referencedItem:Number(item.referencedItem||sale.items.findIndex(original=>original.id===item.id&&original.description===item.description)+1)})),
     payments: [{ method: "Sem pagamento", value: returnValue }],
     total: returnValue,
     key: "",

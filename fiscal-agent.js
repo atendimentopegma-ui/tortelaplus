@@ -127,7 +127,7 @@ async function initialize(engineName, tenantCode, fiscalConfig = {}) {
   ini = replaceIniValue(ini, "NFSe", "CodigoMunicipio", fiscalConfig.nfseCityCode || "");
   ini = replaceIniValue(ini, "NFSe", "Provedor", fiscalConfig.nfseProvider || "");
   ini = replaceIniValue(ini, "NFSe", "PathSalvar", xmlDir);
-  ini = replaceIniValue(ini, "NFSe", "PathSchemas", path.join(runtime, "Schemas"));
+  ini = replaceIniValue(ini, "NFSe", "PathSchemas", path.join(runtime, "Schemas", fiscalConfig.nfseStandard === "Nacional" ? "NFSeNacional" : ""));
   ini = replaceIniValue(ini, "DANFE", "PathPDF", pdfDir);
   ini = replaceIniValue(ini, "DANFSE", "PathPDF", pdfDir);
   fs.writeFileSync(config, ini);

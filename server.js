@@ -516,6 +516,7 @@ function withTenantStateDefaults(state, tenantCode) {
     networkPromotions: state?.networkPromotions || [],
     franchisePayments: state?.franchisePayments || []
   };
+  merged.reformTaxTables = structuredClone(require("./src/server/reform-tax-tables-official.json"));
   delete merged.provider;
   return merged;
 }
@@ -846,7 +847,7 @@ function configureAcbrNfseForTenant(tenantCode, tenantState) {
   ini = replaceIniValue(ini, "NFSe", "CodigoMunicipio", settings.nfseCityCode || settings.cityCode || "");
   ini = replaceIniValue(ini, "NFSe", "Provedor", settings.nfseProvider || "");
   ini = replaceIniValue(ini, "NFSe", "PathSalvar", tenantXml);
-  ini = replaceIniValue(ini, "NFSe", "PathSchemas", path.join(fiscalRuntimeDir, "Schemas"));
+  ini = replaceIniValue(ini, "NFSe", "PathSchemas", path.join(fiscalRuntimeDir, "Schemas", settings.nfseStandard === "Nacional" ? "NFSeNacional" : ""));
   ini = replaceIniValue(ini, "DANFSE", "PathPDF", tenantPdf);
   const configPath = path.join(tenantRuntime, "ACBrNFSeLib.ini");
   fs.writeFileSync(configPath, ini);
@@ -863,6 +864,7 @@ function fiscalAgentConfig(tenantCode, tenantState, secrets = loadFiscalSecrets(
     cscId: settings.cscId || "",
     csc: secrets.csc || "",
     nfseCityCode: settings.nfseCityCode || settings.cityCode || "",
+    nfseStandard: settings.nfseStandard || "Nacional",
     nfseProvider: settings.nfseProvider || ""
   };
 }
@@ -2046,6 +2048,17 @@ function acbrEventIni(tenantState, row, event) {
 }
 
 async function sendNfeEvent(tenantCode, tenantState, row, event) {
+  if(event.type==='110300') {
+    if(!fs.existsSync(path.join(__dirname,'runtime/fiscal/Schemas/envEventoVinculacaoPagamento_v1.00.xsd'))) throw Error('Evento 110300 aguarda pacote oficial de schemas de vinculacao de pagamento no agente fiscal; transmissao bloqueada.');
+    const content=require('./src/server/rtc-document-fields').paymentEventXml(tenantState.settings,row,event);
+    await initializeAcbrLib(configureAcbrForTenant(tenantCode,tenantState));
+    const file=saveTenantFile({tenantCode,category:'xml',filename:`evento-pagamento-${row.key}-${event.sequence}.xml`,mimeType:'application/xml',content:Buffer.from(content).toString('base64')});
+    let result;
+    if(tenantState.settings.acbrApiUrl) result=await fiscalAgentExecute(tenantCode,tenantState,{engine:'nfe',steps:[{method:'carregareventoxml',file:{argIndex:0,filename:file.filename,content}},{method:'enviarevento',args:[1]}]});
+    else { acbrResponseOrThrow(await acbrLibCommand('carregareventoxml',[path.join(storageDir,normalizeTenantCode(tenantCode),'xml',file.filename)]),'Carregar evento de pagamento'); const response=await acbrLibCommand('enviarevento',[1],60000);result={response,parsed:acbrResponseOrThrow(response,'Vincular pagamento')}; }
+    const responseFile=saveFiscalResponse(tenantCode,`retorno-pagamento-${row.key}.txt`,result.parsed.raw);
+    return {...result,eventUrl:file.url,responseUrl:responseFile.url};
+  }
   if (!row.key || !/^\d{44}$/.test(row.key)) throw new Error("Documento sem chave NF-e/NFC-e valida.");
   await initializeAcbrLib(configureAcbrForTenant(tenantCode, tenantState));
   const eventFile = saveTenantFile({
@@ -2124,6 +2137,7 @@ async function transmitFiscalDocument(tenantCode, row, sessionUser) {
     lastAttemptAt: new Date().toISOString()
   };
   fiscalRow.xml = fiscalXmlFromState(tenantState, fiscalRow, tenantCode);
+  if(fiscalRow.model!=="NFS-e") require("./src/server/rtc-schema-support").assertRtcSchemaSupport(fiscalRow.xml, path.join(__dirname,"runtime/fiscal/Schemas"));
   fiscalRow.key = fiscalRow.xml.match(/Id="NFe(\d{44})"/)?.[1] || "";
   fiscalRow.protocol = "";
   fiscalRow.localReference = `${fiscalRow.model}-${fiscalRow.id}`;
@@ -2320,6 +2334,7 @@ async function handleApi(req, res, urlPath) {
       ok: true,
       product: "Tortela Plus",
       mode: "rede-franquias",
+      fiscalRelease: require("./src/server/rtc-policy").RTC_RELEASE.version,
       databaseMode,
       dataDir,
       isolation: postgresStore ? "postgresql-schema-per-tenant" : "tenant-files",
@@ -4212,6 +4227,16 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const fiscalPreviewMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/fiscal\/preview$/);
+  if(fiscalPreviewMatch && req.method==='POST') {
+    const code=normalizeTenantCode(fiscalPreviewMatch[1]),provider=readProvider(),access=sessionAccess(req,provider,code,'fiscal');
+    if(access.error)return deny(res,access);
+    const body=await readBody(req),row=body.document||{},state=readTenantState(code);
+    if(!['NF-e','NFC-e','NFS-e'].includes(row.model))return sendJson(res,400,{ok:false,error:'Modelo fiscal invalido'});
+    try {const xml=fiscalXmlFromState(state,row,code);return sendJson(res,200,{ok:true,xml,release:require('./src/server/rtc-policy').RTC_RELEASE.version});}
+    catch(error){return sendJson(res,422,{ok:false,error:error.message});}
+  }
+
   const tenantFiscalEventMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/fiscal\/event$/);
   if (tenantFiscalEventMatch && req.method === "POST") {
     const tenantCode = normalizeTenantCode(tenantFiscalEventMatch[1]);
@@ -4223,13 +4248,17 @@ async function handleApi(req, res, urlPath) {
     const storedRow = (tenantState.fiscalQueue || []).find((item) => Number(item.id) === Number(body.id));
     const row = storedRow || { key: String(body.key || "").replace(/\D/g, ""), model: "NF-e", events: [] };
     if (!/^\d{44}$/.test(row.key || "") || row.model === "NFS-e") return sendJson(res, 400, { ok: false, error: "Evento disponivel apenas para NF-e/NFC-e com chave valida." });
-    const eventTypes = { cce: "110110", confirmacao: "210200", ciencia: "210210", desconhecimento: "210220", naoRealizada: "210240" };
+    const eventTypes = { vinculacaoPagamento: "110300", cce: "110110", confirmacao: "210200", ciencia: "210210", desconhecimento: "210220", naoRealizada: "210240" };
     const type = eventTypes[body.type] || String(body.type || "");
+    if(type==='110300') {
+      const eventAccess=sessionAccess(req,provider,tenantCode,'fiscal_transmit');if(eventAccess.error)return deny(res,eventAccess);
+      if(!storedRow||storedRow.status!=='Autorizada'||!body.paymentLink)return sendJson(res,400,{ok:false,error:'Informe documento autorizado e dados da transacao vinculada'});
+    }
     if (type === "110110" && String(body.text || "").trim().length < 15) return sendJson(res, 400, { ok: false, error: "Informe a correcao com pelo menos 15 caracteres." });
     if (!Object.values(eventTypes).includes(type)) return sendJson(res, 400, { ok: false, error: "Tipo de evento fiscal invalido." });
     try {
       const sequence = 1 + (row.events || []).filter((event) => event.type === type).length;
-      const sent = await sendNfeEvent(tenantCode, tenantState, row, { type, text: String(body.text || "").trim(), justification: String(body.justification || "").trim(), sequence });
+      const sent = await sendNfeEvent(tenantCode, tenantState, row, { type, text: String(body.text || "").trim(), justification: String(body.justification || "").trim(), paymentLink: body.paymentLink, sequence });
       if (!["135", "136"].includes(sent.parsed.statusCode)) return sendJson(res, 409, { ok: false, error: sent.parsed.statusMessage || "Evento nao registrado pela SEFAZ.", response: sent.parsed.raw });
       const registeredEvent = { type, sequence, text: body.text || "", protocol: sent.parsed.protocol, statusCode: sent.parsed.statusCode, response: sent.parsed.raw, eventUrl: sent.eventUrl, responseUrl: sent.responseUrl, createdAt: new Date().toISOString() };
       row.events = Array.isArray(row.events) ? row.events : [];

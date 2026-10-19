@@ -1,178 +1,26 @@
-const { generateNfeXml, validateNfeState } = require("../src/server/fiscal-documents");
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-function tagValues(xml, tag) {
-  return [...xml.matchAll(new RegExp(`<${tag}>([^<]*)</${tag}>`, "g"))].map((match) => Number(match[1]));
-}
-
-function lastTag(xml, tag) {
-  const values = tagValues(xml, tag);
-  return values[values.length - 1];
-}
-
-function sum(values, count) {
-  return values.slice(0, count).reduce((total, value) => total + value, 0);
-}
-
-function almostEqual(left, right, label) {
-  assert(Math.abs(Number(left) - Number(right)) <= 0.01, `${label}: ${left} != ${right}`);
-}
-
-const baseState = {
-  settings: {
-    company: "Tortela",
-    document: "12345678000195",
-    stateRegistration: "110042490114",
-    regime: "Simples Nacional",
-    uf: "SP",
-    cityCode: "3552502",
-    address: "Rua Fiscal",
-    number: "100",
-    district: "Centro",
-    city: "Suzano",
-    cep: "08600000",
-    fiscalEnvironment: "Homologacao",
-    cscConfigured: true,
-    cscId: "1",
-    nfceQrCodeUrl: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/Paginas/ConsultaQRCode.aspx",
-    nfceConsultaUrl: "https://www.homologacao.nfce.fazenda.sp.gov.br/NFCeConsultaPublica/"
-  },
-  reformTaxTables: {
-    version: "IT-2025.002-v1.60-baseline",
-    publishedAt: "2026-06-23",
-    cstIndicators: [{ cst: "000", description: "Tributacao integral" }],
-    classTrib: [{ code: "000001", cst: "000", description: "Tributacao integral", models: ["NF-e", "NFC-e"] }]
-  },
-  people: [
-    {
-      id: 1,
-      name: "Cliente Fiscal",
-      document: "11144477735",
-      address: "Rua Cliente",
-      number: "10",
-      district: "Centro",
-      cityCode: "3552502",
-      city: "Suzano",
-      uf: "SP",
-      cep: "08600000"
-    }
-  ],
-  products: [
-    {
-      id: 7001,
-      description: "Torta fiscal",
-      barcode: "7890000007001",
-      unit: "UN",
-      ncm: "19059090",
-      cfop: "5102",
-      cst: "102",
-      csosn: "102"
-    }
-  ],
-  fiscalRules: [
-    {
-      id: 1,
-      active: true,
-      model: "NF-e",
-      regime: "Simples Nacional",
-      uf: "SP",
-      cfop: "5102",
-      cst: "102",
-      csosn: "102",
-      ncm: "19059090",
-      origin: "0",
-      pisCofinsCst: "49",
-      ibsCbsCst: "000",
-      ibsClass: "000001",
-      cbsClass: "000001",
-      ibsUfRate: 0.1,
-      ibsCityRate: 0.05,
-      cbsFederalRate: 0.9,
-      reformReductionRate: 20,
-      reformDeferralRate: 10,
-      selectiveTaxRate: 0.2,
-      selectiveTaxCst: "000",
-      selectiveTaxClass: "000001"
-    },
-    {
-      id: 2,
-      active: true,
-      model: "NFC-e",
-      regime: "Simples Nacional",
-      uf: "SP",
-      cfop: "5102",
-      cst: "102",
-      csosn: "102",
-      ncm: "19059090",
-      origin: "0",
-      pisCofinsCst: "49",
-      ibsCbsCst: "000",
-      ibsClass: "000001",
-      cbsClass: "000001",
-      ibsUfRate: 0.1,
-      ibsCityRate: 0.05,
-      cbsFederalRate: 0.9,
-      reformReductionRate: 20,
-      reformDeferralRate: 10,
-      selectiveTaxRate: 0.2,
-      selectiveTaxCst: "000",
-      selectiveTaxClass: "000001"
-    }
-  ],
-  sales: []
-};
-
-function row(model) {
-  return {
-    id: model === "NF-e" ? 101 : 102,
-    model,
-    date: "2027-01-02",
-    customer: "Cliente Fiscal",
-    customerDocument: model === "NF-e" ? "11144477735" : "",
-    total: 100,
-    payment: "PIX",
-    items: [{ id: 7001, description: "Torta fiscal", unit: "UN", qty: 2, price: 50 }]
-  };
-}
-
-function validateXml(model) {
-  const xml = generateNfeXml(baseState, row(model), { csc: "SEGREDO-CSC" });
-  [
-    "<IBSCBS>",
-    "<gIBSCBS>",
-    "<gIBSUF>",
-    "<gIBSMun>",
-    "<gCBS>",
-    "<IS>",
-    "<ISTot>",
-    "<IBSCBSTot>",
-    "<vNFTot>"
-  ].forEach((text) => assert(xml.includes(text), `${model} sem grupo/tag da reforma: ${text}`));
-
-  const itemCount = row(model).items.length;
-  almostEqual(lastTag(xml, "vIBSUF"), sum(tagValues(xml, "vIBSUF"), itemCount), `${model} total vIBSUF`);
-  almostEqual(lastTag(xml, "vIBSMun"), sum(tagValues(xml, "vIBSMun"), itemCount), `${model} total vIBSMun`);
-  almostEqual(lastTag(xml, "vIBS"), sum(tagValues(xml, "vIBS"), itemCount), `${model} total vIBS`);
-  almostEqual(lastTag(xml, "vCBS"), sum(tagValues(xml, "vCBS"), itemCount), `${model} total vCBS`);
-  almostEqual(lastTag(xml, "vIS"), sum(tagValues(xml, "vIS"), itemCount), `${model} total vIS`);
-
-  const expectedVnftot = 100 + lastTag(xml, "vIBS") + lastTag(xml, "vCBS") + lastTag(xml, "vIS");
-  almostEqual(lastTag(xml, "vNFTot"), expectedVnftot, `${model} vNFTot`);
-}
-
-validateXml("NF-e");
-validateXml("NFC-e");
-
-const invalid = structuredClone(baseState);
-invalid.fiscalRules[0].ibsClass = "123";
-invalid.fiscalRules[0].selectiveTaxClass = "";
-invalid.settings.cityCode = "355";
-const errors = validateNfeState(invalid, row("NF-e")).join(" | ");
-assert(errors.includes("codigo IBGE do municipio do emitente"), "Rejeicao local nao pegou codigo municipal do emitente.");
-assert(errors.includes("classificacao tributaria IBS/CBS do item 1"), "Rejeicao local nao pegou classificacao IBS/CBS.");
-assert(errors.includes("classificacao do Imposto Seletivo do item 1"), "Rejeicao local nao pegou classificacao IS.");
-
-console.log("OK - XML NF-e/NFC-e da reforma fiscal validado com grupos, totalizadores e rejeicoes locais.");
+const assert=require('assert/strict'),fs=require('fs');
+const {baseState,row}=require('./fiscal-test-fixture');
+const {generateNfeXml,generateNfseXml,validateNfeState,fiscalLedger,validateReformTotals}=require('../src/server/fiscal-documents');
+const {rtcPolicy,fiscalDate}=require('../src/server/rtc-policy');
+const {documentFieldsErrors,paymentEventXml}=require('../src/server/rtc-document-fields');
+const {assertRtcSchemaSupport}=require('../src/server/rtc-schema-support');
+let checks=0;function test(name,fn){fn();checks++;console.log('OK '+name);}
+const clone=()=>structuredClone(baseState),make=()=>row('NF-e');
+test('NF-e/NFC-e: totais conferidos, sem dupla soma',()=>{for(const model of ['NF-e','NFC-e']){const x=generateNfeXml(clone(),row(model),{csc:'TEST-CSC'});for(const tag of ['IBSCBS','gIBSUF','gIBSMun','gCBS','vItem','IBSCBSTot','vNFTot'])assert(x.includes('<'+tag+'>'));assert(x.includes('<vItem>100.00</vItem>'));assert(x.includes('<vNFTot>100.00</vNFTot>'));assert(!x.includes('<gDif>'));assertRtcSchemaSupport(x,require('path').join(__dirname,'../runtime/fiscal/Schemas'));if(process.env.RTC_XML_OUTPUT){fs.mkdirSync(process.env.RTC_XML_OUTPUT,{recursive:true});fs.writeFileSync(require('path').join(process.env.RTC_XML_OUTPUT,model+'.xml'),x);}}});
+test('CST 000 proibe diferimento e reducao',()=>{const s=clone();s.fiscalRules[0].reformDeferralRate=20;assert.throws(()=>generateNfeXml(s,make()),/proibe diferimento/);s.fiscalRules[0].reformReductionRate=20;assert(validateNfeState(s,make()).some(e=>e.includes('proibe reducao')));});
+test('Produto prevalece sobre regra e preserva CBS zero',()=>{const s=clone();s.products[0].reform={cbsRate:0.3};assert.equal(fiscalLedger(s,make())[0].reform.vCBS,0.3);s.products[0].reform.cbsRate=0;assert.equal(fiscalLedger(s,make())[0].reform.vCBS,0);assert.throws(()=>generateNfeXml(s,make()),/cbsFederalRate deve/);});
+test('Desconto afeta ICMS/PIS/COFINS e base RTC coerentemente',()=>{const s=clone();s.settings.regime='Lucro Real';s.products[0].cst='00';Object.assign(s.fiscalRules[0],{regime:'Lucro Real',cst:'00',icmsRate:18,pisRate:1.65,cofinsRate:7.6,pisCofinsCst:'01'});const d={...make(),discount:10,total:90};const l=fiscalLedger(s,d)[0];assert.equal(l.icms,16.2);assert.equal(l.pis,1.49);assert.equal(l.cofins,6.84);assert.equal(l.reform.base,65.47);const x=generateNfeXml(s,d);assert(x.includes('<vBC>90.00</vBC>'));assert(x.includes('<vBC>65.47</vBC>'));});
+test('2027 exige UF/Municipio corretos e confirmacao CBS anual',()=>{const s=clone(),d={...make(),date:'2027-01-02'};assert(validateNfeState(s,d).some(e=>e.includes('ibsUfRate deve ser 0.05')));Object.assign(s.fiscalRules[0],{ibsUfRate:0.05,ibsCityRate:0.05,cbsFederalRate:8.8,cbsRateYear:2027});const l=fiscalLedger(s,d)[0];assert.equal(l.net,100);assert(l.reform.base<100);const x=generateNfeXml(s,d);assert(x.includes('<vNFTot>100.00</vNFTot>'));delete s.fiscalRules[0].cbsRateYear;assert.throws(()=>generateNfeXml(s,d),/ano de vigencia/);});
+test('Validador independente detecta total adulterado',()=>{const lines=fiscalLedger(clone(),make()),totals={};for(const k of ['vIBSUF','vIBSMun','vIBS','vCBS','vIS','vDifIBSUF','vDifIBSMun','vDifCBS'])totals[k]=lines[0].reform[k];assert.deepEqual(validateReformTotals(totals,100,lines),[]);totals.vCBS+=2;assert(validateReformTotals(totals,100,lines).length);assert(validateReformTotals(totals,99,lines).length);});
+test('Vigencia separada da obrigacao legal e fuso do Brasil',()=>{assert.equal(fiscalDate({issuedAt:'2027-01-01T01:00:00Z'}),'2026-12-31');assert.equal(rtcPolicy(baseState.settings,make()).emit,true);assert.equal(rtcPolicy(baseState.settings,{...make(),includeIbsCbs:false}).emit,false);assert.equal(rtcPolicy({...baseState.settings,fiscalEnvironment:'Producao'},make()).ub12Rejection,false);});
+test('Devolucao exige item original e referencia por item ativa',()=>{const d={...make(),date:'2026-11-20',purpose:4,referencedKey:'3'.repeat(44)};assert.throws(()=>generateNfeXml(clone(),d),/numero do item original/);d.items[0].referencedItem=3;d.items[0].cfop='1202';const x=generateNfeXml(clone(),d);assert(x.includes('<DFeReferenciado>'));assert(x.includes('<nItem>3</nItem>'));assert(!x.includes('<NFref>'));assert(x.includes('<tPag>90</tPag><vPag>0.00</vPag>'));});
+test('Tabela split especifica e duplicidade',()=>{const p={idTransacao:'abc123',tpMeioPgto:'03',CNPJReceb:'12345678000195',CNPJBasePSP:'12345678'};assert(documentFieldsErrors(baseState.settings,{...make(),paymentLinks:[p]},make().items).some(e=>e.includes('codigo de meio')));p.tpMeioPgto='17';assert.equal(documentFieldsErrors(baseState.settings,{...make(),paymentLinks:[p]},make().items).length,0);assert(documentFieldsErrors(baseState.settings,{...make(),paymentLinks:[p,p]},make().items).some(e=>e.includes('duplicidade')));assert.throws(()=>paymentEventXml(baseState.settings,{...make(),status:'Autorizada',key:'3'.repeat(44),protocol:'1'.repeat(15)},{sequence:21,paymentLink:p}),/Sequencia/);});
+test('Campos futuros nao passam em esquema antigo silenciosamente',()=>{assert.throws(()=>assertRtcSchemaSupport('<gPgtoVinc>',require('path').join(__dirname,'../runtime/fiscal/Schemas')),/ainda nao suporta/);});
+test('Enquadramentos especiais e IS nao sao descartados silenciosamente',()=>{const s=clone();s.fiscalRules[0].selectiveTaxRate=1;assert.throws(()=>generateNfeXml(s,make()),/Imposto Seletivo exige/);assert.throws(()=>generateNfeXml(clone(),{...make(),purpose:5}),/especializado/);});
+test('Pagamentos, modelo e total invalido bloqueados',()=>{for(const d of [{...make(),model:'X'},{...make(),total:99},{...make(),payments:[{value:50}]}])assert.throws(()=>generateNfeXml(clone(),d));});
+test('DPS nacional inclui classificacao oficial RTC',()=>{const s=clone();s.settings.nfseStandard='Nacional';const d={id:1,model:'NFS-e',date:'2026-10-19',total:100,customer:'Cliente Fiscal',customerDocument:'11144477735',service:{description:'Servico de teste de schema',nationalTaxCode:'010101',issRate:2,reform:{cst:'000',classTrib:'000001',operationCode:'030101'}}};const x=generateNfseXml(s,d);assert(x.includes('<IBSCBS>'));assert(x.includes('<cTribNac>010101</cTribNac>'));if(process.env.RTC_XML_OUTPUT)fs.writeFileSync(require('path').join(process.env.RTC_XML_OUTPUT,'DPS.xml'),x);d.service.reform.operationCode='999999';assert.throws(()=>generateNfseXml(s,d),/inexistente/);});
+test('CST 200: reducoes oficiais e calculo por grupo',()=>{const s=clone();Object.assign(s.fiscalRules[0],{ibsCbsCst:'200',ibsClass:'200034',cbsClass:'200034',ibsReductionRate:60,cbsReductionRate:60});const x=generateNfeXml(s,make());assert(x.includes('<pRedAliq>60.0000</pRedAliq>'));assert.equal(fiscalLedger(s,make())[0].reform.vCBS,0.36);if(process.env.RTC_XML_OUTPUT)fs.writeFileSync(require('path').join(process.env.RTC_XML_OUTPUT,'NF-e-reducao.xml'),x);});
+test('CST 510: grupo de diferimento obrigatorio mesmo zero',()=>{const s=clone();Object.assign(s.fiscalRules[0],{ibsCbsCst:'510',ibsClass:'510001',cbsClass:'510001'});const x=generateNfeXml(s,make());assert.equal((x.match(/<gDif>/g)||[]).length,3);if(process.env.RTC_XML_OUTPUT)fs.writeFileSync(require('path').join(process.env.RTC_XML_OUTPUT,'NF-e-diferimento.xml'),x);});
+test('CST 410: sem grupo tributado nem imposto indevido',()=>{const s=clone();Object.assign(s.fiscalRules[0],{ibsCbsCst:'410',ibsClass:'410001',cbsClass:'410001'});const x=generateNfeXml(s,make());assert(!x.includes('<gIBSCBS>'));assert.equal(fiscalLedger(s,make())[0].reform.vCBS,0);if(process.env.RTC_XML_OUTPUT)fs.writeFileSync(require('path').join(process.env.RTC_XML_OUTPUT,'NF-e-isencao.xml'),x);});
+test('Arredondamento por item nao diverge do total',()=>{const d=make();d.items=Array.from({length:99},(_,i)=>({...d.items[0],qty:0.5,price:0.03}));d.total=1.98;assert.doesNotThrow(()=>generateNfeXml(clone(),d));});
+console.log('PASS '+checks+' cenarios fiscais; sem transmissao externa ou gravacao de vendas.');

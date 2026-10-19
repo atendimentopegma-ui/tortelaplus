@@ -1,0 +1,162 @@
+{
+  "version": "ANEXO_C-v1.01-20260122",
+  "source": "https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/producao-restrita/anexo_c-indop_ibscbs-snnfse-prodrest-v1-01-20260122.xlsx",
+  "operations": [
+    {
+      "code": "020101",
+      "description": "Execução de operações com bem imóvel, bem imaterial, inclusive direito, relacionado a bem imóvel",
+      "location": "Localidade do imóvel (1)",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "020201",
+      "description": "Execução de serviços sobre bem imóvel",
+      "location": "Localidade do imóvel (1)",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "020301",
+      "description": "Execução dos serviços de administração e intermediação de bens imóveis",
+      "location": "Localidade do imóvel (1)",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "030101",
+      "description": "Execução de serviços diversos exclusivamente prestados fisicamente sobre a pessoa ou integralmente fruídos presencialmente por pessoa física (2)",
+      "location": "Estabelecimento do fornecedor",
+      "field": "NFSe/infNFSe/DPS/infDPS/prest/end/"
+    },
+    {
+      "code": "030102",
+      "description": "",
+      "location": "Endereço do adquirente",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "030103",
+      "description": "",
+      "location": "Endereço do destinatário",
+      "field": "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "030104",
+      "description": "",
+      "location": "Endereço diverso do fornecedor, adquirente ou destinatário",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "040101",
+      "description": "Execução de serviços de planejamento, organização e administração de feiras, exposições, congressos, espetáculos, exibições e congêneres",
+      "location": "Local do Evento",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/atvEvento/"
+    },
+    {
+      "code": "050101",
+      "description": "Execução de serviços diversos fisicamente prestados sobre bem móvel material",
+      "location": "Estabelecimento do fornecedor",
+      "field": "NFSe/infNFSe/DPS/infDPS/prest/end/"
+    },
+    {
+      "code": "050102",
+      "description": "",
+      "location": "Endereço do adquirente",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "050103",
+      "description": "",
+      "location": "Endereço do destinatário",
+      "field": "NFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "050104",
+      "description": "",
+      "location": "Endereço diverso do fornecedor, adquirente ou destinatário",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "050201",
+      "description": "Execução de serviços portuários",
+      "location": "Local da prestação",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "060101",
+      "description": "Execução de serviços de transporte de passageiros",
+      "location": "Local de início do transporte",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "070101",
+      "description": "Execução de serviços de transporte de carga",
+      "location": "Endereço fornecido para entrega",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "070102",
+      "description": "",
+      "location": "Local da retirada",
+      "field": "NFSe/infNFSe/DPS/infDPS/serv/locPrest/cLocPrestacao"
+    },
+    {
+      "code": "080101",
+      "description": "Execução de serviços de exploração de via",
+      "location": "Local da prestação, correspondente à extensão da via explorada e proporcional ao território dos entes tributantes",
+      "field": "EXCLUSIVO PARA NFS-e Via."
+    },
+    {
+      "code": "100101",
+      "description": "Execução de operações de cessão de espaço para prestação de serviços publicitários",
+      "location": "Local do domicílio principal do adquirente (3)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "100102",
+      "description": "",
+      "location": "Local do domicílio do destinatário, nos casos de adquirente residente ou domiciliado no exterior (5)(6)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end/endExt\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/end/endExt"
+    },
+    {
+      "code": "100201",
+      "description": "Execução de operações de cessão de espaço para prestação de serviços publicitários",
+      "location": "Local do domicílio principal do destinatário (6)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "100301",
+      "description": "Execução dos demais serviços em operações não especificadas anteriormente ou, nos serviços de que trata o inc. III, estes sejam, ainda que parcialmente, prestados à distância (2)",
+      "location": "Local do domicílio principal do adquirente (3)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "100302",
+      "description": "",
+      "location": "Local do domicílio do destinatário, nos casos de adquirente residente ou domiciliado no exterior (5)(6)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "100401",
+      "description": "Execução dos demais serviços em operações não especificadas anteriormente ou, nos serviços de que tratam o inc. III, estes sejam, ainda que parcialmente, prestados à distância",
+      "location": "Local do domicílio principal do destinatário (6)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "100501",
+      "description": "Execução de demais operações não especificadas anteriormente com bens móveis imateriais, inclusive direitos",
+      "location": "Local do domicílio principal do adquirente (3)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    },
+    {
+      "code": "100502",
+      "description": "",
+      "location": "Local do domicílio do destinatário, nos casos de adquirente residente ou domiciliado no exterior (5)(6)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end/endExt/\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/end/endExt/"
+    },
+    {
+      "code": "100601",
+      "description": "Execução de demais operações não especificadas anteriormente com bens móveis imateriais, inclusive direitos",
+      "location": "Local do domicílio principal do destinatário (6)",
+      "field": "-> Se NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 0–O destinatário é o próprio tomador/adquirente identificado na NFS-e (tomador=adquirente=destinatário)\nNFSe/infNFSe/DPS/infDPS/toma/end\n-> SeNaoSe NFSe/infNFSe/DPS/infDPS/IBSCBS/indDest = 1 – o destinatário não é o próprio adquirente, podendo ser outra pessoa, física ou jurídica (ou equiparada), ou um estabelecimento diferente do indicado como tomador (tomador=adquirente≠destinatário);\nNFSe/infNFSe/DPS/infDPS/IBSCBS/dest/"
+    }
+  ]
+}
