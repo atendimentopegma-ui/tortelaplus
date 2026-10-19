@@ -255,7 +255,7 @@ window.TORTELA_BUILD = "settings-tabs-cleanup-v11";
 
 let state = load();
 let apiOnline = false;
-const licenseGateDisabled = true;
+const licenseGateDisabled = false;
 const publicTerminalGateDisabled = false;
 let currentMode = "backoffice";
 let currentModule = "dashboard";
@@ -1130,7 +1130,7 @@ function renderDashboard() {
             <div class="table-wrap">
               <table>
                 <thead><tr><th>Produto</th><th>Atual</th><th>Minimo</th><th>Sugerido</th><th>Unidade</th></tr></thead>
-                <tbody>${lowStock.map((product) => `<tr><td>${product.description}</td><td>${product.stock}</td><td>${product.minStock}</td><td>${Math.max(product.minStock - product.stock, 1)}</td><td>${product.unit}</td></tr>`).join("")}</tbody>
+                <tbody>${lowStock.map((product) => `<tr><td>${product.description}</td><td>${formatQty(product.stock)}</td><td>${formatQty(product.minStock)}</td><td>${formatQty(Math.max(product.minStock - product.stock, 1))}</td><td>${product.unit}</td></tr>`).join("")}</tbody>
               </table>
             </div>
           ` : `<div class="empty">Nenhum item abaixo do estoque minimo.</div>`}
@@ -6718,7 +6718,7 @@ async function processPendingFiscalQueue() {
   const eligible = state.fiscalQueue.filter((row) => {
     const status = String(row.status || "");
     const pending = ["Pendente", "Fila offline", "Aguardando transmissao", "Aguardando servidor fiscal", "Falha no envio real"].some((value) => status.includes(value));
-    return pending && !row.cancelledAt && (!row.nextAttemptAt || new Date(row.nextAttemptAt).getTime() <= now);
+    return pending && !row.cancelledAt && validateFiscalDocument(row).length === 0 && (!row.nextAttemptAt || new Date(row.nextAttemptAt).getTime() <= now);
   });
   for (const row of eligible.slice(0, 5)) {
     await transmitFiscalRecord(row.id);
