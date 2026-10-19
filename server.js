@@ -454,7 +454,8 @@ async function initializePersistence() {
   await postgresStore.initialize();
   const initializationLock = await postgresStore.pool.connect();
   try {
-  await initializationLock.query("SELECT pg_advisory_lock(748321901)");
+  await initializationLock.query("BEGIN");
+  await initializationLock.query("SELECT pg_advisory_xact_lock(748321902)");
   const storedProvider = await postgresStore.readProvider();
   providerCache = storedProvider || readJson(providerFile, initialProvider);
   const configuredAdmin = configuredProviderAdmin();
@@ -478,7 +479,7 @@ async function initializePersistence() {
   }
   console.log(`PostgreSQL ativo com ${tenantCache.size} schemas de clientes.`);
   } finally {
-    try { await initializationLock.query("SELECT pg_advisory_unlock(748321901)"); }
+    try { await initializationLock.query("COMMIT"); }
     finally { initializationLock.release(); }
   }
 }

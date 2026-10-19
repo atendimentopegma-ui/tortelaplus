@@ -9,7 +9,10 @@ function createStateCoordinator(getStore, refresh) {
       const lock = await store.pool.connect();
       let acquired = false;
       try {
-        await lock.query("SELECT pg_advisory_lock(748321901)");
+        // Neon uses transaction pooling: session locks can attach to a different
+        // backend on the next query. A transaction pins the connection instead.
+        await lock.query("BEGIN");
+        await lock.query("SELECT pg_advisory_xact_lock(748321902)");
         acquired = true;
         await store.pending;
         await refresh(store);
@@ -17,7 +20,8 @@ function createStateCoordinator(getStore, refresh) {
       } finally {
         try {
           await store.pending;
-          if (acquired) await lock.query("SELECT pg_advisory_unlock(748321901)");
+          if (acquired) await lock.query("COMMIT");
+          else await lock.query("ROLLBACK");
         } finally { lock.release(); }
       }
     });
