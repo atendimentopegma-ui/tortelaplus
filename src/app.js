@@ -1,93 +1,6 @@
 const seed = {
-  people: [
-    {
-      id: 1,
-      type: "Cliente",
-      name: "Consumidor Final",
-      document: "",
-      city: "Padrao",
-      uf: "SP",
-      cep: "",
-      address: "",
-      active: true
-    },
-    {
-      id: 2,
-      type: "Fornecedor",
-      name: "Fornecedor Exemplo",
-      document: "00.000.000/0001-00",
-      city: "Sao Paulo",
-      uf: "SP",
-      cep: "01001000",
-      address: "Praca da Se",
-      active: true
-    }
-  ],
-  products: [
-    {
-      id: 5014,
-      description: "Pao frances",
-      barcode: "7890000000011",
-      type: "Produto fabricado",
-      unit: "UN",
-      cost: 0.38,
-      price: 0.85,
-      stock: 18,
-      minStock: 40,
-      ncm: "19059090",
-      cfop: "5102",
-      cst: "102",
-      cbsClass: "000001",
-      ibsClass: "000001",
-      photo: "",
-      isBundle: true,
-      composition: [
-        { productId: 9001, qty: 0.06 },
-        { productId: 9002, qty: 0.01 }
-      ],
-      active: true
-    },
-    {
-      id: 9001,
-      description: "Farinha de trigo 1kg",
-      barcode: "7890000000097",
-      type: "Materia-prima",
-      unit: "KG",
-      cost: 4.6,
-      price: 0,
-      stock: 8,
-      minStock: 25,
-      ncm: "11010010",
-      cfop: "1102",
-      cst: "102",
-      cbsClass: "000001",
-      ibsClass: "000001",
-      photo: "",
-      isBundle: false,
-      composition: [],
-      active: true
-    },
-    {
-      id: 9002,
-      description: "Oleo vegetal 900ml",
-      barcode: "7890000000098",
-      type: "Materia-prima",
-      unit: "UN",
-      cost: 7.9,
-      price: 0,
-      stock: 5,
-      minStock: 12,
-      ncm: "15121911",
-      cfop: "1102",
-      cst: "102",
-      cbsClass: "000001",
-      ibsClass: "000001",
-      photo: "",
-      isBundle: false,
-      composition: [],
-      active: true
-    }
-  ],
+  people: [],
+  products: [],
   receivables: [],
   chartOfAccounts: [
     { id: 1, code: "1.1.01", name: "Caixa", type: "Ativo", active: true },
@@ -95,26 +8,9 @@ const seed = {
     { id: 3, code: "3.1.01", name: "Receita de vendas", type: "Receita", active: true },
     { id: 4, code: "4.1.01", name: "Compras e fornecedores", type: "Despesa", active: true }
   ],
-  payables: [
-    {
-      id: 1,
-      supplier: "Fornecedor Exemplo",
-      due: "2026-06-10",
-      value: 640,
-      paid: false,
-      history: "Compra inicial"
-    }
-  ],
-  cash: [
-    { id: 1, date: "2026-06-05", account: "CAIXA", history: "Saldo inicial", in: 45296, out: 0 }
-  ],
-  cashRegister: {
-    open: true,
-    openedAt: "2026-06-05T10:49:00.000Z",
-    openedBy: "Operador",
-    initialAmount: 45296,
-    terminal: "SERIE 1"
-  },
+  payables: [],
+  cash: [],
+  cashRegister: { open: false, openedAt: "", openedBy: "", initialAmount: 0, terminal: "" },
   cashClosures: [],
   heldSales: [],
   pdvTables: [],
@@ -122,17 +18,7 @@ const seed = {
   approvalRequests: [],
   networkPromotions: [],
   franchisePayments: [],
-  fiscalQueue: [
-    {
-      id: 1,
-      model: "NFC-e",
-      status: "Pendente",
-      customer: "Consumidor Final",
-      total: 0,
-      key: "",
-      protocol: ""
-    }
-  ],
+  fiscalQueue: [],
   sales: [],
   purchases: [],
   stockMovements: [],
@@ -298,7 +184,7 @@ const seed = {
     clients: [
       {
         id: 1,
-        tradeName: "Cliente Exemplo",
+        tradeName: "Tortela Plus",
         document: "00.000.000/0001-00",
         tenantCode: "cliente-exemplo",
         plan: "Essencial",
@@ -313,7 +199,7 @@ const seed = {
     ]
   },
   settings: {
-    company: "Tortela",
+    company: "Tortela Plus",
     document: "00.000.000/0001-00",
     stateRegistration: "",
     municipalRegistration: "",
@@ -665,8 +551,8 @@ async function api(path, options = {}) {
 
 async function boot() {
   try {
-    const remote = await api("/api/provider");
-    state = withDefaults({ ...state, provider: remote.provider });
+    const health = await api("/api/health");
+    if (health.ok !== true || health.product !== "Tortela Plus") throw new Error("Servidor da unidade indisponivel.");
     apiOnline = true;
   } catch {
     apiOnline = false;
@@ -684,7 +570,7 @@ async function loadTenantState(tenantCode) {
     settings: {
       ...(remote.state?.settings || {}),
       user: state.settings.user,
-      company: state.settings.company,
+      company: remote.state?.settings?.company || state.settings.company,
       tenantCode
     }
   });
@@ -962,11 +848,11 @@ function renderLogin() {
           </div>
           <div class="field">
             <label for="login-tenant">Codigo do cliente</label>
-            <input id="login-tenant" value="${state.settings.tenantCode}" />
+            <input id="login-tenant" value="${escapeAttr(state.settings.tenantCode === "cliente-exemplo" ? "tortela-plus" : state.settings.tenantCode)}" />
           </div>
           <div class="field">
             <label for="login-pass">Senha</label>
-            <input id="login-pass" type="password" value="123456" autocomplete="current-password" />
+            <input id="login-pass" type="password" autocomplete="current-password" />
           </div>
           <button class="btn primary" id="login-submit" type="submit">Entrar</button>
           <p class="helper" id="login-feedback" aria-live="polite"></p>
@@ -988,9 +874,23 @@ function renderLogin() {
       submitButton.setAttribute("aria-busy", "true");
     }
     if (feedback) feedback.textContent = apiOnline ? "Conectando com a unidade..." : "Abrindo em modo local...";
+    if (window.location.protocol !== "file:") {
+      try {
+        const health = await api("/api/health");
+        if (health.ok !== true || health.product !== "Tortela Plus") throw new Error("Servidor da unidade indisponivel.");
+        apiOnline = true;
+      } catch {
+        apiOnline = false;
+        if (feedback) feedback.textContent = "Servidor indisponivel. Nao foi possivel autenticar. Tente novamente.";
+        loginInProgress = false;
+        if (submitButton) { submitButton.disabled = false; submitButton.textContent = "Entrar"; submitButton.removeAttribute("aria-busy"); }
+        return;
+      }
+    }
     state.settings.user = byId("login-user").value || "Operador";
     state.settings.company = byId("login-company").value || "Minha Empresa";
     state.settings.tenantCode = normalizeTenantCode(byId("login-tenant").value || state.settings.tenantCode);
+    if (state.settings.tenantCode === "tortela-plus") state.settings.tenantCode = "cliente-exemplo";
     if (apiOnline) {
       try {
         await startSession(state.settings.tenantCode, state.settings.user, byId("login-pass").value);
@@ -1841,7 +1741,7 @@ function productTab() {
     return `
       <div class="form-card">
         <h3>Ficha tecnica: composicao e fabricacao</h3>
-        <p class="muted">Informe quanto de cada materia-prima entra em 1 unidade do produto final. Exemplo: farinha cadastrada em KG, usar 500 G na torta baixa 0,5 KG do estoque.</p>
+        <p class="muted">Informe quanto de cada materia-prima entra em 1 unidade do produto final. As quantidades serao convertidas para a unidade de estoque cadastrada.</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Componente</th><th>Uso por unidade</th><th>Baixa no estoque</th><th>Custo unit.</th><th>Quando baixa</th><th>Acao</th></tr></thead>
@@ -3356,7 +3256,7 @@ function renderSettings() {
             <div class="field"><label>Motor fiscal</label><select id="set-fiscal-engine"><option>ACBrLib</option><option>ACBrMonitor</option></select></div>
             <div class="field"><label>Host ACBrMonitor</label><input id="set-acbr-host" value="${escapeAttr(state.settings.acbrHost || "127.0.0.1")}" /></div>
             <div class="field"><label>Porta ACBrMonitor</label><input id="set-acbr-port" type="number" value="${Number(state.settings.acbrPort || 3436)}" /></div>
-            <div class="field"><label>URL do agente fiscal Windows</label><input id="set-acbr-api-url" value="${escapeAttr(state.settings.acbrApiUrl || "")}" placeholder="https://agente-fiscal.exemplo.com" /></div>
+            <div class="field"><label>URL do agente fiscal Windows</label><input id="set-acbr-api-url" value="${escapeAttr(state.settings.acbrApiUrl || "")}" placeholder="URL HTTPS do agente fiscal da unidade" /></div>
             <div class="field"><label>Token do agente fiscal</label><input id="set-acbr-api-token" type="password" placeholder="${state.settings.acbrApiTokenConfigured ? "Token protegido configurado" : "Informe o token seguro"}" /></div>
             <div class="field"><label>XMLSignLib</label><input id="set-xmlsign-lib" value="${escapeAttr(state.settings.xmlSignLib || "libXml2")}" /></div>
             <div class="field"><label>HttpLib</label><input id="set-http-lib" value="${escapeAttr(state.settings.httpLib || "WinHttp")}" /></div>

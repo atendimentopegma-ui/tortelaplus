@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const net = require("net");
 const { spawn } = require("child_process");
 const { PostgresStore, tenantSchema } = require("./src/server/postgres-store");
+const { createStateCoordinator } = require("./src/server/coordinated-state");
 const {
   generateFiscalXml,
   generateNfseIni,
@@ -44,6 +45,20 @@ const loginAttempts = new Map();
 const tenantCache = new Map();
 let providerCache = null;
 let postgresStore = null;
+const coordinateState = createStateCoordinator(() => postgresStore, async (store) => {
+  const provider = await store.readProvider();
+  if (!provider) throw new Error("Central da Rede ausente no PostgreSQL.");
+  providerCache = provider;
+  const fresh = new Map();
+  for (const tenant of provider.clients || []) {
+    const code = normalizeTenantCode(tenant.tenantCode);
+    const result = await store.pool.query(`SELECT document FROM "${tenantSchema(code)}".state_document WHERE id = 1`);
+    if (!result.rows[0]?.document) throw new Error("Dados da unidade ausentes no PostgreSQL.");
+    fresh.set(code, withTenantStateDefaults(result.rows[0].document, code));
+  }
+  tenantCache.clear();
+  for (const [code, state] of fresh) tenantCache.set(code, state);
+});
 const sessionTtlMs = Number(envValue(process.env, "TORTELAPLUS_SESSION_TTL_MINUTES", "PEGMA_SESSION_TTL_MINUTES") || 480) * 60000;
 const backupIntervalMs = Math.max(15, Number(envValue(process.env, "TORTELAPLUS_BACKUP_INTERVAL_MINUTES", "PEGMA_BACKUP_INTERVAL_MINUTES") || 360)) * 60000;
 const backupRetentionDays = Math.max(7, Number(envValue(process.env, "TORTELAPLUS_BACKUP_RETENTION_DAYS", "PEGMA_BACKUP_RETENTION_DAYS") || 30));
@@ -101,7 +116,7 @@ const initialProvider = {
   clients: [
     {
       id: 1,
-      tradeName: "Cliente Exemplo",
+      tradeName: "Tortela Plus",
       document: "00.000.000/0001-00",
       tenantCode: "cliente-exemplo",
       plan: "Essencial",
@@ -437,6 +452,9 @@ async function initializePersistence() {
 
   postgresStore = new PostgresStore(process.env.DATABASE_URL);
   await postgresStore.initialize();
+  const initializationLock = await postgresStore.pool.connect();
+  try {
+  await initializationLock.query("SELECT pg_advisory_lock(748321901)");
   const storedProvider = await postgresStore.readProvider();
   providerCache = storedProvider || readJson(providerFile, initialProvider);
   const configuredAdmin = configuredProviderAdmin();
@@ -459,6 +477,10 @@ async function initializePersistence() {
     if (!storedTenant) await postgresStore.writeTenant(code, tenantCache.get(code));
   }
   console.log(`PostgreSQL ativo com ${tenantCache.size} schemas de clientes.`);
+  } finally {
+    try { await initializationLock.query("SELECT pg_advisory_unlock(748321901)"); }
+    finally { initializationLock.release(); }
+  }
 }
 
 function stripProvider(state) {
@@ -4932,26 +4954,30 @@ async function startServer() {
   await initializePersistence();
   setInterval(async () => {
     try {
+      await coordinateState(async () => {
       if (appSurface === "central" || appSurface === "network" || appSurface === "all") {
         await completeProviderBackup("automatico-programado-central-saas");
       } else {
         const provider = readProvider();
         provider.clients.forEach((tenant) => createScheduledTenantBackup(tenant.tenantCode, readTenantState(tenant.tenantCode)));
       }
+      });
     } catch (error) {
       console.error(`[Backup geral] ${error.message}`);
     }
   }, backupIntervalMs).unref();
   setInterval(() => {
+    coordinateState(async () => {
     const provider = readProvider();
     provider.clients.forEach(refreshTerminalCount);
     for (const [id, session] of providerSessions) if (Date.now() - session.lastSeenAt > sessionTtlMs) providerSessions.delete(id);
     writeProvider(provider);
+    }).catch((error) => console.error(`[Sessoes] ${error.message}`));
   }, 60000).unref();
   server = http.createServer((req, res) => {
     const urlPath = decodeURIComponent(req.url.split("?")[0]);
     if (urlPath.startsWith("/api/")) {
-      handleApi(req, res, urlPath).catch((error) => {
+      coordinateState(() => handleApi(req, res, urlPath)).catch((error) => {
         sendJson(res, 500, { ok: false, error: error.message });
       });
       return;

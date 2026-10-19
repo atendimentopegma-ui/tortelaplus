@@ -15,7 +15,7 @@ class PostgresStore {
     this.pool = new Pool({
       connectionString,
       ssl: process.env.PGSSL === "disable" ? false : { rejectUnauthorized: false },
-      max: Number(process.env.PGPOOL_MAX || 10)
+      max: Math.max(2, Number(process.env.PGPOOL_MAX || 10))
     });
     this.pending = Promise.resolve();
   }

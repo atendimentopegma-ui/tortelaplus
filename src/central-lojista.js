@@ -206,9 +206,9 @@ function renderLogin() {
         </div>
         <form class="login-panel" id="store-login">
           <h2>Acesso da loja</h2>
-          <div class="field"><label>Codigo da unidade</label><input id="store-tenant" value="${escapeAttr(tenantCode)}" required /></div>
+          <div class="field"><label>Codigo da unidade</label><input id="store-tenant" value="${escapeAttr(tenantCode === "cliente-exemplo" ? "tortela-plus" : tenantCode)}" required /></div>
           <div class="field"><label>Usuario</label><input id="store-user" value="${escapeAttr(authUser?.username || "Operador")}" autocomplete="username" required /></div>
-          <div class="field"><label>Senha</label><input id="store-password" type="password" value="123456" autocomplete="current-password" required /></div>
+          <div class="field"><label>Senha</label><input id="store-password" type="password" autocomplete="current-password" required /></div>
           <button class="btn primary" type="submit">Entrar</button>
         </form>
       </section>
@@ -220,6 +220,7 @@ async function login(event) {
   event.preventDefault();
   try {
     tenantCode = byId("store-tenant").value.trim() || "cliente-exemplo";
+    if (tenantCode === "tortela-plus") tenantCode = "cliente-exemplo";
     const result = await api("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({

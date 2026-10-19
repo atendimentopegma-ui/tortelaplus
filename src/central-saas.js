@@ -7,7 +7,7 @@ const seed = {
     clients: [
       {
         id: 1,
-        tradeName: "Cliente Exemplo",
+        tradeName: "Tortela Plus",
         document: "00.000.000/0001-00",
         tenantCode: "cliente-exemplo",
         plan: "Essencial",

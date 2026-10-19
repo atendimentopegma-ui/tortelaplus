@@ -326,7 +326,7 @@ function renderOrders() {
     <section class="network-card">
       <h2>QR de remessa da Central</h2>
       <form class="network-form" id="shipment-qr-form">
-        <div class="field"><label>Unidade destino</label><input id="shipment-tenant" placeholder="cliente-exemplo" /></div>
+        <div class="field"><label>Unidade destino</label><input id="shipment-tenant" placeholder="Codigo da unidade de destino" /></div>
         <div class="field full"><label>Itens da remessa</label><textarea id="shipment-items" rows="4" placeholder='[{"productId":5014,"qty":10},{"barcode":"7890000000011","qty":5}]'></textarea></div>
         <button class="btn primary full" type="submit">Gerar QR da remessa</button>
       </form>
@@ -364,7 +364,7 @@ function renderPromotions() {
       <form class="network-form" id="price-table-form">
         <div class="field"><label>Aplicar em</label><select id="price-table-scope"><option value="all">Toda a rede</option><option value="region">Regiao/UF</option><option value="selected">Unidades selecionadas</option></select></div>
         <div class="field"><label>Regiao/UF</label><input id="price-table-region" placeholder="SP, RJ ou Zona Leste" /></div>
-        <div class="field wide"><label>Unidades</label><input id="price-table-units" placeholder="cliente-exemplo, loja-02" /></div>
+        <div class="field wide"><label>Unidades</label><input id="price-table-units" placeholder="Codigos das unidades separados por virgula" /></div>
         <div class="field wide"><label>Produto</label><input id="price-table-product" required /></div>
         <div class="field"><label>Preco autorizado</label><input id="price-table-price" type="number" step="0.01" min="0" required /></div>
         <div class="field full"><label>Justificativa/observacao</label><input id="price-table-note" /></div>
@@ -374,7 +374,7 @@ function renderPromotions() {
     <section class="network-card">
       <form class="network-form" id="promotion-form">
         <div class="field"><label>Aplicar em</label><select id="promotion-scope"><option value="all">Toda a rede</option><option value="selected">Unidades selecionadas</option></select></div>
-        <div class="field wide"><label>Unidades</label><input id="promotion-units" placeholder="cliente-exemplo, loja-02" /></div>
+        <div class="field wide"><label>Unidades</label><input id="promotion-units" placeholder="Codigos das unidades separados por virgula" /></div>
         <div class="field wide"><label>Produto</label><input id="promotion-product" required /></div>
         <div class="field"><label>Preco</label><input id="promotion-price" type="number" step="0.01" min="0" required /></div>
         <div class="field"><label>Inicio</label><input id="promotion-from" type="date" /></div>

@@ -16,7 +16,8 @@ function createElement(id = "") {
     dataset: {},
     classList: { add() {}, remove() {}, toggle() {} },
     style: {},
-    addEventListener() {},
+    listeners: {},
+    addEventListener(name, handler) { this.listeners[name] = handler; },
     removeEventListener() {},
     setAttribute() {},
     removeAttribute() {},
@@ -149,3 +150,33 @@ if (!appElement.innerHTML.includes("settings-screen") || !appElement.innerHTML.i
 }
 
 console.log("OK - login local e botao Configuracoes abrem a tela correta.");
+
+// Exercise the real browser boot/login handlers, including the regression where
+// a protected provider endpoint caused an unauthenticated local login online.
+(async () => {
+  await Promise.resolve();
+  context.window.location.protocol = "https:";
+  context.navigator.userAgent = "Tortela regression";
+  const requests = [];
+  context.fetch = async (route) => {
+    requests.push(route);
+    if (route === "/api/health") return { ok: true, json: async () => ({ ok: true, product: "Tortela Plus" }) };
+    return { ok: false, status: 403, json: async () => ({ error: "Credenciais invalidas" }) };
+  };
+  context.alert = () => {};
+  await context.boot();
+  for (const id of ["login-user", "login-tenant", "login-pass"]) context.document.getElementById(id);
+  if (!vm.runInContext("apiOnline", context)) throw new Error("Servidor publico saudavel nao habilitou autenticacao.");
+  if (requests.includes("/api/provider")) throw new Error("Boot da unidade exige acesso administrativo antes do login.");
+  elements.get("login-user").value = "Operador";
+  elements.get("login-tenant").value = "tortela-plus";
+  elements.get("login-pass").value = "senha-incorreta";
+  await elements.get("login-form").listeners.submit({ preventDefault() {} });
+  if (!requests.includes("/api/auth/login")) throw new Error("Login publicado nao autenticou no servidor.");
+  if (!appElement.innerHTML.includes("Entrar no sistema")) throw new Error("Credenciais rejeitadas abriram a retaguarda.");
+  context.fetch = async () => { throw new Error("Servidor indisponivel"); };
+  await elements.get("login-form").listeners.submit({ preventDefault() {} });
+  if (!appElement.innerHTML.includes("Entrar no sistema")) throw new Error("Servidor indisponivel permitiu login local publicado.");
+  if (!elements.get("login-feedback").textContent.includes("Nao foi possivel autenticar")) throw new Error("Falha do servidor nao foi informada.");
+  console.log("OK - boot publico, senha invalida e servidor indisponivel sem acesso local indevido.");
+})().catch((error) => { console.error(error.message); process.exitCode = 1; });

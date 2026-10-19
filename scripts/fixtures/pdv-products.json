@@ -1,0 +1,71 @@
+[
+  {
+    "id": 5014,
+    "description": "Pao frances",
+    "barcode": "7890000000011",
+    "type": "Produto fabricado",
+    "unit": "UN",
+    "cost": 0.38,
+    "price": 0.85,
+    "stock": 18,
+    "minStock": 40,
+    "ncm": "19059090",
+    "cfop": "5102",
+    "cst": "102",
+    "cbsClass": "000001",
+    "ibsClass": "000001",
+    "photo": "",
+    "isBundle": true,
+    "composition": [
+      {
+        "productId": 9001,
+        "qty": 0.06
+      },
+      {
+        "productId": 9002,
+        "qty": 0.01
+      }
+    ],
+    "active": true
+  },
+  {
+    "id": 9001,
+    "description": "Farinha de trigo 1kg",
+    "barcode": "7890000000097",
+    "type": "Materia-prima",
+    "unit": "KG",
+    "cost": 4.6,
+    "price": 0,
+    "stock": 8,
+    "minStock": 25,
+    "ncm": "11010010",
+    "cfop": "1102",
+    "cst": "102",
+    "cbsClass": "000001",
+    "ibsClass": "000001",
+    "photo": "",
+    "isBundle": false,
+    "composition": [],
+    "active": true
+  },
+  {
+    "id": 9002,
+    "description": "Oleo vegetal 900ml",
+    "barcode": "7890000000098",
+    "type": "Materia-prima",
+    "unit": "UN",
+    "cost": 7.9,
+    "price": 0,
+    "stock": 5,
+    "minStock": 12,
+    "ncm": "15121911",
+    "cfop": "1102",
+    "cst": "102",
+    "cbsClass": "000001",
+    "ibsClass": "000001",
+    "photo": "",
+    "isBundle": false,
+    "composition": [],
+    "active": true
+  }
+]

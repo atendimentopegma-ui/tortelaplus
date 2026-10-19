@@ -128,6 +128,7 @@ async function verifyLocalPdvFinance() {
 
   vm.createContext(context);
   vm.runInContext(`${source}
+state.products = ${JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, "scripts/fixtures/pdv-products.json"), "utf8")))};
 globalThis.__financeTest = {
   state,
   setField: (id, value) => { document.getElementById(id).value = String(value); },
