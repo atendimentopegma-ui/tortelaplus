@@ -1,6 +1,6 @@
 # Suporte a múltiplas empresas e regimes
 
-Versão RTC-2026-10-19-MULTI. Cada empresa possui configuração independente; não existe regime global definido pelo cliente importado.
+Versão RTC-2026-10-19-MULTI.1. Cada empresa possui configuração independente; não existe regime global definido pelo cliente importado.
 
 | Regime | CRT | ICMS na NF-e/NFC-e | NFS-e nacional |
 | --- | --- | --- | --- |

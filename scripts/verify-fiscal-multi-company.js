@@ -68,5 +68,7 @@ save('mei-devolucao',generateNfeXml(mei,returned));scenarios++;
 assert(validateNfeState(mei,{...row('NFC-e'),items:[{...row('NFC-e').items[0],csosn:'900'}]}).some(e=>e.includes('MEI')));
 const optional={id:1,model:'NFS-e',date:'2026-10-19',total:100,service:{description:'Servico ficticio',nationalTaxCode:'010101'}};
 assert(!generateNfseXml(companies[0],optional).includes('<IBSCBS>'));
+const nonRtc=structuredClone(companies[0]);nonRtc.settings.address='';
+assert(!generateNfseXml(nonRtc,{...optional,service:{...optional.service,reform:{cst:'000',classTrib:'000001',operationCode:'030101',cbsDeferral:50}}}).includes('<IBSCBS>'),'Campos de preparacao RTC nao podem bloquear DPS do Simples quando o grupo nao e aplicavel');
 assert.throws(()=>generateNfseXml(regular,optional),/CST\/cClassTrib/);
 console.log(`OK - ${scenarios} XMLs, 6 regimes, CRT 1/2/3/4, 6 UFs, 2026/2027, dois ambientes; isolamento e rejeicoes; nenhum dado real alterado.`);

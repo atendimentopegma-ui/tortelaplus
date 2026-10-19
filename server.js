@@ -2337,6 +2337,7 @@ async function handleApi(req, res, urlPath) {
       product: "Tortela Plus",
       mode: "rede-franquias",
       fiscalRelease: require("./src/server/rtc-policy").RTC_RELEASE.version,
+      buildRevision: process.env.RAILWAY_GIT_COMMIT_SHA || process.env.RENDER_GIT_COMMIT || "local",
       databaseMode,
       dataDir,
       isolation: postgresStore ? "postgresql-schema-per-tenant" : "tenant-files",
