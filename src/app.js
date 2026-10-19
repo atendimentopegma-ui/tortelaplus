@@ -471,7 +471,13 @@ function save() {
         state._meta = { ...(state._meta || {}), revision: result.revision, updatedAt: new Date().toISOString() };
         localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
         localStorage.removeItem("tortelaplus-pending-sync");
+        return true;
       } catch (error) {
+        if (error.payload?.code === "DATA_RESET") {
+          state=withDefaults({...error.payload.state,provider:state.provider});saleItems=[];lastPdvSaleId=0;
+          localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.removeItem("tortelaplus-pending-sync");
+          alert("Dados de teste foram limpos pela administracao. A tela foi atualizada.");renderShell();return false;
+        }
         if (error.status === 409 && error.payload?.state) {
           const remote = error.payload.state;
           state = withDefaults({ ...mergeConcurrentState(remote, localPending), provider: state.provider });
@@ -482,10 +488,14 @@ function save() {
           setTimeout(save, 0);
           return;
         }
-        apiOnline = false;
+        if(error.status){await loadTenantState(tenantCode).catch(()=>{});alert(`Operacao nao gravada. ${error.message}`);renderShell();}
+        else apiOnline=false;
+        return false;
       }
     });
+    return syncChain;
   }
+  return Promise.resolve(true);
 }
 
 function mergeConcurrentState(remote, local) {
@@ -521,6 +531,7 @@ async function api(path, options = {}) {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   const headers = {
     "Content-Type": "application/json",
+    ...(state._meta?.dataEpoch ? {"X-Tortela-Data-Epoch":state._meta.dataEpoch} : {}),
     ...(options.headers || {})
   };
   if (sessionId && !headers.Authorization) headers.Authorization = `Bearer ${sessionId}`;
@@ -3483,6 +3494,7 @@ function renderPdv() {
   const terminal = currentPdvTerminal();
   const balance = currentCashBalance();
   const staleRegister = isCashRegisterStale();
+  if(staleRegister)return `<div class="pdv closed"><aside class="pdv-side"><div class="pdv-title">CAIXA BLOQUEADO</div><p>${escapeHtml(terminal.name)}</p></aside><section class="pdv-main"><div class="form-card cash-open-card"><h2>Caixa anterior pendente de fechamento</h2><p>Aberto em ${new Date(register.openedAt).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})} por ${escapeHtml(register.openedBy||"")}.</p><p>Confira e feche este caixa. Depois abra o caixa de hoje para iniciar as vendas.</p><button class="btn danger" id="close-cash-register">Conferir e fechar caixa anterior</button><button class="btn" id="print-cash-summary">Resumo do caixa anterior</button><button class="btn" id="leave-pdv">Retaguarda</button></div></section></div>`;
   if (!register.open) {
     return `
       <div class="pdv closed">
@@ -3500,7 +3512,7 @@ function renderPdv() {
               <div class="field"><label>Operador</label><input readonly value="${state.settings.user}" /></div>
               <div class="field"><label>Senha do operador</label><input id="cash-open-password" type="password" autocomplete="current-password" /></div>
             </div>
-            <button class="btn primary" id="open-cash-register">Abrir caixa</button>
+            <button class="btn primary" id="open-cash-register">Abrir caixa do dia</button><button class="btn" id="leave-pdv">Retaguarda</button>
           </div>
         </section>
       </div>
@@ -3528,7 +3540,7 @@ function renderPdv() {
           <button class="btn" id="toggle-pdv-options">F1 Opcoes</button>
           <button class="btn" id="print-last-sale">Imprimir</button>
           <button class="btn danger" id="cancel-sale">Cancelar</button>
-          <button class="btn primary" id="finish-sale">Finalizar</button>
+          <button class="btn primary" id="finish-sale">Finalizar</button><button class="btn danger" id="close-cash-register-main">Fechar caixa do dia</button>
         </div>
       </aside>
       <section class="pdv-main">
@@ -3599,7 +3611,7 @@ function renderPdv() {
 function currentCashBalance() {
   const openedAt = state.cashRegister?.openedAt;
   if (!openedAt) return 0;
-  const movements = (state.cash || []).filter((row) => row.cashRegisterOpenedAt === openedAt);
+  const movements = (state.cash || []).filter((row) => row.cashRegisterOpenedAt === openedAt && (!row.paymentMethod || row.paymentMethod === "Dinheiro"));
   if (!movements.length) return Number(state.cashRegister?.initialAmount || 0);
   return movements.reduce((sum, row) => sum + Number(row.in || 0) - Number(row.out || 0), 0);
 }
@@ -4137,6 +4149,7 @@ function bindCurrentModule() {
   const openCash = byId("open-cash-register");
   if (openCash) openCash.addEventListener("click", openCashRegister);
 
+  byId("close-cash-register-main")?.addEventListener("click",closeCashRegister);
   const closeCash = byId("close-cash-register");
   if (closeCash) closeCash.addEventListener("click", closeCashRegister);
 
@@ -4202,9 +4215,17 @@ function bindCurrentModule() {
   });
 }
 
+function cashBusinessDay(value = new Date()) {
+  const date=new Date(value);if(!Number.isFinite(date.getTime()))return "";
+  const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(date);
+  const get=type=>parts.find(part=>part.type===type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
 function isCashRegisterStale() {
-  const openedAt = state.cashRegister?.openedAt;
-  return Boolean(state.cashRegister?.open && openedAt && new Date(openedAt).toLocaleDateString("en-CA") !== today());
+  return Boolean(state.cashRegister?.open && (!cashBusinessDay(state.cashRegister.openedAt) || cashBusinessDay(state.cashRegister.openedAt)!==cashBusinessDay()));
+}
+async function refreshCashRegister() {
+  if(apiOnline && sessionId && navigator.onLine){const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register`);state.cashRegister=result.register;}
 }
 
 async function authorizePdvOperation(action, title) {
@@ -4229,35 +4250,14 @@ async function authorizePdvOperation(action, title) {
 }
 
 async function openCashRegister() {
-  const password = byId("cash-open-password")?.value || "";
-  if (!password) {
-    alert("Informe a senha do operador para abrir o caixa.");
-    return;
-  }
-  const authorization = await authorizePdvOperationWithPassword("cash_open", state.settings.user, password);
-  if (!authorization) return;
-  state.cashRegister = {
-    open: true,
-    openedAt: new Date().toISOString(),
-    openedBy: state.settings.user,
-    openedAuthorizedBy: authorization.authorizedBy,
-    initialAmount: num("cash-open-amount"),
-    terminal: byId("cash-open-terminal").value || "SERIE 1"
-  };
-  if (state.cashRegister.initialAmount > 0) {
-    state.cash.push({
-      id: nextId(state.cash),
-      date: today(),
-      account: "CAIXA",
-      history: `Abertura de caixa ${state.cashRegister.terminal}`,
-      in: state.cashRegister.initialAmount,
-      out: 0,
-      cashRegisterOpenedAt: state.cashRegister.openedAt
-    });
-  }
-  audit("Caixa aberto", `${state.cashRegister.terminal} ${money(state.cashRegister.initialAmount)}`);
-  save();
-  renderShell();
+  if(!apiOnline||!sessionId)return alert("Conecte-se ao sistema para abrir o caixa.");
+  const password=byId("cash-open-password")?.value||"";
+  if(!password)return alert("Informe a senha do operador para abrir o caixa.");
+  try{
+    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/open`,{method:"POST",body:JSON.stringify({password,initialAmount:num("cash-open-amount"),terminal:byId("cash-open-terminal").value||currentPdvTerminal().name})});
+    state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});
+    saleItems=[];localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));renderShell();
+  }catch(error){alert(error.message);await refreshCashRegister().catch(()=>{});renderShell();}
 }
 
 async function authorizePdvOperationWithPassword(action, user, password) {
@@ -4277,60 +4277,18 @@ async function authorizePdvOperationWithPassword(action, user, password) {
 }
 
 async function closeCashRegister() {
-  if (saleItems.length && !confirm("Existe venda em andamento. Fechar o caixa mesmo assim?")) return;
-  const authorization = await authorizePdvOperation("cash_close", "Autorizar fechamento do caixa");
-  if (!authorization) return;
-  const total = currentCashBalance();
-  const countedText = prompt(`Informe o valor contado no caixa. Valor esperado: ${money(total)}`, total.toFixed(2).replace(".", ","));
-  if (countedText === null) return;
-  const countedAmount = Number(String(countedText).replace(",", "."));
-  if (!Number.isFinite(countedAmount) || countedAmount < 0) {
-    alert("Informe um valor contado valido.");
-    return;
-  }
-  const register = state.cashRegister || {};
-  const responsible = prompt("Nome do encarregado responsavel pela conferencia:", authorization.authorizedBy) || authorization.authorizedBy;
-  const closingNote = prompt("Observacao da conferencia ou justificativa de diferenca:", "") || "";
-  const sales = state.sales.filter((sale) => sale.type === "PDV" && sale.status === "Fechado" && sale.cashRegisterOpenedAt === register.openedAt);
-  const paymentTotals = {};
-  sales.forEach((sale) => (sale.payments || []).forEach((payment) => {
-    paymentTotals[payment.method] = Number(paymentTotals[payment.method] || 0) + Number(payment.value || 0);
-  }));
-  const cashMovements = (state.cash || []).filter((row) => row.cashRegisterOpenedAt === register.openedAt);
-  const closure = {
-    id: nextId(state.cashClosures || []),
-    terminal: register.terminal || "SERIE 1",
-    openedAt: register.openedAt,
-    closedAt: new Date().toISOString(),
-    openedBy: register.openedBy,
-    closedBy: state.settings.user,
-    authorizedBy: authorization.authorizedBy,
-    responsible,
-    closingNote,
-    initialAmount: Number(register.initialAmount || 0),
-    salesCount: sales.length,
-    salesTotal: sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0),
-    paymentTotals,
-    supplies: cashMovements.filter((row) => String(row.history || "").toLowerCase().includes("suprimento")).reduce((sum, row) => sum + Number(row.in || 0), 0),
-    withdrawals: cashMovements.filter((row) => String(row.history || "").toLowerCase().includes("sangria")).reduce((sum, row) => sum + Number(row.out || 0), 0),
-    expectedAmount: total,
-    closedAmount: countedAmount,
-    difference: countedAmount - total
-  };
-  state.cashClosures = state.cashClosures || [];
-  state.cashClosures.push(closure);
-  state.cashRegister = {
-    ...register,
-    open: false,
-    closedAt: closure.closedAt,
-    closedBy: state.settings.user,
-    closedAmount: countedAmount,
-    difference: closure.difference
-  };
-  audit("Caixa fechado", `${state.cashRegister.terminal || "SERIE 1"} contado ${money(countedAmount)} diferenca ${money(closure.difference)}`);
-  save();
-  printCashClosure(closure);
-  renderShell();
+  if(!apiOnline||!sessionId)return alert("Conecte-se ao sistema para conferir e fechar o caixa.");
+  if(saleItems.length && !confirm("Existe venda em andamento. Fechar o caixa mesmo assim?"))return;
+  const user=prompt("Usuario gerente ou administrador responsavel pelo fechamento:",state.settings.user);if(!user)return;
+  const password=prompt("Senha do responsavel pelo fechamento:","");if(!password)return;
+  const countedText=prompt(`Valor em dinheiro contado no caixa. Esperado: ${money(currentCashBalance())}`,currentCashBalance().toFixed(2).replace(".",","));if(countedText===null)return;
+  const countedAmount=Number(String(countedText).replace(",","."));if(!Number.isFinite(countedAmount)||countedAmount<0)return alert("Informe um valor contado valido.");
+  const responsible=prompt("Responsavel pela conferencia:",user)||user,closingNote=prompt("Observacao da conferencia ou diferenca:","")||"";
+  try{
+    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/close`,{method:"POST",body:JSON.stringify({user,password,countedAmount,responsible,closingNote})});
+    state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});saleItems=[];
+    localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));printCashClosure(result.closure);renderShell();
+  }catch(error){alert(error.message);await refreshCashRegister().catch(()=>{});renderShell();}
 }
 
 async function cashMovement(type) {
@@ -7314,12 +7272,13 @@ async function finishSaleRecord() {
 
 async function finalizePdvSaleRecord() {
   let terminal;
-  try { terminal = await refreshPdvEmission(); }
+  try { await refreshCashRegister(); terminal = await refreshPdvEmission(); }
   catch (error) { alert(`Venda nao finalizada. ${error.message}`); return; }
   if (!state.cashRegister?.open) {
     alert("Abra o caixa antes de vender.");
     return;
   }
+  if (isCashRegisterStale()) { renderShell(); alert("Feche o caixa do dia anterior antes de registrar novas vendas."); return; }
   if (!saleItems.length) {
     alert("Inclua ao menos um item.");
     return;
@@ -7357,7 +7316,7 @@ async function finalizePdvSaleRecord() {
   }
   const sale = {
     id: nextId(state.sales),
-    date: today(),
+    date: cashBusinessDay(),
     customer: byId("sale-customer")?.value || "Consumidor Final",
     customerDocument: saleClubCpf,
     clubCpf: saleClubCpf,
@@ -7405,6 +7364,7 @@ async function finalizePdvSaleRecord() {
       date: today(),
       account: "CAIXA",
       history: `Venda PDV ${sale.id} - ${entry.method}`,
+      paymentMethod: entry.method,
       in: entry.in,
       out: entry.out,
       cashRegisterOpenedAt: state.cashRegister.openedAt
@@ -7442,7 +7402,8 @@ async function finalizePdvSaleRecord() {
   saleItems = [];
   saleClubCpf = "";
   authorizedDiscountValue = 0;
-  save();
+  const persisted=await save();
+  if(persisted===false)return;
   await createConfiguredSaleCharges(sale);
   renderShell();
   if (fiscalRow && navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);
@@ -7657,7 +7618,7 @@ function pdvPaymentBreakdown(total) {
   Object.entries(raw).forEach(([method, value]) => {
     if (value <= 0 || method === "Crediario") return;
     const out = method === "Dinheiro" ? change : 0;
-    cashEntries.push({ method, in: Math.max(0, value - out), out });
+    cashEntries.push({ method, in: value, out });
   });
   const payments = Object.entries({ ...raw, Crediario: storeCredit })
     .filter(([, value]) => value > 0)
@@ -7806,10 +7767,10 @@ function cancelClosedSale(id) {
       row.balance = 0;
     }
   });
-  const cashRefund = sale.type === "PDV"
-    ? Math.max(0, (sale.payments || []).filter((row) => row.method !== "Crediario").reduce((sum, row) => sum + Number(row.value || 0), 0) - Number(sale.change || 0))
-    : 0;
-  if (cashRefund > 0) {
+  const refundPayments = sale.type === "PDV" ? (sale.payments || []).filter(row=>row.method!=="Crediario") : [];
+  for (const payment of refundPayments) {
+    const cashRefund = Math.max(0, Number(payment.value||0) - (payment.method==="Dinheiro" ? Number(sale.change||0) : 0));
+    if (!cashRefund) continue;
     state.cash.push({
       id: nextId(state.cash),
       date: today(),
@@ -7817,6 +7778,7 @@ function cancelClosedSale(id) {
       history: `Estorno venda ${sale.id}`,
       in: 0,
       out: cashRefund,
+      paymentMethod: payment.method,
       cashRegisterOpenedAt: state.cashRegister?.open ? state.cashRegister.openedAt : ""
     });
   }

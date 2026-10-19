@@ -4,6 +4,8 @@ const root = path.resolve(__dirname, "..");
 async function main() {
   const port = await new Promise(resolve => { const s=net.createServer(); s.listen(0,()=>{const p=s.address().port;s.close(()=>resolve(p));}); });
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-terminal-test-"));
+require("./fixtures/seed-operational-state")(dataDir);
+
   const env = {...process.env};
   for (const key of Object.keys(env)) if (key === "DATABASE_URL" || key.startsWith("TORTELAPLUS_") || key.startsWith("PEGMA_")) delete env[key];
   Object.assign(env, {PORT:String(port), DATABASE_URL:"", TORTELAPLUS_DB_DIR:dataDir, TORTELAPLUS_PROVIDER_TOKEN:"terminal-provider-test-token"});
@@ -39,7 +41,7 @@ async function main() {
     await call("/api/tenant/outra-unidade/pdv-terminals",{session:a.sessionId,expected:404});
     let state=(await call("/api/tenant/cliente-exemplo/state",{session:a.sessionId})).state;
     state.settings.pdvTerminals=[];
-    state.sales.push({id:9999,type:"PDV",emissionMode:"receipt",date:new Date().toISOString().slice(0,10),items:[],total:0});
+    state.sales.push({id:9999,type:"PDV",emissionMode:"receipt",cashRegisterOpenedAt:state.cashRegister.openedAt,date:new Date().toISOString().slice(0,10),items:[],total:0});
     await call("/api/tenant/cliente-exemplo/state",{session:a.sessionId,method:"POST",permission:"settings",body:{state,baseRevision:state._meta.revision}});
     assert((await call(route,{provider:true})).terminals.length===2,"Salvamento geral apagou configuracao de terminais.");
     const blocked=await call("/api/tenant/cliente-exemplo/fiscal/transmit",{session:a.sessionId,method:"POST",body:{document:{model:"NFC-e",saleId:9999}},expected:503});

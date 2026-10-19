@@ -5,6 +5,8 @@ const crypto = require("crypto");
 const net = require("net");
 const { spawn } = require("child_process");
 const { PostgresStore, tenantSchema } = require("./src/server/postgres-store");
+const { businessDay, cashRegisterStale, openRegister, closeRegister, assertPdvCashWrite } = require("./src/server/cash-register");
+const { resetTestData } = require("./src/server/reset-test-data");
 const { tenantModuleAllowed } = require("./src/server/tenant-modules");
 const { assertTenantWriteScope } = require("./src/server/tenant-write-scope");
 const { centralPermissions, permissionsFor, fullAccess, centralRouteAllowed, scopedSummary } = require("./src/server/central-permissions");
@@ -153,71 +155,7 @@ const initialTenantState = {
     { id: 1, type: "Cliente", name: "Consumidor Final", document: "", city: "Padrao", uf: "SP", cep: "", address: "", active: true },
     { id: 2, type: "Fornecedor", name: "Fornecedor nao identificado", document: "", city: "Sao Paulo", uf: "SP", cep: "01001000", address: "Praca da Se", active: true }
   ],
-  products: [
-    {
-      id: 5014,
-      description: "Pao frances",
-      barcode: "7890000000011",
-      type: "Produto fabricado",
-      unit: "UN",
-      cost: 0.38,
-      price: 0.85,
-      stock: 18,
-      minStock: 40,
-      ncm: "19059090",
-      cfop: "5102",
-      cst: "102",
-      cbsClass: "000001",
-      ibsClass: "000001",
-      photo: "",
-      isBundle: true,
-      composition: [
-        { productId: 9001, qty: 0.06 },
-        { productId: 9002, qty: 0.01 }
-      ],
-      active: true
-    },
-    {
-      id: 9001,
-      description: "Farinha de trigo 1kg",
-      barcode: "7890000000097",
-      type: "Materia-prima",
-      unit: "KG",
-      cost: 4.6,
-      price: 0,
-      stock: 8,
-      minStock: 25,
-      ncm: "11010010",
-      cfop: "1102",
-      cst: "102",
-      cbsClass: "000001",
-      ibsClass: "000001",
-      photo: "",
-      isBundle: false,
-      composition: [],
-      active: true
-    },
-    {
-      id: 9002,
-      description: "Oleo vegetal 900ml",
-      barcode: "7890000000098",
-      type: "Materia-prima",
-      unit: "UN",
-      cost: 7.9,
-      price: 0,
-      stock: 5,
-      minStock: 12,
-      ncm: "15121911",
-      cfop: "1102",
-      cst: "102",
-      cbsClass: "000001",
-      ibsClass: "000001",
-      photo: "",
-      isBundle: false,
-      composition: [],
-      active: true
-    }
-  ],
+  products: [],
   receivables: [],
   chartOfAccounts: [
     { id: 1, code: "1.1.01", name: "Caixa", type: "Ativo", active: true },
@@ -225,16 +163,16 @@ const initialTenantState = {
     { id: 3, code: "3.1.01", name: "Receita de vendas", type: "Receita", active: true },
     { id: 4, code: "4.1.01", name: "Compras e fornecedores", type: "Despesa", active: true }
   ],
-  payables: [{ id: 1, supplier: "Fornecedor nao identificado", due: "2026-06-10", value: 640, paid: false, history: "Compra inicial" }],
-  cash: [{ id: 1, date: "2026-06-05", account: "CAIXA", history: "Saldo inicial", in: 45296, out: 0 }],
-  cashRegister: { open: true, openedAt: "2026-06-05T10:49:00.000Z", openedBy: "Operador", initialAmount: 45296, terminal: "SERIE 1" },
+  payables: [],
+  cash: [],
+  cashRegister: { open: false, openedAt: "", openedBy: "", initialAmount: 0, terminal: "" },
   heldSales: [],
   pdvTables: [],
   automaticOrders: [],
   approvalRequests: [],
   networkPromotions: [],
   franchisePayments: [],
-  fiscalQueue: [{ id: 1, model: "NFC-e", status: "Pendente", customer: "Consumidor Final", total: 0, key: "", protocol: "" }],
+  fiscalQueue: [],
   sales: [],
   purchases: [],
   stockMovements: [],
@@ -261,7 +199,7 @@ const initialTenantState = {
     ]
   },
   settings: {
-    company: "Tortela",
+    company: "Tortela Plus",
     document: "",
     stateRegistration: "",
     municipalRegistration: "",
@@ -307,106 +245,6 @@ const initialTenantState = {
     publicTerminalToken: ""
   }
 };
-
-const tortelaOnlineStarterProducts = [
-  {
-    id: 7001,
-    description: "Torta no palito chocolate",
-    barcode: "7890000007001",
-    type: "Produto fabricado",
-    unit: "UN",
-    cost: 4.2,
-    price: 12.9,
-    stock: 80,
-    minStock: 20,
-    ncm: "19059090",
-    cfop: "5102",
-    cst: "102",
-    cbsClass: "000001",
-    ibsClass: "000001",
-    photo: "",
-    hasCoverage: true,
-    coverageOptions: ["Sem cobertura", "Chocolate ao leite", "Chocolate branco", "Morango"],
-    toppingOptions: ["Granulado", "Chocoball", "Cookies baunilha", "Farofa de pacoca", "Amendoim granulado", "Ovomaltine"],
-    composition: [
-      { productId: 9001, qty: 0.12, useUnit: "KG" },
-      { productId: 9002, qty: 0.02, useUnit: "UN" }
-    ],
-    active: true
-  },
-  {
-    id: 7002,
-    description: "Torta no palito morango",
-    barcode: "7890000007002",
-    type: "Produto fabricado",
-    unit: "UN",
-    cost: 4.4,
-    price: 13.9,
-    stock: 70,
-    minStock: 20,
-    ncm: "19059090",
-    cfop: "5102",
-    cst: "102",
-    cbsClass: "000001",
-    ibsClass: "000001",
-    photo: "",
-    hasCoverage: true,
-    coverageOptions: ["Sem cobertura", "Morango", "Chocolate branco", "Leite ninho"],
-    toppingOptions: ["Granulado", "Chocoball", "Cookies baunilha", "Farofa de pacoca", "Amendoim granulado", "Ovomaltine"],
-    composition: [
-      { productId: 9001, qty: 0.12, useUnit: "KG" },
-      { productId: 9002, qty: 0.02, useUnit: "UN" }
-    ],
-    active: true
-  },
-  {
-    id: 7003,
-    description: "Combo 4 Tortelas no palito",
-    barcode: "7890000007003",
-    type: "Produto composto",
-    unit: "UN",
-    cost: 16.4,
-    price: 47.9,
-    stock: 35,
-    minStock: 10,
-    ncm: "19059090",
-    cfop: "5102",
-    cst: "102",
-    cbsClass: "000001",
-    ibsClass: "000001",
-    photo: "",
-    hasCoverage: true,
-    coverageOptions: ["Sortidas", "Chocolate", "Morango", "Leite ninho"],
-    toppingOptions: ["Sortidos", "Granulado", "Chocoball", "Cookies baunilha", "Ovomaltine"],
-    composition: [
-      { productId: 7001, qty: 2, useUnit: "UN" },
-      { productId: 7002, qty: 2, useUnit: "UN" }
-    ],
-    active: true
-  },
-  {
-    id: 7004,
-    description: "Milk shake Tortela",
-    barcode: "7890000007004",
-    type: "Produto fabricado",
-    unit: "UN",
-    cost: 5.8,
-    price: 17.9,
-    stock: 45,
-    minStock: 12,
-    ncm: "22029900",
-    cfop: "5102",
-    cst: "102",
-    cbsClass: "000001",
-    ibsClass: "000001",
-    photo: "",
-    hasCoverage: true,
-    coverageOptions: ["Chocolate", "Morango", "Doce de leite", "Leite ninho"],
-    toppingOptions: ["Chantilly", "Granulado", "Chocoball", "Cookies baunilha", "Ovomaltine"],
-    composition: [],
-    active: true
-  }
-];
 
 const rolePermissions = {
   Administrador: ["dashboard", "people", "products", "stock", "purchases", "sales", "finance", "fiscal", "reports", "settings", "pdv", "stock_adjust", "purchase_cancel", "sales_cancel", "finance_settle", "fiscal_transmit", "fiscal_cancel", "restore_backup", "manage_users"],
@@ -549,7 +387,7 @@ function readTenantState(tenantCode) {
   return withTenantStateDefaults(state, code);
 }
 
-function writeTenantState(tenantCode, state, allowTerminalSettings = false) {
+function writeTenantState(tenantCode, state, allowTerminalSettings = false, allowDataReset = false) {
   const code = normalizeTenantCode(tenantCode);
   const current = readTenantState(code);
   const stripped = stripProvider(state);
@@ -562,6 +400,7 @@ function writeTenantState(tenantCode, state, allowTerminalSettings = false) {
   normalized._meta = {
     ...(current._meta || {}),
     ...(normalized._meta || {}),
+    dataEpoch: allowDataReset ? normalized._meta?.dataEpoch : (current._meta?.dataEpoch || ""),
     revision: Number(current._meta?.revision || 0) + 1,
     updatedAt: new Date().toISOString()
   };
@@ -656,23 +495,6 @@ function writeCombinedState(state) {
   writeTenantState(tenantCode, state);
 }
 
-function ensureTortelaOnlineStarterProducts(products, tenantCode) {
-  const current = Array.isArray(products) ? products : [];
-  const isPublicStarterTenant = normalizeTenantCode(tenantCode) === "cliente-exemplo";
-  if (!isPublicStarterTenant) return current;
-  const hasTortelaItem = current.some((product) =>
-    product?.active !== false
-    && Number(product?.price || 0) > 0
-    && /tortela|torta|palito|milk shake|combo/i.test(product?.description || "")
-  );
-  if (hasTortelaItem) return current;
-  const existingIds = new Set(current.map((product) => Number(product.id)));
-  const starterProducts = tortelaOnlineStarterProducts
-    .filter((product) => !existingIds.has(Number(product.id)))
-    .map((product) => structuredClone(product));
-  return [...starterProducts, ...current];
-}
-
 function withTenantStateDefaults(state, tenantCode) {
   const code = normalizeTenantCode(tenantCode || state?.settings?.tenantCode || initialTenantState.settings.tenantCode);
   const publicTerminalToken = state?.settings?.publicTerminalToken || "";
@@ -680,7 +502,7 @@ function withTenantStateDefaults(state, tenantCode) {
     ...structuredClone(initialTenantState),
     ...(state || {}),
     users: normalizeUsers(state?.users || initialTenantState.users),
-    products: ensureTortelaOnlineStarterProducts(state?.products || initialTenantState.products, code),
+    products: state?.products || [],
     settings: {
       ...initialTenantState.settings,
       ...(state?.settings || {}),
@@ -3760,6 +3582,45 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const resetTestMatch=urlPath.match(/^\/api\/provider\/tenant\/([^/]+)\/reset-test-data$/);
+  if(resetTestMatch && req.method==="POST"){
+    const access=providerAccess(req);
+    if(!access)return sendJson(res,401,{ok:false,error:"Sessao administrativa obrigatoria"});
+    if(!fullAccess(access))return sendJson(res,403,{ok:false,error:"A limpeza exige administrador com acesso total"});
+    const code=normalizeTenantCode(resetTestMatch[1]),provider=readProvider(),body=await readBody(req);
+    if(!findTenant(provider,code))return sendJson(res,404,{ok:false,error:"Unidade nao encontrada"});
+    if(body.confirmation!==code)return sendJson(res,400,{ok:false,error:"Confirme a unidade para limpar os dados de teste"});
+    const backup=await completeTenantBackup(code,"antes-limpeza-testes");
+    if(postgresStore)await postgresStore.writeProviderBackup("antes-limpeza-testes",{product:"Tortela Plus",type:"backup-geral-central-saas",clients:[backup]});
+    const directory=path.join(backupsDir,code);fs.mkdirSync(directory,{recursive:true});writeJson(path.join(directory,`${Date.now()}-antes-limpeza-testes.json`),backup);
+    const state=readTenantState(code),epoch=crypto.randomUUID(),removed=resetTestData(state,epoch);
+    writeTenantState(code,state,false,true);
+    provider.whatsappGroupQueue=(provider.whatsappGroupQueue||[]).filter(row=>row.tenantCode!==code);writeProvider(provider);
+    appendTenantAudit(code,"Dados de teste removidos","Vendas, produtos e movimentos associados zerados apos backup completo",access.username);
+    appendProviderAudit("Dados de teste removidos",code,access.username,requestIp(req));
+    return sendJson(res,200,{ok:true,tenantCode:code,dataEpoch:epoch,removed,backupCreated:true});
+  }
+
+  const cashRegisterMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/cash-register(?:\/(open|close))?$/);
+  if(cashRegisterMatch && ["GET","POST"].includes(req.method)){
+    const code=normalizeTenantCode(cashRegisterMatch[1]),provider=readProvider(),access=sessionAccess(req,provider,code,"pdv");
+    if(access.error)return deny(res,access);
+    const state=readTenantState(code);
+    if(req.method==="GET"){writeProvider(provider);return sendJson(res,200,{ok:true,register:state.cashRegister,businessDate:businessDay(),stale:cashRegisterStale(state.cashRegister)});}
+    const body=await readBody(req),action=cashRegisterMatch[2];
+    const user=findUser(state,action==="open"?access.session.user:body.user);
+    if(!user || user.active===false || !verifyPassword(body.password,user.passwordHash) || (action==="close" && !["Administrador","Gerente"].includes(user.role)))return sendJson(res,403,{ok:false,error:"Senha do responsavel invalida para esta operacao"});
+    let closure;
+    try{
+      if(action==="open")openRegister(state,{user:access.session.user,terminal:body.terminal,terminalId:access.session.terminalId||"",initialAmount:body.initialAmount});
+      else if(action==="close")closure=closeRegister(state,{user:access.session.user,authorizedBy:user.username,countedAmount:body.countedAmount,responsible:body.responsible,closingNote:body.closingNote});
+      else return sendJson(res,400,{ok:false,error:"Operacao de caixa invalida"});
+    }catch(error){return sendJson(res,409,{ok:false,error:error.message});}
+    writeTenantState(code,state);writeProvider(provider);
+    appendTenantAudit(code,action==="open"?"Caixa aberto":"Caixa fechado",`${state.cashRegister.terminal}: ${businessDay()}`,access.session.user);
+    return sendJson(res,200,{ok:true,register:state.cashRegister,closure,state:publicTenantState(readTenantState(code))});
+  }
+
   const registerPdvTerminalMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/pdv-terminals\/register$/);
   if (registerPdvTerminalMatch && req.method === "POST") {
     const tenantCode = normalizeTenantCode(registerPdvTerminalMatch[1]);
@@ -3826,6 +3687,7 @@ async function handleApi(req, res, urlPath) {
     }
     const body = await readBody(req);
     const currentState = readTenantState(tenantCode);
+    if (currentState._meta?.dataEpoch && req.headers["x-tortela-data-epoch"] !== currentState._meta.dataEpoch) return sendJson(res,409,{ok:false,code:"DATA_RESET",error:"Dados de teste foram limpos. Recarregue a tela antes de continuar.",state:publicTenantState(currentState)});
     const baseRevision = Number(body.baseRevision ?? body.state?._meta?.revision ?? 0);
     const currentRevision = Number(currentState._meta?.revision || 0);
     if (baseRevision && baseRevision !== currentRevision) {
@@ -3844,9 +3706,11 @@ async function handleApi(req, res, urlPath) {
     }
     const incoming = body.state || body;
     const currentUsers = readTenantState(tenantCode).users.map(publicUser);
-    if (JSON.stringify((incoming.users || []).map(publicUser)) !== JSON.stringify(currentUsers)) return sendJson(res,403,{ok:false,error:"Sem permissao para alterar usuarios"});
+    if (incoming.users && JSON.stringify(incoming.users.map(publicUser)) !== JSON.stringify(currentUsers)) return sendJson(res,403,{ok:false,error:"Sem permissao para alterar usuarios"});
     try { assertTenantWriteScope(currentState, incoming, access.session.permissions, allPermissions); }
     catch(error) { return sendJson(res,403,{ok:false,error:error.message}); }
+    try { assertPdvCashWrite(currentState,incoming); }
+    catch(error){return sendJson(res,423,{ok:false,error:error.message});}
     incoming.users = currentState.users;
     writeTenantState(tenantCode, incoming);
     writeProvider(provider);

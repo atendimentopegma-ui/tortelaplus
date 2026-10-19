@@ -95,6 +95,8 @@ function writeTenant(dataDir, state) {
 
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-security-flow-"));
+require("./fixtures/seed-operational-state")(dataDir);
+
   const baseUrl = `http://localhost:${port}`;
   const child = spawn(process.execPath, ["server.js"], {
     cwd: root,

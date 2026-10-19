@@ -1,0 +1,54 @@
+const fs=require("fs"),os=require("os"),path=require("path"),net=require("net"),{spawn}=require("child_process");
+const {businessDay,cashRegisterStale}=require("../src/server/cash-register");
+const assert=(ok,message)=>{if(!ok)throw Error(message)};
+(async()=>{
+  assert(businessDay("2026-10-20T02:59:59Z")==="2026-10-19","Dia de caixa mudou antes da meia-noite no Brasil");
+  assert(businessDay("2026-10-20T03:00:00Z")==="2026-10-20","Dia de caixa nao mudou a meia-noite no Brasil");
+  assert(cashRegisterStale({open:true,openedAt:"2026-10-20T02:30:00Z"},new Date("2026-10-20T03:00:00Z")),"Virada de dia nao bloqueou caixa anterior");
+  const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,()=>{const p=s.address().port;s.close(()=>resolve(p))})});
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"tortela-cash-reset-test-")),env={...process.env};
+  for(const key of Object.keys(env))if(key==="DATABASE_URL"||key.startsWith("TORTELAPLUS_")||key.startsWith("PEGMA_"))delete env[key];
+  Object.assign(env,{PORT:String(port),DATABASE_URL:"",TORTELAPLUS_DB_DIR:dir,TORTELAPLUS_PROVIDER_TOKEN:"cash-test-provider"});let child;
+  const base=`http://localhost:${port}`;
+  async function start(){child=spawn(process.execPath,["server.js"],{cwd:path.resolve(__dirname,".."),env,stdio:["ignore","pipe","pipe"]});for(let i=0;i<80;i++){try{if((await fetch(base+"/api/health")).ok)return}catch{};await new Promise(r=>setTimeout(r,100))}throw Error("Servidor nao iniciou")}
+  async function stop(){if(child?.exitCode===null){const done=new Promise(resolve=>child.once("exit",resolve));child.kill();await done}}
+  async function call(route,{method="GET",session,provider=false,body,expected=200,epoch}={}){const r=await fetch(base+route,{method,headers:{"Content-Type":"application/json",...(session?{Authorization:`Bearer ${session}`}:{}) ,...(provider?{"X-Provider-Token":env.TORTELAPLUS_PROVIDER_TOKEN}:{}),"X-PEGMA-PERMISSION":"pdv",...(epoch?{"X-Tortela-Data-Epoch":epoch}:{})},body:body?JSON.stringify(body):undefined});const d=await r.json();assert(r.status===expected,`${route}: ${r.status}, esperado ${expected}: ${d.error||""}`);return d}
+  const root="/api/tenant/cliente-exemplo",register=root+"/cash-register";
+  try{
+    await start();let catalog=await call("/api/public/store/catalog?unidade=cliente-exemplo");assert(catalog.products.length===0,"Sistema novo criou produtos de teste");
+    const login=await call("/api/auth/login",{method:"POST",body:{tenantCode:"cliente-exemplo",user:"Operador",password:"123456",terminalId:"pdv-caixa-real-01"}});const session=login.sessionId;
+    const read=async()=> (await call(root+"/state",{session})).state;
+    let state=await read();assert(!state.cashRegister.open && state.sales.length===0 && state.cash.length===0 && state.payables.length===0 && state.fiscalQueue.length===0,"Estado inicial contem movimentos de teste");
+    const payload=state=>{const{users,...rest}=state;return {state:rest,baseRevision:state._meta?.revision||0}};
+    state.sales.push({id:1,type:"PDV",date:businessDay(),cashRegisterOpenedAt:"",status:"Fechado"});
+    await call(root+"/state",{session,method:"POST",body:payload(state),expected:423});
+    await call(register+"/open",{session,method:"POST",body:{password:"123456",initialAmount:100,terminal:"Caixa 01"}});
+    await call(register+"/open",{session,method:"POST",body:{password:"123456",initialAmount:10},expected:409});
+    state=await read();const openedAt=state.cashRegister.openedAt;
+    state.sales.push({id:1,type:"PDV",date:businessDay(),cashRegisterOpenedAt:openedAt,status:"Fechado",total:17,payments:[{method:"Dinheiro",value:20}]});
+    state.cash.push({id:2,cashRegisterOpenedAt:openedAt,paymentMethod:"Dinheiro",in:20,out:3},{id:3,cashRegisterOpenedAt:openedAt,paymentMethod:"PIX",in:50,out:0});
+    await call(root+"/state",{session,method:"POST",body:payload(state)});
+    state=await read();state.cashRegister.openedAt=new Date(Date.now()-86400000).toISOString();state.cashRegister.businessDate=businessDay(state.cashRegister.openedAt);
+    state.cash.forEach(row=>{if(row.cashRegisterOpenedAt===openedAt)row.cashRegisterOpenedAt=state.cashRegister.openedAt});state.sales.forEach(sale=>sale.cashRegisterOpenedAt=state.cashRegister.openedAt);
+    const file=path.join(dir,"tenants","cliente-exemplo.json");fs.writeFileSync(file,JSON.stringify(state));
+    assert((await call(register,{session})).stale,"Servidor nao identificou caixa anterior");
+    const attempted=structuredClone(state);attempted.sales.push({id:2,type:"PDV",date:businessDay(),cashRegisterOpenedAt:state.cashRegister.openedAt,status:"Fechado"});
+    await call(root+"/state",{session,method:"POST",body:payload(attempted),expected:423});
+    attempted.cashRegister.openedAt=new Date().toISOString();await call(root+"/state",{session,method:"POST",body:payload(attempted),expected:423});
+    await call(register+"/open",{session,method:"POST",body:{password:"123456",initialAmount:0},expected:409});
+    const closed=await call(register+"/close",{session,method:"POST",body:{user:"Operador",password:"123456",countedAmount:117,responsible:"Operador"}});
+    assert(closed.closure.expectedAmount===117 && closed.closure.difference===0,"Conferencia descontou troco duas vezes ou contou PIX como dinheiro fisico");
+    await call(register+"/open",{session,method:"POST",body:{password:"123456",initialAmount:10}});
+    state=await read();state.products=[{id:100,description:"Produto teste",price:10,stock:10,active:true}];await call(root+"/state",{session,method:"POST",body:payload(state)});
+    const stale=await read();const reset=await call("/api/provider/tenant/cliente-exemplo/reset-test-data",{provider:true,method:"POST",body:{confirmation:"cliente-exemplo"}});
+    assert(reset.backupCreated,"Reset nao criou backup");
+    state=await read();for(const key of ["products","sales","cash","receivables","payables","fiscalQueue","cashClosures","stockMovements"])assert(state[key].length===0,`Reset deixou dados em ${key}`);
+    assert(!state.cashRegister.open && state.users.length===1 && state.settings.pdvTerminals.length===1,"Reset apagou usuarios/configuracoes ou deixou caixa aberto");
+    stale._meta=state._meta;const conflict=await call(root+"/state",{session,method:"POST",body:payload(stale),expected:409});assert(conflict.code==="DATA_RESET","Cliente antigo pode repor dados de teste");
+    const files=fs.readdirSync(path.join(dir,"backups","cliente-exemplo"));assert(files.some(name=>name.includes("antes-limpeza-testes")),"Backup anterior a limpeza ausente");
+    await stop();await start();catalog=await call("/api/public/store/catalog?unidade=cliente-exemplo");assert(catalog.products.length===0,"Produtos reapareceram depois de reiniciar");
+    state.products=[{id:1,description:"Produto cadastrado depois da limpeza",price:10,stock:1}];
+    await call(root+"/state",{session,method:"POST",body:payload(state),epoch:reset.dataEpoch});
+    console.log("OK - inicio vazio, abertura/fechamento protegido, caixa anterior bloqueado no servidor, virada de dia brasileira, dinheiro/troco/PIX conferidos, reset com backup e bloqueio de dados antigos.");
+  }finally{await stop()}
+})().catch(error=>{console.error(error.message);process.exitCode=1});

@@ -3,7 +3,9 @@ const {centralPermissions}=require("../src/server/central-permissions");
 const assert=(ok,message)=>{if(!ok)throw Error(message)};
 (async()=>{
   const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,()=>{const p=s.address().port;s.close(()=>resolve(p))})});
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"tortela-access-test-"));const env={...process.env};
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"tortela-access-test-"));
+require("./fixtures/seed-operational-state")(dir);
+const env={...process.env};
   for(const key of Object.keys(env))if(key==="DATABASE_URL"||key.startsWith("TORTELAPLUS_")||key.startsWith("PEGMA_"))delete env[key];
   Object.assign(env,{PORT:String(port),DATABASE_URL:"",TORTELAPLUS_DB_DIR:dir,TORTELAPLUS_CENTRAL_USER:"admin",TORTELAPLUS_CENTRAL_PASSWORD:"BootstrapTeste123"});
   const base=`http://localhost:${port}`;let child;

@@ -59,8 +59,8 @@ async function checkPublicApis() {
 
   const catalog = await readJson(`${appUrl}/api/public/store/catalog?unidade=${encodeURIComponent(tenantCode)}`);
   assert(catalog.ok === true, "Catalogo publico nao retornou ok=true.");
-  assert(Array.isArray(catalog.products) && catalog.products.length > 0, "Catalogo publico esta vazio.");
-  assert(catalog.products.some((product) => /tortela|torta|milk shake|combo/i.test(product.description || "")), "Catalogo publico nao contem produtos Tortela.");
+  assert(Array.isArray(catalog.products), "Catalogo publico nao retornou a lista de produtos.");
+  assert(!catalog.products.length || catalog.products.some((product) => /tortela|torta|milk shake|combo/i.test(product.description || "")), "Catalogo publico nao contem produtos Tortela.");
 
   const tokenQuery = terminalToken ? `&terminalToken=${encodeURIComponent(terminalToken)}` : "";
   const boardResult = await readJsonAllowingStatuses(`${appUrl}/api/public/kiosk/orders?unidade=${encodeURIComponent(tenantCode)}${tokenQuery}`, terminalToken ? [200] : [200, 403]);

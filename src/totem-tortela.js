@@ -668,6 +668,7 @@ async function loadCatalog() {
     const query = new URLSearchParams({ unidade: tenantCode });
     if (terminalToken) query.set("terminalToken", terminalToken);
     state.catalog = await api(`/api/public/store/catalog?${query.toString()}`);
+    state.cart = state.cart.filter(item => state.catalog.products.some(product => Number(product.id) === Number(item.productId)));
     render();
   } catch (error) {
     renderError(error.message);

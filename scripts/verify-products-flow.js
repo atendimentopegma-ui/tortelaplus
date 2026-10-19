@@ -72,6 +72,8 @@ assert(serverSource.includes("toppingOptions"), "API do catalogo precisa expor t
 (async () => {
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-products-flow-"));
+require("./fixtures/seed-operational-state")(dataDir);
+
   const baseUrl = `http://localhost:${port}`;
   const child = spawn(process.execPath, ["server.js"], {
     cwd: root,

@@ -85,6 +85,8 @@ assert(!/\?v=/.test(kioskHtml), "Totem: nao use sufixos versionados nos assets; 
 (async () => {
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-kiosk-flow-"));
+require("./fixtures/seed-operational-state")(dataDir);
+
   const baseUrl = `http://localhost:${port}`;
   const providerToken = "verify-provider-token";
   const child = spawn(process.execPath, ["server.js"], {

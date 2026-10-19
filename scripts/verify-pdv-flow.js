@@ -188,7 +188,7 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   assert(Math.abs(sale.change - 0.3) < 0.001, "Troco do PDV incorreto.");
   assert(state.cash.length === before.cash + 1, "Venda PDV nao gerou movimento de caixa.");
   assert(state.cash.at(-1).history === `Venda PDV ${sale.id} - Dinheiro`, "Historico do caixa da venda incorreto.");
-  assert(state.cash.at(-1).in === 1.7 && state.cash.at(-1).out === 0.3, "Entrada/saida de caixa da venda incorreta.");
+  assert(state.cash.at(-1).in === 2 && state.cash.at(-1).out === 0.3, "Entrada/saida de caixa da venda incorreta.");
   assert(Number(flour.stock.toFixed(2)) === Number((before.flour - 0.12).toFixed(2)), "Baixa de farinha da composicao incorreta.");
   assert(Number(oil.stock.toFixed(2)) === Number((before.oil - 0.02).toFixed(2)), "Baixa de oleo da composicao incorreta.");
   assert(state.stockMovements.length >= before.movements + 2, "Venda PDV nao gerou movimentos de estoque da composicao.");

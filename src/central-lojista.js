@@ -132,7 +132,7 @@ function requirePermission(permission) {
 }
 
 async function api(path, options = {}) {
-  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+  const headers = { "Content-Type": "application/json", ...(state?._meta?.dataEpoch?{"X-Tortela-Data-Epoch":state._meta.dataEpoch}:{}), ...(options.headers || {}) };
   if (sessionId) headers.Authorization = `Bearer ${sessionId}`;
   const response = await fetch(path, { ...options, headers });
   const payload = await response.json().catch(() => ({}));

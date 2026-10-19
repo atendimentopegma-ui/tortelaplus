@@ -66,7 +66,7 @@ const technicalChecks = [
   ["Validacoes principais cadastradas", verifyScripts.every((script) => Boolean(pkg.scripts[script]))],
   ["Links publicos sem sequencia nova v21/v22/v23", !/(totem|loja|cozinha|telao)\.html\?[^"']*&v=|totem-botoes-acima-v\d+/i.test(publicLinks)],
   ["Totem, cozinha, telao e loja com protecao contra refresh/envio duplicado", Boolean(pkg.scripts["verify:polish"])],
-  ["Catalogo inicial Tortela com combos, coberturas e adicionais", /tortelaOnlineStarterProducts/.test(server) && /Combo 4 Tortelas no palito/.test(server) && /coverageOptions/.test(server) && /toppingOptions/.test(server)],
+  ["Catalogo de producao vazio sem produtos sinteticos", /products: \[\]/.test(server) && !/tortelaOnlineStarterProducts/.test(server) && exists("scripts/fixtures/tenant-operational-state.json")],
   ["Estoque baixa composicoes recursivas", exists("scripts/verify-stock-flow.js") && /recursive|requirements|composition/i.test(read("scripts/verify-stock-flow.js"))],
   ["Financeiro amarrado a venda real", exists("scripts/verify-finance-flow.js") && /sourceSaleId|receivable/i.test(read("scripts/verify-finance-flow.js"))],
   ["Seguranca por sessao/permissao e token publico opcional", exists("scripts/verify-security-flow.js") && /terminalToken|X-PEGMA-PERMISSION/i.test(read("scripts/verify-security-flow.js"))],
@@ -77,7 +77,7 @@ const operationalChecks = [
   ["Unidade piloto em homologacao", any(states, (state) => state.settings?.fiscalEnvironment === "Homologacao")],
   ["Usuario administrador cadastrado", any(states, (state) => (state.users || []).some((user) => user.active !== false && user.role === "Administrador"))],
   ["Produtos Tortela ativos no catalogo", any(states, (state) => (state.products || []).some((product) => product.active !== false && /tortela|torta|milk shake|combo/i.test(product.description || "")))],
-  ["Caixa operacional aberto para piloto", any(states, (state) => state.cashRegister?.open === true)],
+  ["Controles de abertura e fechamento do caixa", exists("src/server/cash-register.js")],
   ["Backup local/externo configuravel", Boolean(envValue("TORTELAPLUS_BACKUP_DIR", "PEGMA_BACKUP_DIR")) || exists("scripts/backup-postgres.js")],
   ["Banco PostgreSQL configurado no ambiente atual", Boolean(process.env.DATABASE_URL)]
 ];

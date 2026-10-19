@@ -265,6 +265,7 @@ async function loadCatalog() {
     try {
       const nextCatalog = await api(`/api/public/store/catalog?cep=${encodeURIComponent(cep)}&q=${encodeURIComponent(q)}&unidade=${encodeURIComponent(unidade)}`);
       catalog = nextCatalog;
+      cart = cart.filter(item => catalog.products.some(product => Number(product.id) === Number(item.productId) && product.tenantCode === item.tenantCode));
       if (catalog.nearest) cart = cart.filter((item) => item.tenantCode === catalog.nearest.tenantCode);
       fillAddressFromCatalog();
     } catch (error) {
