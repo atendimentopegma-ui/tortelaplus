@@ -80,6 +80,6 @@ check('Crédito automotivo CBS exige componente permitido e classificação ofic
  state.products[0].rtcCredit.ibsEnabled=true;reject(state,doc,/veda credito IBS/);
 });
 check('Monofasia bloqueia parâmetros ausentes e enquadramentos não implementados',()=>{
- const {state,doc}=monofixture();state.products[0].rtcMono.legalBasis='';reject(state,doc,/fundamento/);state.products[0].rtcMono.legalBasis='Teste';state.products[0].ibsClass='620003';reject(state,doc,/dados especificos/);
+ const {state,doc}=monofixture();state.products[0].rtcMono.legalBasis='';reject(state,doc,/fundamento/);state.products[0].rtcMono.legalBasis='Teste';state.products[0].ibsClass='620003';reject(state,doc,/responsavel|terceiro/);
 });
 console.log(`PASS ${passed} grupos avançados, ${xmlCount} XMLs sintéticos; sem alterações em dados de clientes.`);

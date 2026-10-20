@@ -39,6 +39,12 @@ function mono(settings,row,rule,item,base){
   const cl=classification(rule);if(rule.ibsCbsCst!=='620')return null;
   const c=rule.rtcMono||{},date=fiscalDate(row);
   if(!c.legalBasis||!c.validFrom||date<c.validFrom||(c.validTo&&date>c.validTo))throw Error('Monofasia IBS/CBS exige fundamento e vigencia dos parametros');
+  if(cl.code==='620007')throw Error('Perda monofasica exige nota de debito tipo 07');
+  if(cl.code==='620003'){
+    if(!/^\d{14}$/.test(String(c.thirdPartyDocument||'')))throw Error('Retencao por terceiro exige CNPJ do responsavel');
+    if(c.ibsEnabled!==false||c.cbsEnabled!==false)throw Error('Retencao por terceiro nao destaca IBS/CBS monofasicos proprios');
+    return {xml:'<gIBSCBSMono><vTotIBSMonoItem>0.00</vTotIBSMonoItem><vTotCBSMonoItem>0.00</vTotCBSMonoItem></gIBSCBSMono>',ibs:0,cbs:0,ibsRetention:0,cbsRetention:0,ibsRetained:0,cbsRetained:0,ibsTotal:0,cbsTotal:0};
+  }
   const out={xml:'',ibs:0,cbs:0,ibsRetention:0,cbsRetention:0,ibsRetained:0,cbsRetained:0,ibsTotal:0,cbsTotal:0};let xml='<gIBSCBSMono>';
   const quantities=Number((Number(item.qty)*requireNumber(c.quantityFactor,'Conversao de quantidade monofasica',{min:Number.EPSILON})).toFixed(4));
   for(const [tax,name]of[['ibs','IBS'],['cbs','CBS']]){

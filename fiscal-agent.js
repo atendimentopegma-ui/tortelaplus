@@ -181,6 +181,10 @@ async function transmit(payload) {
 }
 
 async function execute(payload) {
+  if((payload.steps||[]).some(step=>step.file?.content?.includes('<tpEvento>211110</tpEvento>'))){
+    const schema=path.join(runtime,'Schemas','e211110_v1.00.xsd');
+    if(!fs.existsSync(schema)||!fs.readFileSync(schema,'utf8').includes('gCredPresOper'))throw Error('Atualize o agente fiscal e os esquemas oficiais RTC v1.40 antes de enviar credito presumido');
+  }
   const engineName = payload.engine === "nfse" ? "nfse" : "nfe";
   const tenantDir = await initialize(engineName, payload.tenantCode, payload.fiscalConfig || {});
   const results = [];

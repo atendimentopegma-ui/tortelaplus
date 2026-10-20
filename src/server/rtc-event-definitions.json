@@ -1,0 +1,37 @@
+{
+  "112110": {
+    "description": "Informação de efetivo pagamento integral para liberar crédito presumido do adquirente",
+    "author": 1,
+    "field": "indQuitacao",
+    "values": [
+      "1"
+    ]
+  },
+  "211128": {
+    "description": "Aceite de débito na apuração por emissão de nota de crédito",
+    "author": 2,
+    "field": "indAceitacao",
+    "values": [
+      "0",
+      "1"
+    ]
+  },
+  "212110": {
+    "description": "Manifestação sobre Pedido de Transferência de Crédito de IBS em Operação de Sucessão",
+    "author": 8,
+    "field": "indAceitacao",
+    "values": [
+      "0",
+      "1"
+    ]
+  },
+  "212120": {
+    "description": "Manifestação sobre Pedido de Transferência de Crédito de CBS em Operação de Sucessão",
+    "author": 8,
+    "field": "indAceitacao",
+    "values": [
+      "0",
+      "1"
+    ]
+  }
+}
