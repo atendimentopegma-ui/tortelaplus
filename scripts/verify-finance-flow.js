@@ -127,6 +127,7 @@ async function verifyLocalPdvFinance() {
   context.globalThis = context;
 
   context.window.TortelaFiscalRegimes = require("../src/fiscal-regimes");
+context.ItemPreparation=require('../src/item-preparation');
 vm.createContext(context);
   vm.runInContext(`${source}
 state.products = ${JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, "scripts/fixtures/pdv-products.json"), "utf8")))};

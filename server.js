@@ -1,3 +1,4 @@
+const itemPreparation = require("./src/item-preparation");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -829,6 +830,8 @@ function configureAcbrForTenant(tenantCode, tenantState) {
   ini = replaceIniValue(ini, "NFe", "PathEvento", tenantXml);
   ini = replaceIniValue(ini, "NFe", "PathSchemas", path.join(fiscalRuntimeDir, "Schemas"));
   ini = replaceIniValue(ini, "DANFE", "PathPDF", tenantPdf);
+  ini = replaceIniValue(ini, "DANFE", "ExibeInforAdicProduto", "1");
+  ini = replaceIniValue(ini, "DANFE", "QuebraLinhaEmDetalhamentos", "1");
   const configPath = path.join(tenantRuntime, "ACBrLib.ini");
   fs.writeFileSync(configPath, ini);
   return configPath;
@@ -1191,7 +1194,7 @@ function defaultToppingOptions(product = {}) {
 
 function catalogProduct(product, tenant, tenantState) {
   const price = effectiveProductPrice(product, 1);
-  const hasCoverage = Boolean(product.hasCoverage || product.coverageOptions?.length || /bolo|torta|pizza|doce|cobertura/i.test(product.description || ""));
+  const hasCoverage = Boolean(product.hasCoverage || optionList(product.coverageOptions).length);
   return {
     id: product.id,
     tenantCode: tenant.tenantCode,
@@ -1208,7 +1211,7 @@ function catalogProduct(product, tenant, tenantState) {
     additional: Boolean(product.additional),
     hasCoverage,
     coverageOptions: hasCoverage ? optionList(product.coverageOptions, ["Sem cobertura", "Chocolate", "Morango", "Doce de leite"]) : [],
-    toppingOptions: optionList(product.toppingOptions || product.additionalOptions || product.extrasOptions, defaultToppingOptions(product)),
+    toppingOptions: optionList(product.toppingOptions || product.additionalOptions || product.extrasOptions),
     city: tenant.city || tenantState.settings?.city || "",
     uf: tenant.uf || tenantState.settings?.uf || "",
     cep: tenant.cep || tenantState.settings?.cep || ""
@@ -2488,7 +2491,7 @@ async function handleApi(req, res, urlPath) {
       const qty = Number(item.qty || 0);
       if (!product || qty <= 0) continue;
       const price = effectiveProductPrice(product, qty);
-      normalizedItems.push({
+      itemPreparation.attach(normalizedItems,{
         productId: product.id,
         id: product.id,
         description: product.description,
@@ -2496,6 +2499,8 @@ async function handleApi(req, res, urlPath) {
         unit: product.unit || "UN",
         price,
         coverage: String(item.coverage || "").trim(),
+        size: String(item.size || "").trim(),
+        extras: Array.isArray(item.extras) ? item.extras.map(value=>String(value).trim()).filter(Boolean) : [],
         note: String(item.note || "").trim(),
         total: moneyRound(qty * price)
       });
@@ -2595,7 +2600,7 @@ async function handleApi(req, res, urlPath) {
       const qty = Number(item.qty || 0);
       if (!product || qty <= 0 || Number(product.price || 0) <= 0) continue;
       const price = effectiveProductPrice(product, qty);
-      normalizedItems.push({
+      itemPreparation.attach(normalizedItems,{
         productId: product.id,
         id: product.id,
         description: product.description,
@@ -2603,6 +2608,8 @@ async function handleApi(req, res, urlPath) {
         unit: product.unit || "UN",
         price,
         coverage: String(item.coverage || "").trim(),
+        size: String(item.size || "").trim(),
+        extras: Array.isArray(item.extras) ? item.extras.map(value=>String(value).trim()).filter(Boolean) : [],
         note: String(item.note || "").trim(),
         total: moneyRound(qty * price)
       });
@@ -2689,7 +2696,7 @@ async function handleApi(req, res, urlPath) {
         deliveredAt: sale.deliveredAt || "",
         cancelledAt: sale.cancelledAt || "",
         delivery: sale.delivery || "Retirada no balcao",
-        items: (sale.items || []).map((item) => ({ description: item.description, qty: item.qty }))
+        items: (sale.items || []).map((item) => ({ description: item.description, qty: item.qty, coverage:item.coverage, size:item.size, extras:item.extras, note:item.note, parentLineId:item.parentLineId, preparationRole:item.preparationRole }))
       });
     const kioskSales = (tenantState.sales || []).filter((sale) => sale.kioskOrder);
     const activeOrders = kioskSales

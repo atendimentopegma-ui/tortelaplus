@@ -138,13 +138,14 @@ require("./fixtures/seed-operational-state")(dataDir);
       customerDocument: "52998224725",
       orderMode: "Retirada no balcao",
       paymentMethod: "PIX",
-      items: [{ productId: product.id, qty: 1 }]
+      items: [{ productId: product.id, qty: 1, coverage: "Chocolate", extras: ["Granulado"], note: "Preparo sintetico" }]
     });
     assert(order.ok && order.orderId && order.ticketNumber, "Pedido do totem nao retornou senha e id.");
 
     const board = await requestJson(baseUrl, "GET", "/api/public/kiosk/orders?unidade=cliente-exemplo");
     const boardOrder = board.orders.find((item) => Number(item.id) === Number(order.orderId));
     assert(boardOrder && boardOrder.status === "Preparando", "Pedido nao apareceu na cozinha/telao como Preparando.");
+    assert(boardOrder.items[0].coverage === "Chocolate" && boardOrder.items[0].extras[0] === "Granulado" && boardOrder.items[0].note === "Preparo sintetico", "Cozinha perdeu os complementos do item.");
 
     const isolatedBoard = await requestJson(baseUrl, "GET", "/api/public/kiosk/orders?unidade=unidade-isolada");
     assert(Array.isArray(isolatedBoard.orders) && isolatedBoard.orders.length === 0, "Pedido de uma unidade apareceu na fila de outra unidade ativa.");
@@ -172,7 +173,7 @@ require("./fixtures/seed-operational-state")(dataDir);
       customerDocument: "52998224725",
       orderMode: "Retirada no balcao",
       paymentMethod: "PIX",
-      items: [{ productId: product.id, qty: 1 }]
+      items: [{ productId: product.id, qty: 1, coverage: "Chocolate", extras: ["Granulado"], note: "Preparo sintetico" }]
     });
     await requestJson(baseUrl, "POST", "/api/public/kiosk/orders/status", {
       tenantCode: "cliente-exemplo",

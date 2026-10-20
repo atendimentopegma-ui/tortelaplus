@@ -39,7 +39,8 @@
     "verify:fiscal-special": "node scripts/verify-special-fiscal.js && node scripts/verify-special-fiscal-api.js && node scripts/verify-special-fiscal-ui.js",
     "verify:fiscal-advanced": "node scripts/verify-advanced-fiscal.js && node scripts/verify-advanced-fiscal-ui.js",
     "verify:fiscal-multi-company": "node scripts/verify-fiscal-multi-company.js && node scripts/verify-fiscal-regimes-api.js",
-    "verify:fiscal-cancellation": "node scripts/verify-fiscal-cancellation.js && node scripts/verify-fiscal-cancellation-ui.js"
+    "verify:fiscal-cancellation": "node scripts/verify-fiscal-cancellation.js && node scripts/verify-fiscal-cancellation-ui.js",
+    "verify:preparation": "node scripts/verify-item-preparation.js"
   },
   "keywords": [
     "erp",

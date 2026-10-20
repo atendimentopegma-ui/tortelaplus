@@ -68,14 +68,8 @@ function optionList(options, fallback = []) {
   return [...new Set(chosen.map((option) => String(option || "").trim()).filter(Boolean))];
 }
 
-function productCoverageOptions(product) {
-  if (!product?.hasCoverage && !Array.isArray(product?.coverageOptions)) return [];
-  return optionList(product.coverageOptions, defaultCoverageOptions);
-}
-
-function productToppingOptions(product) {
-  return optionList(product?.toppingOptions || product?.additionalOptions || product?.extrasOptions, defaultToppingOptions);
-}
+function productCoverageOptions(product) { return ItemPreparation.choices(product,state.catalog?.products||[]).coverage; }
+function productToppingOptions(product) { return ItemPreparation.choices(product,state.catalog?.products||[]).extras; }
 
 function resetOrder() {
   if (successResetTimer) {
@@ -352,11 +346,12 @@ function selectProduct(productId) {
   state.selectedProduct = product;
   state.draft = {
     qty: 1,
-    size: "Padrao",
+    size: "",
     coverage: productCoverageOptions(product)[0] || "",
     extras: [],
     note: ""
   };
+  if(!productCoverageOptions(product).length&&!productToppingOptions(product).length)return addProductToCart();
   setScreen("customize");
 }
 
@@ -414,18 +409,9 @@ function addProductToCart() {
   const product = state.selectedProduct;
   const draft = state.draft;
   if (!product || !draft) return;
-  const extrasTotal = draft.extras.length * 2;
-  const sizeAddition = draft.size === "Grande" ? 4 : 0;
-  state.cart.push({
-    productId: product.id,
-    description: product.description,
-    qty: Number(draft.qty || 1),
-    price: Number(product.price || 0) + extrasTotal + sizeAddition,
-    size: draft.size,
-    coverage: draft.coverage,
-    extras: [...draft.extras],
-    note: draft.note || ""
-  });
+  const split=ItemPreparation.split(product,draft,Number(draft.qty||1),state.catalog.products);
+  const parent=ItemPreparation.attach(state.cart,{productId:product.id,description:product.description,qty:Number(draft.qty||1),price:Number(product.price||0),...split.preparation});
+  for(const component of split.components)ItemPreparation.attach(state.cart,{productId:component.id,description:component.description,qty:component.qty,price:Number(component.price||0)},parent.lineId);
   state.selectedProduct = null;
   state.selectedChoiceKey = "";
   state.draft = null;
@@ -435,10 +421,10 @@ function addProductToCart() {
 function cartRows(editable = true) {
   if (!state.cart.length) return `<div class="tk-empty">Seu carrinho esta vazio.</div>`;
   return state.cart.map((item, index) => `
-    <article class="tk-cart-row">
+    <article class="tk-cart-row" style="${item.parentLineId?'margin-left:24px':''}">
       <div>
         <h2>${cleanText(item.description)}</h2>
-        <small>${[item.size, item.coverage, ...(item.extras || [])].filter(Boolean).join(" - ") || "Padrao"}</small>
+        ${ItemPreparation.html(item)}
       </div>
       ${editable ? `
         <div class="tk-cart-controls">
@@ -599,6 +585,7 @@ document.addEventListener("click", (event) => {
     return render();
   }
   if (button.id === "tk-continue-topping") {
+    if(!productToppingOptions(state.selectedProduct).length)return addProductToCart();
     return setScreen("topping");
   }
   if (button.id === "tk-add-product") {
@@ -610,12 +597,13 @@ document.addEventListener("click", (event) => {
     const index = Number(button.dataset.cartIndex);
     const item = state.cart[index];
     if (!item) return;
-    item.qty += Number(button.dataset.delta || 0);
-    state.cart = state.cart.filter((row) => row.qty > 0);
+    const previousQty=item.qty;item.qty += Number(button.dataset.delta || 0);
+    if(item.lineId)state.cart.filter(row=>row.parentLineId===item.lineId).forEach(row=>row.qty=row.qty/previousQty*item.qty);
+    state.cart = state.cart.filter((row) => row.qty > 0&&(!item.lineId||item.qty>0||row.parentLineId!==item.lineId));
     return render();
   }
   if (button.dataset.removeCartIndex) {
-    state.cart.splice(Number(button.dataset.removeCartIndex), 1);
+    const item=state.cart[Number(button.dataset.removeCartIndex)];state.cart=state.cart.filter(row=>row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
     return render();
   }
   if (button.dataset.payment) {
@@ -646,7 +634,9 @@ async function submitOrder() {
         items: state.cart.map((item) => ({
           productId: item.productId,
           qty: item.qty,
-          coverage: [item.size, item.coverage, ...(item.extras || [])].filter(Boolean).join(" - "),
+          size: item.size,
+          coverage: item.coverage,
+          extras: item.extras,
           note: item.note
         }))
       })

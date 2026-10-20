@@ -2453,7 +2453,7 @@ function renderSales() {
             </div>
             <div class="actions"><button class="btn primary" id="add-order-item" type="button">Adicionar item</button><button class="btn danger" id="clear-order-items" type="button">Limpar itens</button></div>
             <div class="table-wrap">
-              <table><thead><tr><th>Produto</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead><tbody>${orderItems.length ? orderItems.map((item, index) => `<tr><td>${item.description}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-order-item="${index}">Remover</button></td></tr>`).join("") : `<tr><td colspan="6">Adicione os produtos do pedido ou orcamento.</td></tr>`}</tbody></table>
+              <table><thead><tr><th>Produto</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead><tbody>${orderItems.length ? orderItems.map((item, index) => `<tr><td>${escapeHtml(item.description)}${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-order-item="${index}">Remover</button></td></tr>`).join("") : `<tr><td colspan="6">Adicione os produtos do pedido ou orcamento.</td></tr>`}</tbody></table>
             </div>
           </div>
 
@@ -3679,7 +3679,7 @@ function renderPdv() {
         <div class="table-wrap pdv-table">
           <table>
             <thead><tr><th>Item</th><th>Codigo</th><th>Descricao</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead>
-            <tbody>${saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td>${item.description}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">Remover</button></td></tr>`).join("")}</tbody>
+            <tbody>${saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole)+': ':''}${escapeHtml(item.description)}${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">Remover</button></td></tr>`).join("")}</tbody>
           </table>
         </div>
         <div class="totals">
@@ -4342,7 +4342,7 @@ function bindCurrentModule() {
       const item = saleItems[Number(button.dataset.removeSaleItem)];
       const authorization = await authorizePdvOperation("remove_item", "Autorizar exclusao de item");
       if (!authorization) return;
-      saleItems.splice(Number(button.dataset.removeSaleItem), 1);
+      saleItems=saleItems.filter(row=>row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
       audit("Item removido do PDV", `${item?.description || "Item"} autorizado por ${authorization.authorizedBy}`);
       save();
       renderShell();
@@ -4572,7 +4572,7 @@ function printKitchenOrder() {
     `Operacao: ${byId("pdv-operation")?.value || "Balcao"}  Mesa: ${byId("pdv-table")?.value || "-"}`,
     `Cliente: ${byId("sale-customer")?.value || "Consumidor Final"}`,
     "",
-    ...items.map((item) => `${item.qty} ${item.unit || "UN"} - ${item.description}`),
+    ...items.flatMap((item) => [`${item.parentLineId?'  ':''}${item.qty} ${item.unit || "UN"} - ${item.description}`, ...ItemPreparation.lines(item).map(line=>`  ${line}`)]),
     "",
     "Conferencia: __________________________"
   ].join("\n");
@@ -5927,8 +5927,7 @@ function onlineOrderReceipt(sale) {
   ];
   (sale.items || []).forEach((item) => {
     lines.push(`${item.qty} ${item.unit || "UN"} x ${item.description}`);
-    if (item.coverage) lines.push(`  Cobertura: ${item.coverage}`);
-    if (item.note) lines.push(`  Obs.: ${item.note}`);
+    lines.push(...ItemPreparation.lines(item).map(line=>`  ${line}`));
     lines.push(`  ${money(item.price)}  Total ${money(Number(item.qty || 0) * Number(item.price || 0))}`);
   });
   lines.push("", `TOTAL: ${money(sale.total || 0)}`, "", "Assinatura/recebimento: __________________________");
@@ -7337,6 +7336,22 @@ function normalizeTenantCode(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+let preparationDialogOpen=false;
+function chooseSalePreparation(product) {
+  if(preparationDialogOpen)return Promise.resolve(null);
+  const choices=ItemPreparation.choices(product,state.products),coverage=choices.coverage,extras=choices.extras;
+  const parents=ItemPreparation.role(product)?saleItems.filter(ItemPreparation.isTortela):[];
+  if(!coverage.length&&!extras.length&&!parents.length)return Promise.resolve({});
+  preparationDialogOpen=true;
+  return new Promise(resolve=>{
+    const dialog=document.createElement('dialog');dialog.style.cssText='max-width:560px;width:90%;border-radius:12px;padding:24px';
+    dialog.innerHTML=`<form><h2>${escapeHtml(product.description)}</h2><p>Escolha os complementos desta Tortela. Bebidas e outros produtos são vendidos separadamente.</p>${parents.length?`<div class="field"><label>Complemento de qual Tortela?<select name="parentLineId" required>${parents.map((parent,index)=>`<option value="${escapeAttr(parent.lineId)}" ${index===parents.length-1?'selected':''}>${index+1} - ${escapeHtml(parent.description)}</option>`).join('')}</select></label></div>`:''}${coverage.length?`<div class="field"><label>Calda / cobertura<select name="coverage" required><option value="">Escolha a calda / cobertura</option>${coverage.map(value=>`<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join('')}</select></label></div>`:''}${extras.length?`<fieldset><legend>Acompanhamentos desta Tortela</legend>${extras.map((value,i)=>`<label style="display:block"><input type="checkbox" name="extra" value="${i}" /> ${escapeHtml(value)}</label>`).join('')}</fieldset>`:''}<div class="actions"><button class="btn primary" type="submit">Adicionar ao pedido</button><button class="btn" type="button" data-cancel>Voltar</button></div></form>`;
+    let finished=false;const finish=value=>{if(finished)return;finished=true;preparationDialogOpen=false;dialog.close();dialog.remove();resolve(value);};
+    dialog.querySelector('form').addEventListener('submit',event=>{event.preventDefault();finish({parentLineId:dialog.querySelector('[name="parentLineId"]')?.value||'',coverage:dialog.querySelector('[name="coverage"]')?.value||'',extras:[...dialog.querySelectorAll('[name="extra"]:checked')].map(input=>extras[Number(input.value)])});});
+    dialog.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();
+  });
+}
+
 async function addSaleItem() {
   if (isCashRegisterStale()) {
     alert("Feche o caixa do dia anterior antes de registrar novas vendas.");
@@ -7369,13 +7384,19 @@ async function addSaleItem() {
     audit("Preco alterado no PDV", `${product.description}: ${money(normalPrice)} para ${money(typedPrice)} por ${authorization.authorizedBy}`);
   }
   const effectivePrice = typedPrice > 0 ? typedPrice : effectiveProductPrice(product, qty);
-  const existing = saleItems.find((item) => item.id === product.id && item.price === effectivePrice);
+  const preparation = await chooseSalePreparation(product);
+  if (!preparation) return;
+  const beforeItems=structuredClone(saleItems);
+  const existing = !ItemPreparation.isTortela(product)&&!ItemPreparation.role(product)&&saleItems.find((item) => item.id === product.id && item.price === effectivePrice && ItemPreparation.same(item,preparation));
   if (existing) existing.qty += qty;
-  else saleItems.push({ id: product.id, description: product.description, qty, unit: product.unit, price: effectivePrice });
+  else {
+    const split=ItemPreparation.split(product,preparation,qty,state.products);
+    const parent=ItemPreparation.attach(saleItems,{id:product.id,description:product.description,qty,unit:product.unit,price:effectivePrice,...split.preparation},preparation.parentLineId);
+    for(const component of split.components)ItemPreparation.attach(saleItems,{id:component.id,description:component.description,qty,unit:component.unit,price:effectiveProductPrice(component,qty)},parent.lineId);
+  }
   const shortage = stockShortages(saleStockRequirements(saleItems));
   if (shortage.length) {
-    if (existing) existing.qty -= qty;
-    else saleItems.pop();
+    saleItems=beforeItems;
     alert(`Estoque insuficiente:\n${shortage.join("\n")}`);
     return;
   }
@@ -7580,7 +7601,7 @@ function printLastPdvSale() {
     `Terminal: ${sale.terminalName || "PDV"}`,
     useFiscal ? `Chave NFC-e: ${fiscal.key || "-"}` : "NFC-e nao autorizada para este comprovante",
     "",
-    ...sale.items.map((item) => `${item.qty} ${item.unit} ${item.description} ${money(item.qty * item.price)}`),
+    ...sale.items.flatMap((item) => [`${item.parentLineId?'  ':''}${item.qty} ${item.unit} ${item.description} ${money(item.qty * item.price)}`, ...ItemPreparation.lines(item).map(line=>`  ${line}`)]),
     "",
     `Desconto: ${money(sale.discount || 0)}`,
     `Acrescimo: ${money(sale.addition || 0)}`,

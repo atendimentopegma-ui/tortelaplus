@@ -66,7 +66,7 @@ function orderCard(order) {
   const items = (order.items || []).map((item) => `
     <li>
       <strong>${Number(item.qty || 0).toLocaleString("pt-BR")}x</strong>
-      <span>${kitchenEscape(item.description)}</span>
+      <span style="${item.parentLineId?'padding-left:20px':''}">${kitchenEscape(item.description)}${ItemPreparation.html(item)}</span>
     </li>
   `).join("");
   return `

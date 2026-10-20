@@ -129,6 +129,8 @@ async function initialize(engineName, tenantCode, fiscalConfig = {}) {
   ini = replaceIniValue(ini, "NFSe", "PathSalvar", xmlDir);
   ini = replaceIniValue(ini, "NFSe", "PathSchemas", path.join(runtime, "Schemas", fiscalConfig.nfseStandard === "Nacional" ? "NFSeNacional" : ""));
   ini = replaceIniValue(ini, "DANFE", "PathPDF", pdfDir);
+  ini = replaceIniValue(ini, "DANFE", "ExibeInforAdicProduto", "1");
+  ini = replaceIniValue(ini, "DANFE", "QuebraLinhaEmDetalhamentos", "1");
   ini = replaceIniValue(ini, "DANFSE", "PathPDF", pdfDir);
   fs.writeFileSync(config, ini);
   const configHash = crypto.createHash("sha256").update(ini).digest("hex");

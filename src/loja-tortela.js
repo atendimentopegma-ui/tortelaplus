@@ -172,7 +172,7 @@ function render() {
 
 function cartLine(item, index) {
   return `<div class="cart-line">
-    <div><strong>${escapeHtml(item.description)}</strong><small>${escapeHtml(item.unit)} ${item.coverage ? `- ${escapeHtml(item.coverage)}` : ""}</small></div>
+    <div style="${item.parentLineId?'padding-left:20px':''}"><strong>${escapeHtml(item.description)}</strong><small>${escapeHtml(item.unit)}</small>${ItemPreparation.html(item)}</div>
     <div class="cart-line-actions">
       <button class="btn" data-cart-minus="${index}">-</button>
       <span>${item.qty}</span>
@@ -191,6 +191,7 @@ function paymentOption(value, title, detail, selected) {
 }
 
 function productCard(product) {
+  const choices=ItemPreparation.choices(product,catalog.products);
   const img = product.photo
     ? `<img src="${product.photo}" alt="${escapeHtml(product.description)}" />`
     : `<div class="store-product-placeholder"><strong>Tortela</strong><span>Produto fresco</span></div>`;
@@ -199,7 +200,8 @@ function productCard(product) {
       <small>${escapeHtml(productCategory(product))}</small>
       <h2>${escapeHtml(product.description)}</h2>
       <p>Preparado pela unidade Tortela selecionada.</p>
-      ${product.hasCoverage ? `<div class="field compact"><label>Cobertura</label><select data-coverage="${product.id}">${(product.coverageOptions || []).map((option) => `<option>${escapeHtml(option)}</option>`).join("")}</select></div>` : ""}
+      ${choices.coverage.length ? `<div class="field compact"><label>Cobertura</label><select data-coverage="${product.id}">${choices.coverage.map((option) => `<option>${escapeHtml(option)}</option>`).join("")}</select></div>` : ""}
+      ${choices.extras.length?`<fieldset><legend>Acompanhamentos desta Tortela</legend>${choices.extras.map((option,index)=>`<label style="display:block"><input type="checkbox" data-extra="${product.id}" value="${index}" /> ${escapeHtml(option)}</label>`).join('')}</fieldset>`:''}
       <div class="store-price"><strong>${money(product.price)}</strong><button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}">Adicionar</button></div>
     </div>
     <div class="store-product-media">${img}</div>
@@ -221,26 +223,34 @@ function bind() {
   document.querySelectorAll("[data-add-product]").forEach((button) => button.addEventListener("click", () => {
     const product = catalog.products.find((item) => Number(item.id) === Number(button.dataset.addProduct) && item.tenantCode === button.dataset.tenant);
     if (!product) return;
-    const coverage = document.querySelector(`[data-coverage="${product.id}"]`)?.value || "";
-    const existing = cart.find((item) => item.productId === product.id && item.tenantCode === product.tenantCode && item.coverage === coverage);
+    const card=button.closest('.store-product');
+    const coverage = card.querySelector(`[data-coverage="${product.id}"]`)?.value || "";
+    const choices=ItemPreparation.choices(product,catalog.products);
+    const extras=[...card.querySelectorAll(`[data-extra="${product.id}"]:checked`)].map(input=>choices.extras[Number(input.value)]);
+    const existing = !ItemPreparation.isTortela(product)&&!ItemPreparation.role(product)&&cart.find((item) => item.productId === product.id && item.tenantCode === product.tenantCode && ItemPreparation.same(item,{coverage,extras}));
     if (existing) existing.qty += 1;
-    else cart.push({ productId: product.id, tenantCode: product.tenantCode, description: product.description, unit: product.unitMeasure, price: product.price, qty: 1, coverage });
+    else {
+      const split=ItemPreparation.split(product,{coverage,extras},1,catalog.products);
+      const parent=ItemPreparation.attach(cart,{productId:product.id,tenantCode:product.tenantCode,description:product.description,unit:product.unitMeasure,price:product.price,qty:1,...split.preparation});
+      for(const component of split.components)ItemPreparation.attach(cart,{productId:component.id,tenantCode:component.tenantCode,description:component.description,unit:component.unitMeasure,price:component.price,qty:1},parent.lineId);
+    }
     render();
   }));
   document.querySelectorAll("[data-cart-minus]").forEach((button) => button.addEventListener("click", () => {
     const item = cart[Number(button.dataset.cartMinus)];
     if (!item) return;
-    item.qty -= 1;
-    if (item.qty <= 0) cart = cart.filter((row) => row !== item);
+    const previousQty=item.qty;item.qty -= 1;
+    if(item.lineId)cart.filter(row=>row.parentLineId===item.lineId).forEach(row=>row.qty=row.qty/previousQty*item.qty);
+    if (item.qty <= 0) cart = cart.filter((row) => row !== item&&(!item.lineId||row.parentLineId!==item.lineId));
     render();
   }));
   document.querySelectorAll("[data-cart-plus]").forEach((button) => button.addEventListener("click", () => {
     const item = cart[Number(button.dataset.cartPlus)];
-    if (item) item.qty += 1;
+    if (item) {const previousQty=item.qty;item.qty += 1;if(item.lineId)cart.filter(row=>row.parentLineId===item.lineId).forEach(row=>row.qty=row.qty/previousQty*item.qty);}
     render();
   }));
   document.querySelectorAll("[data-cart-remove]").forEach((button) => button.addEventListener("click", () => {
-    cart.splice(Number(button.dataset.cartRemove), 1);
+    const item=cart[Number(button.dataset.cartRemove)];cart=cart.filter(row=>row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
     render();
   }));
   document.querySelectorAll('input[name="payment-method"]').forEach((input) => input.addEventListener("change", render));
@@ -316,7 +326,7 @@ async function sendOrder() {
           uf: byId("customer-uf").value,
           cep: byId("store-cep").value
         },
-        items: cart.map((item) => ({ productId: item.productId, qty: item.qty, coverage: item.coverage }))
+        items: cart.map((item) => ({ productId: item.productId, qty: item.qty, coverage: item.coverage, extras:item.extras }))
       })
     });
     cart = [];
