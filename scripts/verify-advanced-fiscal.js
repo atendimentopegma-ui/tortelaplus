@@ -31,6 +31,9 @@ check('DIFAL contribuinte: responsabilidade destinatário, sem ICMSUFDest',()=>{
 check('DIFAL bloqueia regra sem vigência, UF errada e base dupla não contribuinte',()=>{
  for(const patch of [{validFrom:''},{destinationUf:'MG'},{baseMethod:'double'}]){const {state,doc}=interstate();Object.assign(state.products[0].difal,patch);reject(state,doc,/DIFAL|difal/);}
 });
+check('Destinação fiscal não aceita texto ambíguo ou município de outra UF',()=>{
+ const {state,doc}=interstate();doc.finalConsumer='false';reject(state,doc,/Consumidor final/);delete doc.finalConsumer;doc.customerCityCode='3552502';reject(state,doc,/Municipio do destinatario/);
+});
 check('Simples não destaca DIFAL EC87 não contribuinte',()=>{
  const {state,doc}=interstate();state.settings.regime='Simples Nacional';state.settings.crt='1';state.fiscalRules.forEach(r=>{r.regime='Simples Nacional';});state.products[0].difal.enabled=false;assert.doesNotMatch(generate('simple-interstate',state,doc),/<ICMSUFDest>/);state.products[0].difal.enabled=true;reject(state,doc,/Simples\/MEI/);
 });

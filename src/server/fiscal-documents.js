@@ -347,6 +347,7 @@ function validateNfeState(state, row) {
   if (digits(settings.cityCode).length !== 7) missing.push("codigo IBGE do municipio do emitente");
   if (!settings.address || !settings.number || !settings.district || !settings.city || digits(settings.cep).length !== 8) missing.push("endereco completo do emitente");
   if (!["NF-e", "NFC-e"].includes(row.model)) missing.push("modelo fiscal");
+  if(row.finalConsumer!==undefined&&typeof row.finalConsumer!=='boolean')missing.push('Consumidor final deve ser Sim ou Nao, sem texto ambiguo');
   if (Number(row.serie || 1) <= 0 || Number(row.number || row.id || 0) <= 0) missing.push("serie e numero validos");
   const items = resolveItems(state, row);
   if (!items.length) missing.push("itens da nota");
@@ -415,6 +416,7 @@ function validateNfeState(state, row) {
     items.forEach((item,i)=>{if(!/^[26]/.test(String(itemRule(state,row,item).cfop)))missing.push(`CFOP interestadual do item ${i+1}`);});
   }
   if (row.model === "NF-e" && !UF_CODES[destinationUf]) missing.push("UF valida do destinatario da NF-e");
+  if(row.model==='NF-e'&&UF_CODES[destinationUf]&&digits(row.customerCityCode||customer.cityCode||settings.cityCode).slice(0,2)!==UF_CODES[destinationUf])missing.push('Municipio do destinatario deve pertencer a UF informada');
   if (row.model === "NF-e" && digits(customer.cityCode || row.customerCityCode || settings.cityCode).length !== 7) missing.push("codigo IBGE do municipio do destinatario da NF-e");
   const totals = totalsFromItems(items, row);
   try {totals.net=rounded(fiscalLedger(state,row).reduce((n,l)=>n+l.vItem,0));}catch(error){missing.push(error.message);}
