@@ -1,0 +1,9 @@
+const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
+const root=path.join(__dirname,'..'),app=fs.readFileSync(path.join(root,'src/app.js'),'utf8'),server=fs.readFileSync(path.join(root,'server.js'),'utf8');
+const context={state:{products:[{id:1,description:'Produto',stock:-2,unit:'UN'}]},aggregateRequirements:rows=>rows};vm.createContext(context);vm.runInContext(app.slice(app.indexOf('function stockShortages('),app.indexOf('function consumeProductTraceability(')),context);
+assert.equal(context.stockShortages([{productId:1,qty:3}],true).length,0);assert.equal(context.stockShortages([{productId:1,qty:3}]).length,1,'Producao e movimentos manuais preservam suas regras');
+context.state.products[0].controlsSerial=true;assert.equal(context.stockShortages([{productId:1,qty:3}],true).length,1,'Venda nao pode inventar identificadores de serie');
+const online={onlineOrderRequirements:items=>items.map(item=>({productId:item.productId,qty:item.qty})),today:()=> '2026-10-20'};vm.createContext(online);vm.runInContext(server.slice(server.indexOf('function applyOnlineOrderStock('),server.indexOf('function restoreOnlineOrderStock(')),online);
+for(const start of [-3,0,1]){const state={products:[{id:1,description:'Produto',stock:start}]};assert.equal(online.applyOnlineOrderStock(state,[{productId:1,qty:2}],7).length,0);assert.equal(state.products[0].stock,start-2);assert.equal(state.stockMovements[0].qty,-2);assert.equal(state.stockMovements[0].balance,start-2);}
+const missing={products:[]};assert.equal(online.applyOnlineOrderStock(missing,[{productId:999,qty:1}],7).length,1);assert.equal(missing.stockMovements.length,0);
+console.log('OK estoque negativo: venda com saldo negativo, zero ou insuficiente; baixa e saldo registrados; produto inexistente e rastreabilidade continuam validados.');

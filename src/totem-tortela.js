@@ -332,7 +332,7 @@ function productCard(product) {
         <h2>${cleanText(product.description)}</h2>
         <div class="tk-product-footer">
           <strong>${money(product.price)}</strong>
-          <span>${Number(product.stock || 0) > 0 ? "Disponivel" : "Indisponivel"}</span>
+          <span>Disponivel</span>
         </div>
       </div>
       <button class="tk-hot-button" data-product="${product.id}">Escolher</button>

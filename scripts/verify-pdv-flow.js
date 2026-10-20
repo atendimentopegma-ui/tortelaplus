@@ -152,6 +152,8 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
     terminal: "SERIE TESTE"
   });
 
+  flour.stock = -2;
+  oil.stock = 0;
   const before = {
     sales: state.sales.length,
     fiscal: state.fiscalQueue.length,

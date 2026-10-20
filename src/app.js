@@ -5824,7 +5824,7 @@ function saveOrderRecord() {
   state.sales.push(sale);
   audit(type === "Orcamento" ? "Orcamento lancado" : "Pedido lancado", `${sale.customer} ${money(total)}`);
   if (type !== "Orcamento") {
-    const shortage = stockShortages(saleStockRequirements(sale.items));
+    const shortage = stockShortages(saleStockRequirements(sale.items), true);
     if (shortage.length) {
       state.sales.pop();
       alert(`Pedido nao finalizado. Estoque insuficiente:\n${shortage.join("\n")}`);
@@ -5848,7 +5848,7 @@ function saveOrderRecord() {
 function convertQuoteToOrder(id) {
   const quote = state.sales.find((row) => row.id === id && row.type === "Orcamento" && row.status === "Aberto");
   if (!quote) return;
-  const shortage = stockShortages(saleStockRequirements(quote.items || []));
+  const shortage = stockShortages(saleStockRequirements(quote.items || []), true);
   if (shortage.length) return alert(`Orcamento nao convertido. Estoque insuficiente:\n${shortage.join("\n")}`);
   quote.type = "Pedido";
   quote.status = "Fechado";
@@ -7394,7 +7394,7 @@ async function addSaleItem() {
     const parent=ItemPreparation.attach(saleItems,{id:product.id,description:product.description,qty,unit:product.unit,price:effectivePrice,...split.preparation},preparation.parentLineId);
     for(const component of split.components)ItemPreparation.attach(saleItems,{id:component.id,description:component.description,qty,unit:component.unit,price:effectiveProductPrice(component,qty)},parent.lineId);
   }
-  const shortage = stockShortages(saleStockRequirements(saleItems));
+  const shortage = stockShortages(saleStockRequirements(saleItems), true);
   if (shortage.length) {
     saleItems=beforeItems;
     alert(`Estoque insuficiente:\n${shortage.join("\n")}`);
@@ -7435,7 +7435,7 @@ async function finalizePdvSaleRecord() {
     alert("Feche o caixa do dia anterior antes de registrar novas vendas.");
     return;
   }
-  const shortage = stockShortages(saleStockRequirements(saleItems));
+  const shortage = stockShortages(saleStockRequirements(saleItems), true);
   if (shortage.length) {
     alert(`Venda nao finalizada. Estoque insuficiente:\n${shortage.join("\n")}`);
     return;
@@ -7852,12 +7852,12 @@ function aggregateRequirements(requirements) {
   return Array.from(totals, ([productId, qty]) => ({ productId, qty }));
 }
 
-function stockShortages(requirements) {
+function stockShortages(requirements, allowNegative = false) {
   return aggregateRequirements(requirements).flatMap((requirement) => {
     const product = state.products.find((row) => row.id === requirement.productId);
     if (!product) return [];
     const problems = [];
-    if (Number(product.stock || 0) + 0.000001 < requirement.qty) problems.push(`${product.description}: necessario ${requirement.qty} ${product.unit}, disponivel ${product.stock} ${product.unit}`);
+    if (!allowNegative && Number(product.stock || 0) + 0.000001 < requirement.qty) problems.push(`${product.description}: necessario ${requirement.qty} ${product.unit}, disponivel ${product.stock} ${product.unit}`);
     const lotBalance = (state.stockLots || []).filter((row) => row.productId === product.id).reduce((sum, row) => sum + Number(row.qty || 0), 0);
     if (product.controlsLot && lotBalance + 0.000001 < requirement.qty) problems.push(`${product.description}: lotes disponiveis ${lotBalance} ${product.unit}, necessario ${requirement.qty}`);
     const serialBalance = (state.stockSerials || []).filter((row) => row.productId === product.id && row.status === "Disponivel").length;

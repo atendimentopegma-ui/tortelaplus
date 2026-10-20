@@ -148,21 +148,15 @@ require("./fixtures/seed-operational-state")(dataDir);
 
     product(afterCancel, 9001).stock = 0.1;
     writeTenant(dataDir, afterCancel);
-    let blocked = false;
-    try {
-      await requestJson(baseUrl, "POST", "/api/public/kiosk/orders", {
-        tenantCode: "cliente-exemplo",
-        customerDocument: "52998224725",
-        orderMode: "Retirada no balcao",
-        paymentMethod: "PIX",
-        items: [{ productId: 7003, qty: 1 }]
-      });
-    } catch (error) {
-      blocked = error.statusCode === 409 && /Estoque insuficiente/i.test(error.message);
-    }
-    assert(blocked, "Pedido de combo com materia-prima insuficiente nao foi bloqueado.");
-
-    console.log("OK - estoque validado: combo baixa materia-prima em cadeia, estorna no cancelamento e bloqueia saldo insuficiente.");
+    const negativeOrder=await requestJson(baseUrl,"POST","/api/public/kiosk/orders",{
+      tenantCode:"cliente-exemplo",customerDocument:"52998224725",orderMode:"Retirada no balcao",paymentMethod:"PIX",items:[{productId:7003,qty:1}]
+    });
+    const negative=readTenant(dataDir);
+    almostEqual(product(negative,9001).stock,-0.38,"Combo deve permitir e registrar saldo negativo.");
+    assert(negative.stockMovements.some(row=>row.productId===9001&&row.history===`Pedido online ${negativeOrder.orderId}`&&Number(row.balance)<0),"Movimento nao registrou saldo negativo.");
+    await requestJson(baseUrl,"POST","/api/public/kiosk/orders/status",{tenantCode:"cliente-exemplo",orderId:negativeOrder.orderId,status:"Cancelado"});
+    almostEqual(product(readTenant(dataDir),9001).stock,0.1,"Cancelamento nao estornou venda com estoque negativo.");
+    console.log("OK - estoque: combo baixa componentes, permite saldo negativo e estorna corretamente.");
   } finally {
     child.kill();
     fs.rmSync(dataDir, { recursive: true, force: true });

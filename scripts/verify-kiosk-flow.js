@@ -86,6 +86,10 @@ assert(!/\?v=/.test(kioskHtml), "Totem: nao use sufixos versionados nos assets; 
   const port = await freePort();
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-kiosk-flow-"));
 require("./fixtures/seed-operational-state")(dataDir);
+  const negativeFile=path.join(dataDir,'tenants','cliente-exemplo.json');
+  const negativeState=JSON.parse(fs.readFileSync(negativeFile));
+  negativeState.products.forEach(product=>product.stock=-3);
+  fs.writeFileSync(negativeFile,JSON.stringify(negativeState));
 
   const baseUrl = `http://localhost:${port}`;
   const providerToken = "verify-provider-token";
@@ -116,7 +120,7 @@ require("./fixtures/seed-operational-state")(dataDir);
     }, { Authorization: `Bearer ${providerToken}` });
 
     const catalog = await requestJson(baseUrl, "GET", "/api/public/store/catalog?unidade=cliente-exemplo");
-    const product = catalog.products.find((item) => item.active !== false && Number(item.price || 0) > 0 && Number(item.stock || 0) > 0);
+    const product = catalog.products.find((item) => item.active !== false && Number(item.price || 0) > 0);
     assert(product, "Catalogo do totem nao possui produto ativo com preco e estoque.");
 
     let invalidCpfBlocked = false;
@@ -182,6 +186,7 @@ require("./fixtures/seed-operational-state")(dataDir);
     });
 
     const tenantState = JSON.parse(fs.readFileSync(path.join(dataDir, "tenants", "cliente-exemplo.json"), "utf8"));
+    assert(tenantState.products.some(p=>Number(p.stock)<-3), "Venda nao baixou o estoque ja negativo.");
     const isolatedTenantState = JSON.parse(fs.readFileSync(path.join(dataDir, "tenants", "unidade-isolada.json"), "utf8"));
     const sale = tenantState.sales.find((item) => Number(item.id) === Number(order.orderId));
     const cancelledSale = tenantState.sales.find((item) => Number(item.id) === Number(cancelOrder.orderId));

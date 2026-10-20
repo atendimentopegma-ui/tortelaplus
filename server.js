@@ -1453,7 +1453,7 @@ function applyOnlineOrderStock(tenantState, items, saleId) {
   const shortage = requirements
     .map((requirement) => {
       const product = products.find((row) => Number(row.id) === Number(requirement.productId));
-      return product && Number(product.stock || 0) >= Number(requirement.qty || 0) ? null : `${product?.description || requirement.productId}: saldo ${product?.stock || 0}, necessario ${requirement.qty}`;
+      return product ? null : `${product?.description || requirement.productId}: saldo ${product?.stock || 0}, necessario ${requirement.qty}`;
     })
     .filter(Boolean);
   if (shortage.length) return shortage;
