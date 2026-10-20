@@ -1,4 +1,4 @@
-const centralPermissions = ["overview", "sales", "products", "orders", "promotions", "royalties", "customers", "finance", "permissions", "terminals", "production", "deployment", "reports", "franchisees", "users"];
+const centralPermissions = ["overview", "sales", "products", "orders", "promotions", "royalties", "customers", "finance", "permissions", "terminals", "production", "deployment", "reports", "franchisees", "users", "fiscal", "fiscal_cancel"];
 const permissionsFor = user => Array.isArray(user.permissions) ? user.permissions.filter(p => centralPermissions.includes(p)) : [...centralPermissions];
 const fullAccess = user => centralPermissions.every(p => permissionsFor(user).includes(p));
 function routePermissions(path) {
@@ -9,6 +9,8 @@ function routePermissions(path) {
   if (path === "/api/tenants" || /^\/api\/provider\/tenant\/[^/]+(?:\/users(?:\/\d+)?)?$/.test(path)) return ["franchisees"];
   if (/^\/api\/provider\/tenant\/[^/]+\/sessions$/.test(path) || path.startsWith("/api/licenses/")) return ["permissions"];
   if (/^\/api\/tenant\/[^/]+\/pdv-terminals$/.test(path)) return ["terminals"];
+  if (/^\/api\/tenant\/[^/]+\/fiscal\/documents$/.test(path)) return ['fiscal'];
+  if (/^\/api\/tenant\/[^/]+\/fiscal\/cancel$/.test(path)) return ['fiscal_cancel'];
   if (path === "/api/network/promotions") return ["promotions"];
   if (path === "/api/network/approvals/decide") return ["orders"];
   if (path === "/api/network/whatsapp/settings") return ["customers"];

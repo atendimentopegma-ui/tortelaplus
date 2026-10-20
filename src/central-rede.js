@@ -15,6 +15,7 @@ const modules = [
   ["customers", "Clientes", "Consumo e retorno"],
   ["finance", "Financeiro", "Contas e repasses"],
   ["permissions", "Permissoes", "Acesso das lojas"],
+  ["fiscal", "Fiscal", "NF-e, NFC-e e cancelamentos"],
   ["terminals", "Terminais PDV", "Recibo ou NFC-e"],
   ["production", "Producao", "Capacidade"],
   ["deployment", "Implantacao", "Banco e seguranca"],
@@ -223,6 +224,7 @@ function renderCurrentModule() {
     customers: renderCustomers,
     finance: renderFinance,
     permissions: renderPermissions,
+    fiscal: renderFiscalCancellations,
     terminals: renderPdvTerminals,
     production: renderProduction,
     deployment: renderDeployment,
@@ -590,6 +592,7 @@ function renderCustomers() {
   </div>`;
 }
 
+function renderFiscalCancellations(){return `<div class="network-module">${moduleTitle('Fiscal das unidades','Selecione o franqueado para consultar e cancelar NF-e e NFC-e.')}<section class="network-card"><div class="field"><label>Unidade<select id="fiscal-cancel-unit">${summary.permissions.map(row=>`<option value="${escapeAttr(row.tenantCode)}">${escapeHtml(row.unit||row.tradeName||row.tenantCode)}</option>`).join('')}</select></label></div></section><section class="network-card" id="fiscal-cancellation-panel"></section></div>`;}
 function renderPdvTerminals() {
   return `<div class="network-module compact">${moduleTitle("Emissao dos terminais PDV", "Escolha a unidade e configure recibo nao fiscal ou NFC-e para cada terminal.")}
     <section class="network-card" style="min-height:0"><div class="field"><label>Unidade<select id="terminal-unit">${summary.permissions.map(row => `<option value="${escapeAttr(row.tenantCode)}">${escapeHtml(row.unit || row.tradeName || row.tenantCode)}</option>`).join("")}</select></label></div></section>
@@ -823,6 +826,8 @@ function renderReports() {
 
 function bindRender() {
   if(window.CentralAdministration)window.CentralAdministration.bind({api});
+  const fiscalUnit=byId('fiscal-cancel-unit');
+  if(fiscalUnit&&window.FiscalCancellationPanel){const load=()=>{if(fiscalUnit.value)window.FiscalCancellationPanel.mount(byId('fiscal-cancellation-panel'),{api,tenantCode:fiscalUnit.value});};fiscalUnit.addEventListener('change',load);load();}
   const unitSelect = byId("terminal-unit");
   if (unitSelect && window.PdvTerminalSettings) {
     const loadTerminals = () => { if (unitSelect.value) window.PdvTerminalSettings.mount(byId("pdv-terminal-settings"), { api, tenantCode: unitSelect.value }); };

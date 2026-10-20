@@ -940,6 +940,7 @@ function renderFiscal() {
       </form>
     </section>
     <section class="network-card">
+      <div id="fiscal-cancellation-panel"></div>
       <h2>Fila fiscal da unidade</h2>
       ${table(["Modelo", "Data", "Cliente", "Total", "Status", "PDF/XML", "Acao"], (state.fiscalQueue || []).slice(-40).reverse().map((row) => [
         escapeHtml(row.model || "-"),
@@ -1415,6 +1416,7 @@ function bind() {
   if (byId("pdv-terminal-settings") && window.PdvTerminalSettings) window.PdvTerminalSettings.mount(byId("pdv-terminal-settings"), {
     api, tenantCode, onSaved: terminals => { state.settings.pdvTerminals = terminals; }
   });
+  if(byId('fiscal-cancellation-panel')&&window.FiscalCancellationPanel)window.FiscalCancellationPanel.mount(byId('fiscal-cancellation-panel'),{api,tenantCode,onChanged:doc=>{const row=state.fiscalQueue.find(r=>Number(r.id)===Number(doc.id));if(row)Object.assign(row,doc);}});
   byId("print-settings-form")?.addEventListener("submit", savePrintSettings);
   document.querySelectorAll("[data-fiscal-transmit]").forEach((button) => button.addEventListener("click", () => transmitFiscalRow(button.dataset.fiscalTransmit)));
   byId("import-file")?.addEventListener("change", loadImportFile);

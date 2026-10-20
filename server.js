@@ -546,7 +546,8 @@ function normalizeProviderAdmins(admins) {
     name: admin.name || admin.username || "Administrador",
     username: admin.username || "admin",
     active: admin.active !== false,
-    permissions: permissionsFor(admin),
+    permissions: permissionsFor(Array.isArray(admin.permissions)&&admin.permissionsVersion!==2&&centralPermissions.filter(p=>!["fiscal","fiscal_cancel"].includes(p)).every(p=>admin.permissions.includes(p))?{}:admin),
+    permissionsVersion: 2,
     credentialUpdatedAt: admin.credentialUpdatedAt || "",
     passwordHash: admin.passwordHash || hashPassword(admin.password || "Pegma@2026")
   }));
@@ -3366,6 +3367,7 @@ async function handleApi(req, res, urlPath) {
     }
     user.name=String(body.name||user.name||user.username).trim();
     user.permissions=rights;
+    user.permissionsVersion=2;
     if(body.active!==undefined)user.active=Boolean(body.active);
     if (!provider.providerAdmins.some(row=>row.active && fullAccess(row))) return sendJson(res,400,{ok:false,error:"Mantenha pelo menos um administrador ativo com acesso total"});
     writeProvider(provider);
@@ -4017,11 +4019,19 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const fiscalDocumentsMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/fiscal\/documents$/);
+  if(fiscalDocumentsMatch&&req.method==='GET'){
+    const code=normalizeTenantCode(fiscalDocumentsMatch[1]),provider=readProvider(),access=tenantAccessOrProvider(req,provider,code,'fiscal');if(access.error)return deny(res,access);
+    const state=readTenantState(code),central=providerAccess(req),canCancel=central?permissionsFor(central).includes('fiscal_cancel'):access.session.permissions.includes('fiscal_cancel');
+    const fields=['id','number','serie','model','issuedAt','date','customer','total','status','key','protocol','cancelProtocol','cancelStatusCode','cancelStatusMessage','cancelledAt'];
+    const documents=(state.fiscalQueue||[]).filter(r=>['NF-e','NFC-e'].includes(r.model)).slice().reverse().map(row=>Object.fromEntries(fields.map(k=>[k,row[k]])));
+    return sendJson(res,200,{ok:true,unit:access.tenant.tradeName||state.settings.company||code,environment:state.settings.fiscalEnvironment,canCancel,documents});
+  }
   const tenantFiscalCancelMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/fiscal\/cancel$/);
   if (tenantFiscalCancelMatch && req.method === "POST") {
     const tenantCode = normalizeTenantCode(tenantFiscalCancelMatch[1]);
     const provider = readProvider();
-    const access = sessionAccess(req, provider, tenantCode, "fiscal_cancel");
+    const access = tenantAccessOrProvider(req, provider, tenantCode, "fiscal_cancel");
     if (access.error) {
       deny(res, access);
       return;
@@ -4033,10 +4043,17 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 404, { ok: false, error: "Documento fiscal nao encontrado" });
       return;
     }
+    if(row.status==='Cancelada')return sendJson(res,200,{ok:true,document:row,alreadyCancelled:true});
+    if(['NF-e','NFC-e'].includes(row.model)&&(row.protocol||row.status==='Autorizada')){
+      const model=row.model==='NF-e'?'55':'65',document=String(tenantState.settings.document||'').replace(/\D/g,'');
+      if(row.status!=='Autorizada'||!/^\d{44}$/.test(String(row.key))||String(row.key).slice(20,22)!==model||String(row.key).slice(6,20)!==document||!/^\d{15}(\d{2})?$/.test(String(row.protocol||'')))return sendJson(res,409,{ok:false,error:'Cancelamento exige nota autorizada da unidade, chave e protocolo validos.'});
+      const originalEnvironment=String(row.xml||'').match(/<(?:\w+:)?tpAmb>([12])<\/(?:\w+:)?tpAmb>/)?.[1];
+      if(originalEnvironment&&originalEnvironment!==(tenantState.settings.fiscalEnvironment==='Producao'?'1':'2'))return sendJson(res,409,{ok:false,error:'Ambiente atual difere do ambiente de autorizacao da nota.'});
+    }
     if (row.protocol || row.status === "Autorizada") {
       const reason = String(body.reason || "").trim();
-      if (reason.length < 15) {
-        sendJson(res, 400, { ok: false, error: "Informe justificativa real de cancelamento com pelo menos 15 caracteres." });
+      if (reason.length < 15 || reason.length > 255 || /[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(reason)) {
+        sendJson(res, 400, { ok: false, error: "Informe justificativa real de cancelamento entre 15 e 255 caracteres." });
         return;
       }
       try {
@@ -4057,12 +4074,18 @@ async function handleApi(req, res, urlPath) {
             : await acbrLibCommand("cancelar", [row.key, reason, String(tenantState.settings.document || "").replace(/\D/g, ""), "1"], 60000);
           parsed = parseAcbrResponse(result.response);
         }
+        row.cancelReason=reason;row.cancelRequestedBy=access.session.user;
+        row.cancelAttempts=Array.isArray(row.cancelAttempts)?row.cancelAttempts:[];
+        row.cancelAttempts.push({at:new Date().toISOString(),user:access.session.user,reason,statusCode:parsed.statusCode,message:parsed.statusMessage,protocol:parsed.protocol});
         row.cancelStatusCode = parsed.statusCode;
         row.cancelStatusMessage = parsed.statusMessage;
         row.cancelProtocol = parsed.protocol;
         row.cancelAcbrResponse = parsed.raw;
-        row.cancelResponseUrl = saveFiscalResponse(tenantCode, `retorno-cancelamento-${row.model}-${row.id}.txt`, parsed.raw).url;
-        if (!isNfse && !["135", "136", "155"].includes(parsed.statusCode)) {
+        row.cancelResponseUrl = saveFiscalResponse(tenantCode, `retorno-cancelamento-${row.model}-${row.id}-${row.cancelAttempts.length}.txt`, parsed.raw).url;
+        if (!isNfse && (!['135','155'].includes(parsed.statusCode)||!/^\d{15}(\d{2})?$/.test(String(parsed.protocol||'')))) {
+          row.cancelProtocol='';
+          writeTenantState(tenantCode,tenantState);
+          appendTenantAudit(tenantCode,'Cancelamento fiscal nao confirmado',`${row.model} ${row.id}: ${parsed.statusCode}`,access.session.user);
           sendJson(res, 409, { ok: false, error: parsed.statusMessage || `Cancelamento nao aceito. Codigo ACBr ${result.code}.` });
           return;
         }
