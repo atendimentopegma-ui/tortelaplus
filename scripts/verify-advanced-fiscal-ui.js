@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const source=fs.readFileSync(require('path').join(__dirname,'../src/app.js'),'utf8');
+const snippet=source.slice(source.indexOf('const advancedFiscalFields ='),source.indexOf('function productForm()'));
+const controls=new Map(),context={byId:id=>controls.get(id),escapeAttr:v=>String(v).replace(/"/g,'&quot;')};
+vm.createContext(context);vm.runInContext(snippet,context);
+const form=context.advancedFiscalForm({ipi:{enabled:false,priceMode:'included'},fuel:{quantityFactor:0.5}},{rtcCredit:{ibsEnabled:false,cbsEnabled:true}});
+assert.match(form,/value="false" selected/);assert.match(form,/advanced-ipi-enquadramento/);assert.match(form,/advanced-difal-validFrom/);assert.match(form,/advanced-rtcMono-cbsMethod/);assert.match(form,/advanced-rtcCredit-basePerUnit/);
+const previous={enabled:true,method:'percent',priceMode:'included',includeInIcmsBase:false,rate:10,customField:'preserve'};
+assert.equal(context.readAdvancedFiscal('ipi',previous),previous,'Aba ausente não pode regravar parâmetros');
+for(const [key,value] of Object.entries({enabled:'false',method:'percent',priceMode:'included',enquadramento:'999',quantityFactor:'',unitValue:'0',includeInIcmsBase:'false'}))controls.set('advanced-ipi-'+key,{value});
+controls.set('product-ipi-cst',{value:'50'});controls.set('product-ipi-rate',{value:'10'});
+const result=context.readAdvancedFiscal('ipi',previous);
+assert.equal(result.enabled,false);assert.equal(result.includeInIcmsBase,false);assert.equal(result.unitValue,0);assert.equal(result.customField,'preserve');assert.equal(previous.enabled,true);assert.equal(result.rate,10);assert.equal(result.cst,'50');
+console.log('OK parâmetros fiscais da tela: Sim/Não, zero, unidades, vigência, preservação de campos e aba não aberta.');

@@ -1,0 +1,1358 @@
+{
+  "source": "https://www.nfe.fazenda.gov.br/portal/listaConteudo.aspx?tipoConteudo=%2FNJarYc9nus%3D",
+  "fuelsSha256": "be7cdb342e95eb15990070bf17105a25e38aba28af8d3eebdb4ea7fe96773460",
+  "bioSha256": "c49a011503657fc6dda3857a7e4ab298385deca75c60b9b7e029d4376fb19c20",
+  "fuels": [
+    {
+      "code": "210203001",
+      "description": "GLP",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "KG"
+    },
+    {
+      "code": "210203003",
+      "description": "PROPANO COMERCIAL",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "KG"
+    },
+    {
+      "code": "210203004",
+      "description": "PROPANO ESPECIAL",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "KG"
+    },
+    {
+      "code": "210203005",
+      "description": "BUTANO COMERCIAL",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "KG"
+    },
+    {
+      "code": "320101001",
+      "description": "GASOLINA A COMUM",
+      "requiresBio": true,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "320101002",
+      "description": "GASOLINA A PREMIUM",
+      "requiresBio": true,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "320102001",
+      "description": "GASOLINA C COMUM",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320102002",
+      "description": "GASOLINA C COMUM ADITIVADA",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320102003",
+      "description": "GASOLINA C PREMIUM",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320102005",
+      "description": "GASOLINA C PREMIUM ADITIVADA",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320103001",
+      "description": "GASOLINA DE REFERÊNCIA - NBR 16038",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320103002",
+      "description": "OUTRAS GASOLINAS AUTOMOTIVAS",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320103003",
+      "description": "GASOLINA DE REFERÊNCIA - PROCONVE L-6",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320201001",
+      "description": "GASOLINA DE AVIAÇÃO",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "320301001",
+      "description": "OUTRAS GASOLINAS",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "320301002",
+      "description": "GASOLINA PARA EXPORTAÇÃO",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "420101004",
+      "description": "ÓLEO DIESEL A S1800 NÃO RODOVIÁRIO",
+      "requiresBio": true,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "420101005",
+      "description": "ÓLEO DIESEL A S1800 NÃO RODOVIÁRIO - ADITIVADO",
+      "requiresBio": true,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "420102004",
+      "description": "ÓLEO DIESEL A S500",
+      "requiresBio": true,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "420102005",
+      "description": "ÓLEO DIESEL A S500 - ADITIVADO",
+      "requiresBio": true,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "420105001",
+      "description": "ÓLEO DIESEL A S10",
+      "requiresBio": true,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "420107001",
+      "description": "ÓLEO DIESEL C S10",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "420201001",
+      "description": "ÓLEO DIESEL MARÍTIMO (DMA-MGO)",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "420201003",
+      "description": "ÓLEO DIESEL MARÍTIMO (DMA-MDO)",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "420301002",
+      "description": "OUTROS ÓLEOS DIESEL (Sem Adição de B100)",
+      "requiresBio": false,
+      "requiresOrigins": false,
+      "unit": "L"
+    },
+    {
+      "code": "810102001",
+      "description": "ETANOL ANIDRO",
+      "requiresBio": false,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "810102003",
+      "description": "ETANOL ANIDRO DE REFERÊNCIA - EAR",
+      "requiresBio": false,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "810102004",
+      "description": "ETANOL ANIDRO COM CORANTE",
+      "requiresBio": false,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101001",
+      "description": "BIODIESEL B100",
+      "requiresBio": false,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101003",
+      "description": "ÓLEO DIESEL B S1800 NÃO RODOVIÁRIO - COMUM",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101011",
+      "description": "ÓLEO DIESEL B S1800 NÃO RODOVIÁRIO - ADITIVADO",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101012",
+      "description": "ÓLEO DIESEL B S500 - COMUM",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101013",
+      "description": "ÓLEO DIESEL B S500 - ADITIVADO",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101026",
+      "description": "DIESEL B S1800 NÃO RODOVIÁRIO PARA GERAÇÃO DE ENERGIA ELÉTRICA",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101027",
+      "description": "DIESEL B S500 PARA GERAÇÃO DE ENERGIA ELÉTRICA",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101032",
+      "description": "DIESEL B S10 PARA GERAÇÃO DE ENERGIA ELÉTRICA",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101033",
+      "description": "ÓLEO DIESEL B S10 - ADITIVADO",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101034",
+      "description": "ÓLEO DIESEL B S10 - COMUM",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101030",
+      "description": "ÓLEO DIESEL S10 B20 AUTORIZATIVO",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    },
+    {
+      "code": "820101025",
+      "description": "ÓLEO DIESEL S10 B30 AUTORIZATIVO",
+      "requiresBio": true,
+      "requiresOrigins": true,
+      "unit": "L"
+    }
+  ],
+  "rates": [
+    {
+      "code": "210203001",
+      "rate": 1.2571,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "210203001",
+      "rate": 1.4139,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "210203001",
+      "rate": 1.39,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "210203001",
+      "rate": 1.47,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "210203003",
+      "rate": 1.2571,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "210203003",
+      "rate": 1.4139,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "210203003",
+      "rate": 1.39,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "210203003",
+      "rate": 1.47,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "210203004",
+      "rate": 1.2571,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "210203004",
+      "rate": 1.4139,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "210203004",
+      "rate": 1.39,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "210203004",
+      "rate": 1.47,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "210203005",
+      "rate": 1.2571,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "210203005",
+      "rate": 1.4139,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "210203005",
+      "rate": 1.39,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "210203005",
+      "rate": 1.47,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320101001",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320101001",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320101001",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320101001",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320101002",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320101002",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320101002",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320101002",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320102001",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320102001",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320102001",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320102001",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320102002",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320102002",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320102002",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320102002",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320102003",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320102003",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320102003",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320102003",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320102005",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320102005",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320102005",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320102005",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320103001",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320103001",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320103001",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320103001",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320103002",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320103002",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320103002",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320103002",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320103003",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320103003",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320103003",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320103003",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320201001",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320201001",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320201001",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320201001",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320301001",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320301001",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320301001",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320301001",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "320301002",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "320301002",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "320301002",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "320301002",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420101004",
+      "rate": 1.0635,
+      "fromDate": "2024-05-08",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420101004",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420101004",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420101005",
+      "rate": 1.0635,
+      "fromDate": "2024-05-08",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420101005",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420101005",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420102004",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "420102004",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420102004",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420102004",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420102005",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "420102005",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420102005",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420102005",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420105001",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "420105001",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420105001",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420105001",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420107001",
+      "rate": 1.0635,
+      "fromDate": "2024-12-03",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420107001",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420107001",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420201001",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "420201001",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420201001",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420201001",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420201003",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "420201003",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420201003",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420201003",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "420301002",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "420301002",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "420301002",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "420301002",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "810102001",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "810102001",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "810102001",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "810102001",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "810102003",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "810102003",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "810102003",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "810102003",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "810102004",
+      "rate": 1.22,
+      "fromDate": "2023-06-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "810102004",
+      "rate": 1.3721,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "810102004",
+      "rate": 1.47,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "810102004",
+      "rate": 1.57,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101001",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101001",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101001",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101001",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101003",
+      "rate": 1.0635,
+      "fromDate": "2024-05-08",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101003",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101003",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101011",
+      "rate": 1.0635,
+      "fromDate": "2024-05-08",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101011",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101011",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101012",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101012",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101012",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101012",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101013",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101013",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101013",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101013",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101025",
+      "rate": 1.12,
+      "fromDate": "2025-11-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101025",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101026",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101026",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101026",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101026",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101027",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101027",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101027",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101027",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101030",
+      "rate": 1.12,
+      "fromDate": "2025-10-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101030",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101032",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101032",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101032",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101032",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101033",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101033",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101033",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101033",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    },
+    {
+      "code": "820101034",
+      "rate": 0.9456,
+      "fromDate": "2023-05-01",
+      "toDate": "2024-01-31"
+    },
+    {
+      "code": "820101034",
+      "rate": 1.0635,
+      "fromDate": "2024-02-01",
+      "toDate": "2025-01-31"
+    },
+    {
+      "code": "820101034",
+      "rate": 1.12,
+      "fromDate": "2025-02-01",
+      "toDate": "2025-12-31"
+    },
+    {
+      "code": "820101034",
+      "rate": 1.17,
+      "fromDate": "2026-01-01",
+      "toDate": ""
+    }
+  ],
+  "bio": [
+    {
+      "code": "320102001",
+      "description": "GASOLINA C COMUM",
+      "percent": 32.0,
+      "fromDate": "2026-08-01",
+      "toDate": ""
+    },
+    {
+      "code": "320102002",
+      "description": "GASOLINA C COMUM ADITIVADA",
+      "percent": 32.0,
+      "fromDate": "2026-08-01",
+      "toDate": ""
+    },
+    {
+      "code": "320102003",
+      "description": "GASOLINA C PREMIUM",
+      "percent": 25.0,
+      "fromDate": "2015-03-16",
+      "toDate": ""
+    },
+    {
+      "code": "320102005",
+      "description": "GASOLINA C PREMIUM ADITIVADA",
+      "percent": 25.0,
+      "fromDate": "2015-03-16",
+      "toDate": ""
+    },
+    {
+      "code": "320103001",
+      "description": "GASOLINA DE REFERÊNCIA - NBR 16038",
+      "percent": 32.0,
+      "fromDate": "2026-08-01",
+      "toDate": ""
+    },
+    {
+      "code": "320103002",
+      "description": "OUTRAS GASOLINAS AUTOMOTIVAS",
+      "percent": 32.0,
+      "fromDate": "2026-08-01",
+      "toDate": ""
+    },
+    {
+      "code": "320103003",
+      "description": "GASOLINA DE REFERÊNCIA - PROCONVE L-6",
+      "percent": 32.0,
+      "fromDate": "2026-08-01",
+      "toDate": ""
+    },
+    {
+      "code": "320301001",
+      "description": "OUTRAS GASOLINAS",
+      "percent": 32.0,
+      "fromDate": "2026-08-01",
+      "toDate": ""
+    },
+    {
+      "code": "320301002",
+      "description": "GASOLINA PARA EXPORTAÇÃO",
+      "percent": 32.0,
+      "fromDate": "2026-08-01",
+      "toDate": ""
+    },
+    {
+      "code": "320102001",
+      "description": "GASOLINA C COMUM",
+      "percent": 27.0,
+      "fromDate": "2015-03-16",
+      "toDate": "2025-07-31"
+    },
+    {
+      "code": "320102001",
+      "description": "GASOLINA C COMUM",
+      "percent": 30.0,
+      "fromDate": "2025-08-01",
+      "toDate": "2026-07-31"
+    },
+    {
+      "code": "320102002",
+      "description": "GASOLINA C COMUM ADITIVADA",
+      "percent": 27.0,
+      "fromDate": "2015-03-16",
+      "toDate": "2025-07-31"
+    },
+    {
+      "code": "320102002",
+      "description": "GASOLINA C COMUM ADITIVADA",
+      "percent": 30.0,
+      "fromDate": "2025-08-01",
+      "toDate": "2026-07-31"
+    },
+    {
+      "code": "320103001",
+      "description": "GASOLINA DE REFERÊNCIA - NBR 16038",
+      "percent": 27.0,
+      "fromDate": "2015-03-16",
+      "toDate": "2025-07-31"
+    },
+    {
+      "code": "320103001",
+      "description": "GASOLINA DE REFERÊNCIA - NBR 16038",
+      "percent": 30.0,
+      "fromDate": "2025-08-01",
+      "toDate": "2026-07-31"
+    },
+    {
+      "code": "320103002",
+      "description": "OUTRAS GASOLINAS AUTOMOTIVAS",
+      "percent": 27.0,
+      "fromDate": "2015-03-16",
+      "toDate": "2025-07-31"
+    },
+    {
+      "code": "320103002",
+      "description": "OUTRAS GASOLINAS AUTOMOTIVAS",
+      "percent": 30.0,
+      "fromDate": "2025-08-01",
+      "toDate": "2026-07-31"
+    },
+    {
+      "code": "320103003",
+      "description": "GASOLINA DE REFERÊNCIA - PROCONVE L-6",
+      "percent": 27.0,
+      "fromDate": "2015-03-16",
+      "toDate": "2025-07-31"
+    },
+    {
+      "code": "320103003",
+      "description": "GASOLINA DE REFERÊNCIA - PROCONVE L-6",
+      "percent": 30.0,
+      "fromDate": "2025-08-01",
+      "toDate": "2026-07-31"
+    },
+    {
+      "code": "320301001",
+      "description": "OUTRAS GASOLINAS",
+      "percent": 27.0,
+      "fromDate": "2015-03-16",
+      "toDate": "2025-07-31"
+    },
+    {
+      "code": "320301001",
+      "description": "OUTRAS GASOLINAS",
+      "percent": 30.0,
+      "fromDate": "2025-08-01",
+      "toDate": "2026-07-31"
+    },
+    {
+      "code": "320301002",
+      "description": "GASOLINA PARA EXPORTAÇÃO",
+      "percent": 27.0,
+      "fromDate": "2015-03-16",
+      "toDate": "2025-07-31"
+    },
+    {
+      "code": "320301002",
+      "description": "GASOLINA PARA EXPORTAÇÃO",
+      "percent": 30.0,
+      "fromDate": "2025-08-01",
+      "toDate": "2026-07-31"
+    }
+  ]
+}

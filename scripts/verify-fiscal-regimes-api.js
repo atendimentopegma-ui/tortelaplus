@@ -47,6 +47,18 @@ const root=path.resolve(__dirname,'..');
       assert(result.xml.includes(`<CRT>${regime.crt}</CRT>`));
       assert(result.xml.includes(`<xNome>Empresa ficticia ${index}</xNome>`));
       await call(`/api/tenant/${code}/fiscal/preview`,{document:{...document,total:999}},login.sessionId,422);
+      if(regime.crt==='3'){
+        const ipiDocument=structuredClone(document);
+        ipiDocument.items[0].ipi={enabled:true,cst:'50',enquadramento:'999',method:'percent',rate:10,priceMode:'included'};
+        const ipi=await call(`/api/tenant/${code}/fiscal/preview`,{document:ipiDocument},login.sessionId);
+        assert.equal(ipi.taxSummary.ipi,9.09);assert.equal(ipi.taxSummary.total,100);
+        ipiDocument.items[0].ipi.enquadramento='';
+        await call(`/api/tenant/${code}/fiscal/preview`,{document:ipiDocument},login.sessionId,422);
+        const creditDocument=structuredClone(document);creditDocument.date='2027-01-01';
+        Object.assign(creditDocument.items[0],{ibsUfRate:.05,ibsCityRate:.05,cbsFederalRate:8.8,cbsRateYear:2027,rtcCredit:{enabled:true,code:'04',usedGoods:true,legalBasis:'Fictício para teste',basePerUnit:1,ibsEnabled:true,cbsEnabled:true,ibsRate:1,cbsRate:2}});
+        const credit=await call(`/api/tenant/${code}/fiscal/preview`,{document:creditDocument},login.sessionId);
+        assert.equal(credit.taxSummary.ibsCredit,0.02);assert.equal(credit.taxSummary.cbsCredit,0.04);
+      }
       assert.equal(hash(code),before,'Preview nao pode alterar dados nem configuracoes do cliente');
     }
     await call('/api/tenant/regime-1/fiscal/preview',{document:row('NF-e')},sessions[0],401);

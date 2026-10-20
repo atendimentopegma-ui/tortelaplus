@@ -1568,6 +1568,38 @@ function commaOptionList(value) {
   return [...new Set(source.map((item) => String(item || "").trim()).filter(Boolean))];
 }
 
+// Advanced fiscal parameters are opt-in and remain scoped to the selected product/company.
+const advancedFiscalFields = {
+  ipi: {title:'IPI', fields:[['enabled','Destacar IPI','bool'],['method','Cálculo','percent:Percentual|unit:Por unidade'],['priceMode','Composição do preço','included:IPI já incluído|added:Acrescer IPI ao total'],['enquadramento','cEnq — enquadramento legal','text'],['quantityFactor','Fator da unidade tributável','number'],['unitValue','IPI por unidade tributável','number']]},
+  difal: {title:'DIFAL interestadual',fields:[['enabled','Aplicar regra DIFAL','bool'],['destinationUf','UF de destino','text'],['baseMethod','Base DIFAL','single:Única|double:Dupla (destinatário contribuinte)'],['internalRate','Alíquota interna destino %','number'],['interstateRate','Alíquota interestadual %','number'],['fcpRate','FCP destino %','number'],['baseReduction','Redução de base %','number'],['validFrom','Início da vigência','date'],['validTo','Fim da vigência','date'],['legalBasis','Fundamento legal da UF/operação','text']]},
+  fuel: {title:'Combustíveis — ICMS monofásico',fields:[['enabled','Informar combustível','bool'],['anpCode','Código ANP oficial',"210203001:GLP|210203003:PROPANO COMERCIAL|210203004:PROPANO ESPECIAL|210203005:BUTANO COMERCIAL|320101001:GASOLINA A COMUM|320101002:GASOLINA A PREMIUM|320102001:GASOLINA C COMUM|320102002:GASOLINA C COMUM ADITIVADA|320102003:GASOLINA C PREMIUM|320102005:GASOLINA C PREMIUM ADITIVADA|320103001:GASOLINA DE REFERÊNCIA - NBR 16038|320103002:OUTRAS GASOLINAS AUTOMOTIVAS|320103003:GASOLINA DE REFERÊNCIA - PROCONVE L-6|320201001:GASOLINA DE AVIAÇÃO|320301001:OUTRAS GASOLINAS|320301002:GASOLINA PARA EXPORTAÇÃO|420101004:ÓLEO DIESEL A S1800 NÃO RODOVIÁRIO|420101005:ÓLEO DIESEL A S1800 NÃO RODOVIÁRIO - ADITIVADO|420102004:ÓLEO DIESEL A S500|420102005:ÓLEO DIESEL A S500 - ADITIVADO|420105001:ÓLEO DIESEL A S10|420107001:ÓLEO DIESEL C S10|420201001:ÓLEO DIESEL MARÍTIMO (DMA-MGO)|420201003:ÓLEO DIESEL MARÍTIMO (DMA-MDO)|420301002:OUTROS ÓLEOS DIESEL (Sem Adição de B100)|810102001:ETANOL ANIDRO|810102003:ETANOL ANIDRO DE REFERÊNCIA - EAR|810102004:ETANOL ANIDRO COM CORANTE|820101001:BIODIESEL B100|820101003:ÓLEO DIESEL B S1800 NÃO RODOVIÁRIO - COMUM|820101011:ÓLEO DIESEL B S1800 NÃO RODOVIÁRIO - ADITIVADO|820101012:ÓLEO DIESEL B S500 - COMUM|820101013:ÓLEO DIESEL B S500 - ADITIVADO|820101026:DIESEL B S1800 NÃO RODOVIÁRIO PARA GERAÇÃO DE ENERGIA ELÉTRICA|820101027:DIESEL B S500 PARA GERAÇÃO DE ENERGIA ELÉTRICA|820101032:DIESEL B S10 PARA GERAÇÃO DE ENERGIA ELÉTRICA|820101033:ÓLEO DIESEL B S10 - ADITIVADO|820101034:ÓLEO DIESEL B S10 - COMUM|820101030:ÓLEO DIESEL S10 B20 AUTORIZATIVO|820101025:ÓLEO DIESEL S10 B30 AUTORIZATIVO"],['consumptionUf','UF de consumo','text'],['quantityFactor','Quantidade tributável por unidade comercial','number'],['bioPercent','Biocombustível na mistura %','number'],['deferralRate','Diferimento CST 53 %','number'],['retentionQuantityFactor','Quantidade de retenção por unidade','number'],['retentionAdRem','Alíquota ICMS de retenção','number']]},
+  rtcMono: {title:'IBS/CBS monofásicos — CST 620',fields:[['legalBasis','Fundamento legal dos parâmetros','text'],['validFrom','Início da vigência','date'],['validTo','Fim da vigência','date'],['quantityFactor','Quantidade tributável por unidade','number'],['ibsEnabled','Incidência IBS','bool'],['cbsEnabled','Incidência CBS','bool'],['ibsMethod','Cálculo IBS','adRem:Por unidade (ad rem)|adValorem:Percentual'],['cbsMethod','Cálculo CBS','adRem:Por unidade (ad rem)|adValorem:Percentual'],['ibsRate','Alíquota IBS UF ou ad rem','number'],['ibsCityRate','Alíquota IBS município %','number'],['cbsRate','Alíquota CBS','number'],['retentionQuantityFactor','Quantidade sujeita a retenção por unidade','number'],['retentionBasePercent','Parcela da base de retenção %','number'],['ibsRetentionRate','Alíquota IBS retenção','number'],['cbsRetentionRate','Alíquota CBS retenção','number'],['ibsRetainedPerUnit','IBS anteriormente retido por unidade','number'],['cbsRetainedPerUnit','CBS anteriormente retida por unidade','number'],['bioReferenceValue','Valor de referência do biocombustível','number'],['ibsBioRate','Alíquota IBS biocombustível','number'],['cbsBioRate','Alíquota CBS biocombustível','number']]},
+  rtcCredit: {title:'Crédito presumido IBS/CBS',fields:[['enabled','Informar crédito presumido na operação','bool'],['code','cCredPres oficial',"01:Crédito presumido da aquisição de bens e serviços de produtor rural e produtor rural integrado não contribuint (por evento)|02:Crédito presumido da aquisição de serviço de transportador autônomo de carga pessoa física não contribuinte, o (por evento)|03:Crédito presumido da aquisição de resíduos e demais materiais destinados à reciclagem, reutilização ou logísti (por evento)|04:Crédito presumido da aquisição de bens móveis usados de pessoa física não contribuinte para revenda, observado|05:Crédito presumido no regime automotivo, observado o art. 311 da Lei Complementar nº 214, de 2025.|06:Crédito presumido no regime automotivo, observado o art. 312 da Lei Complementar nº 214, de 2025.|07:Crédito presumido na aquisição por contribuinte na Zona Franca de Manaus, observado o art. 444 da Lei Compleme|08:Crédito presumido na aquisição por contribuinte na Zona Franca de Manaus, observado o art. 447 da Lei Compleme (por evento)|09:Crédito presumido na aquisição por contribuinte na Zona Franca de Manaus, observado o art. 449 da Lei Compleme (por evento)|10:Crédito presumido na aquisição por contribuinte na Zona Franca de Manaus, observado o art. 450 da Lei Compleme|11:Crédito presumido na aquisição por contribuinte na Área de Livre Comércio, observado o art. 462 da Lei Complem|12:Crédito presumido na aquisição por contribuinte na Área de Livre Comércio, observado o art. 465 da Lei Complem (por evento)|13:Crédito presumido na aquisição pela indústria na Área de Livre Comércio, observado o art. 467 da Lei Complemen"],['legalBasis','Fundamento e enquadramento do crédito','text'],['basePerUnit','Base de crédito por unidade comercial','number'],['usedGoods','Bem móvel usado adquirido de pessoa física','bool'],['ibsEnabled','Crédito IBS','bool'],['cbsEnabled','Crédito CBS','bool'],['ibsRate','Crédito IBS %','number'],['cbsRate','Crédito CBS %','number'],['ibsSuspended','IBS sob condição suspensiva','bool'],['cbsSuspended','CBS sob condição suspensiva','bool']]}
+};
+function advancedFiscalForm(fiscal,reform){
+  return '<p class="muted">Parâmetros por empresa e produto. Configure apenas operações aplicáveis, com fundamento e vigência. Créditos apropriados por evento e notas especiais continuam sujeitos ao fluxo específico. Nenhuma alíquota de IBS/CBS monofásicos é presumida. Para nota vinculada a uma venda já paga, o total fiscal precisa corresponder ao valor cobrado; configure IPI incluído quando aplicável.</p>'+Object.entries(advancedFiscalFields).map(([group,schema])=>{
+    const c=(['rtcMono','rtcCredit'].includes(group)?reform:fiscal)[group]||{};
+    return `<details><summary>${schema.title}</summary><div class="grid four">${schema.fields.map(([key,label,type])=>{
+      const id='advanced-'+group+'-'+key,v=c[key]??'';
+      const options=type==='bool'?'true:Sim|false:Não':type.includes(':')?type:'';
+      return `<div class="field"><label for="${id}">${label}</label>${options?`<select id="${id}"><option value="">Não configurado</option>${options.split('|').map(o=>{const [value,text]=o.split(':');return `<option value="${value}" ${String(v)===value?'selected':''}>${text}</option>`;}).join('')}</select>`:`<input id="${id}" type="${type}" ${type==='number'?'min="0" step="0.0001"':''} value="${escapeAttr(v)}" />`}</div>`;
+    }).join('')}</div>${group==='fuel'?'<p class="muted">Origens do combustível: informe as parcelas; o total deve ser 100% quando exigido pela tabela ANP.</p><div class="grid four">'+Array.from({length:5},(_,i)=>{const o=c.origins?.[i]||{};return `<div class="field"><label>Origem ${i+1}: 0 nacional / 1 importado</label><input id="fuel-origin-${i}-imported" value="${escapeAttr(o.imported??'')}" /><label>Código UF de origem</label><input id="fuel-origin-${i}-uf" value="${escapeAttr(o.ufCode??'')}" /><label>Participação %</label><input id="fuel-origin-${i}-percent" type="number" min="0" max="100" step="0.0001" value="${escapeAttr(o.percent??'')}" /></div>`;}).join('')+'</div>':''}</details>`;
+  }).join('');
+}
+function readAdvancedFiscal(group,previous={}){
+  const fields=advancedFiscalFields[group].fields;
+  if(!byId('advanced-'+group+'-'+fields[0][0]))return previous;
+  const result={...previous};
+  for(const [key,,type] of fields){const value=byId('advanced-'+group+'-'+key).value;if(value==='')delete result[key];else result[key]=type==='bool'?value==='true':type==='number'?Number(value):value;}
+  if(group==='ipi'){result.cst=byId('product-ipi-cst')?.value;result.rate=Number(byId('product-ipi-rate')?.value||0);}
+  if(group==='fuel'){
+    const rows=Array.from({length:5},(_,i)=>({imported:byId(`fuel-origin-${i}-imported`).value,ufCode:byId(`fuel-origin-${i}-uf`).value,percent:byId(`fuel-origin-${i}-percent`).value}));
+    result.origins=rows.filter(o=>Object.values(o).some(v=>v!=='')).map(o=>({...o,imported:o.imported===''?null:Number(o.imported),percent:o.percent===''?null:Number(o.percent)}));
+    if((previous.origins||[]).length>5)result.origins.push(...previous.origins.slice(5));
+  }
+  return result;
+}
+
 function productForm() {
   const draft = {
     description: "",
@@ -1748,6 +1780,7 @@ function productTab() {
           <div class="field"><label>COFINS %</label><input id="product-cofins-rate" type="number" step="0.01" value="${Number(fiscal.cofinsRate || 0)}" /></div>
           <div class="field"><label>Natureza receita</label><input id="product-revenue-nature" value="${escapeAttr(fiscal.revenueNature || "")}" /></div>
         </div>
+        ${advancedFiscalForm(fiscal,reform)}
         <h3>Reforma tributaria</h3>
         <div class="grid four">
           <div class="field"><label>cClassTrib</label><input id="product-class-trib" value="${escapeAttr(reform.classTrib || pendingProductDraft.ibsClass || "000001")}" /></div>
@@ -1765,12 +1798,12 @@ function productTab() {
           <div class="field"><label>Diferimento CBS %</label><input id="product-cbs-deferral" type="number" min="0" max="100" step="0.01" value="${Number(reform.cbsDeferral ?? reform.deferral ?? 0)}" /></div>
           <p>O CST e a classificação oficial determinam quais reduções e diferimentos são permitidos. Crédito presumido, ad rem e Imposto Seletivo exigem emissor especializado; este emissor bloqueia seu envio em vez de ignorar valores.</p>
 
-          <div class="field"><label>Crédito presumido % (emissão especializada)</label><input id="product-presumed-credit" type="number" step="0.01" value="${Number(reform.presumedCredit || 0)}" /></div>
+          <div class="field"><label>Crédito presumido legado % (bloqueado; use cCredPres)</label><input id="product-presumed-credit" type="number" step="0.01" value="${Number(reform.presumedCredit || 0)}" /></div>
           <div class="field"><label>Imposto seletivo %</label><input id="product-selective-tax" type="number" step="0.01" value="${Number(reform.selectiveTax || 0)}" /></div>
           <div class="field"><label>CST Imp. seletivo</label><input id="product-selective-tax-cst" value="${escapeAttr(reform.selectiveTaxCst || "")}" /></div>
           <div class="field"><label>Class. Imp. seletivo</label><input id="product-selective-tax-class" value="${escapeAttr(reform.selectiveTaxClass || "")}" /></div>
           <div class="field"><label>Vigencia inicio</label><input id="product-reform-from" type="date" value="${escapeAttr(reform.from || "")}" /></div>
-          <div class="field"><label>Monofásico/ad rem (emissão especializada)</label><select id="product-reform-monophase"><option value="false">Nao</option><option value="true" ${reform.monophase ? "selected" : ""}>Sim</option></select></div>
+          <div class="field"><label>Monofásico (use CST 620 e parâmetros específicos)</label><select id="product-reform-monophase"><option value="false">Nao</option><option value="true" ${reform.monophase ? "selected" : ""}>Sim</option></select></div>
           <div class="field"><label>Aliquota ad rem</label><input id="product-ad-rem-rate" type="number" step="0.0001" value="${Number(reform.adRemRate || 0)}" /></div>
           <div class="field"><label>Unidade ad rem</label><input id="product-ad-rem-unit" value="${escapeAttr(reform.adRemUnit || "")}" /></div>
           <div class="field"><label>Observacao fiscal</label><input id="product-fiscal-note" value="${escapeAttr(fiscal.note || "")}" /></div>
@@ -2795,7 +2828,7 @@ function renderFiscal() {
         <div class="table-wrap fiscal-queue-card" id="fiscal-step-queue" tabindex="-1">
           <table>
             <thead><tr><th>Numero</th><th>Modelo</th><th>Status</th><th>Cliente</th><th>Total</th><th>Tentativas</th><th>Ultimo erro</th><th>Chave</th><th>Protocolo</th><th>Acoes</th></tr></thead>
-            <tbody>${filteredRows.map((row) => `<tr><td>${row.id}</td><td>${row.model}</td><td><span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${row.status}</span></td><td>${row.customer}</td><td>${money(row.total)}</td><td>${row.attempts || 0}</td><td>${row.lastFiscalError || "-"}</td><td>${row.key || "-"}</td><td>${row.protocol || "-"}</td><td><button class="btn" data-fiscal-transmit="${row.id}">Transmitir</button> <button class="btn" data-fiscal-query="${row.id}">Consultar</button> <button class="btn" data-fiscal-print="${row.id}">${row.model === "NFS-e" ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE"}</button> ${row.pdfUrl ? `<button class="btn" data-fiscal-pdf="${row.id}">Baixar PDF</button>` : ""} <button class="btn" data-fiscal-xml="${row.id}">XML</button> ${row.model === "NF-e" ? `<button class="btn" data-fiscal-cce="${row.id}">CC-e</button>` : ""} ${row.model === "NFC-e" ? `<button class="btn" data-fiscal-contingency="${row.id}">Contingencia</button>` : ""} <button class="btn danger" data-fiscal-cancel="${row.id}">Cancelar</button></td></tr>`).join("") || `<tr><td colspan="10">Nenhum documento encontrado para ${currentFiscalTab === "fila" ? "a fila fiscal" : currentModel}. Use o formulario acima para gerar um documento ou importe um XML.</td></tr>`}</tbody>
+            <tbody>${filteredRows.map((row) => `<tr><td>${row.id}</td><td>${row.model}</td><td><span class="badge ${row.status === "Autorizada" ? "ok" : row.status === "Cancelada" ? "danger" : "warn"}">${row.status}</span></td><td>${row.customer}</td><td>${money(row.total)}</td><td>${row.attempts || 0}</td><td>${row.lastFiscalError || "-"}</td><td>${row.key || "-"}</td><td>${row.protocol || "-"}</td><td>${row.taxSummary?`<button class="btn" data-fiscal-tax-summary="${row.id}">Conferir impostos</button> `:""}<button class="btn" data-fiscal-transmit="${row.id}">Transmitir</button> <button class="btn" data-fiscal-query="${row.id}">Consultar</button> <button class="btn" data-fiscal-print="${row.id}">${row.model === "NFS-e" ? "DANFSe" : row.model === "NFC-e" ? "DANFCE" : "DANFE"}</button> ${row.pdfUrl ? `<button class="btn" data-fiscal-pdf="${row.id}">Baixar PDF</button>` : ""} <button class="btn" data-fiscal-xml="${row.id}">XML</button> ${row.model === "NF-e" ? `<button class="btn" data-fiscal-cce="${row.id}">CC-e</button>` : ""} ${row.model === "NFC-e" ? `<button class="btn" data-fiscal-contingency="${row.id}">Contingencia</button>` : ""} <button class="btn danger" data-fiscal-cancel="${row.id}">Cancelar</button></td></tr>`).join("") || `<tr><td colspan="10">Nenhum documento encontrado para ${currentFiscalTab === "fila" ? "a fila fiscal" : currentModel}. Use o formulario acima para gerar um documento ou importe um XML.</td></tr>`}</tbody>
           </table>
         </div>
         </div>
@@ -3406,7 +3439,7 @@ function renderSettings() {
             <div class="field"><label>IBS UF %</label><input id="rule-ibs-uf-rate" type="number" step="0.01" value="${ruleNumber("ibsUfRate")}" /></div>
             <div class="field"><label>IBS Municipio %</label><input id="rule-ibs-city-rate" type="number" step="0.01" value="${ruleNumber("ibsCityRate")}" /></div>
             <div class="field"><label>CBS Federal %</label><input id="rule-cbs-federal-rate" type="number" step="0.01" value="${ruleNumber("cbsFederalRate")}" /></div>
-            <div class="field"><label>Crédito presumido % (emissão especializada)</label><input id="rule-presumed-credit-rate" type="number" step="0.01" value="${ruleNumber("presumedCreditRate")}" /></div>
+            <div class="field"><label>Crédito presumido legado % (bloqueado; use cCredPres)</label><input id="rule-presumed-credit-rate" type="number" step="0.01" value="${ruleNumber("presumedCreditRate")}" /></div>
             <div class="field"><label>Ano de vigência da alíquota CBS</label><input id="rule-transition-year" type="number" value="${ruleValue("transitionYear", "2026")}" /></div>
             <div class="field"><label>Redução IBS %</label><input id="rule-ibs-reduction" type="number" min="0" max="100" step="0.01" value="${ruleNumber("ibsReductionRate")}" /></div>
             <div class="field"><label>Redução CBS %</label><input id="rule-cbs-reduction" type="number" min="0" max="100" step="0.01" value="${ruleNumber("cbsReductionRate")}" /></div>
@@ -3418,7 +3451,7 @@ function renderSettings() {
             <div class="field"><label>Diferimento reforma %</label><input id="rule-reform-deferral-rate" type="number" step="0.01" value="${ruleNumber("reformDeferralRate")}" /></div>
             <div class="field"><label>CST Imp. seletivo</label><input id="rule-selective-cst" value="${ruleValue("selectiveTaxCst")}" /></div>
             <div class="field"><label>Class. Imp. seletivo</label><input id="rule-selective-class" value="${ruleValue("selectiveTaxClass")}" /></div>
-            <div class="field"><label>Monofásico/ad rem (emissão especializada)</label><select id="rule-monophase"><option value="false">Nao</option><option value="true" ${editingRule.monophase ? "selected" : ""}>Sim</option></select></div>
+            <div class="field"><label>Monofásico (use CST 620 e parâmetros específicos)</label><select id="rule-monophase"><option value="false">Nao</option><option value="true" ${editingRule.monophase ? "selected" : ""}>Sim</option></select></div>
             <div class="field"><label>Aliquota ad rem</label><input id="rule-ad-rem-rate" type="number" step="0.0001" value="${ruleNumber("adRemRate")}" /></div>
             <div class="field"><label>Unidade ad rem</label><input id="rule-ad-rem-unit" value="${ruleValue("adRemUnit")}" /></div>
             <div class="field"><label>Servico LC 116</label><input id="rule-service-code" value="${ruleValue("serviceCode")}" /></div>
@@ -4040,6 +4073,12 @@ function bindCurrentModule() {
     button.addEventListener("click", () => downloadFiscalPdf(Number(button.dataset.fiscalPdf)));
   });
 
+  document.querySelectorAll('[data-fiscal-tax-summary]').forEach(button=>button.addEventListener('click',()=>{
+    const row=state.fiscalQueue.find(r=>Number(r.id)===Number(button.dataset.fiscalTaxSummary)),summary=row?.taxSummary;
+    if(!summary)return;
+    const labels={total:'Total da nota',icms:'ICMS próprio',ipi:'IPI',difal:'DIFAL emitente',fcpDestination:'FCP destino',difalRecipient:'DIFAL a cargo do destinatário (informativo)',icmsMono:'ICMS monofásico próprio',icmsMonoRetention:'ICMS monofásico retido nesta operação',icmsMonoPreviouslyRetained:'ICMS monofásico anteriormente retido (informativo)',ibs:'IBS',cbs:'CBS',ibsMono:'IBS monofásico',cbsMono:'CBS monofásica',ibsCredit:'Crédito presumido IBS',cbsCredit:'Crédito presumido CBS',ibsCreditSuspended:'Crédito IBS sob condição suspensiva',cbsCreditSuspended:'Crédito CBS sob condição suspensiva'};
+    alert(Object.entries(labels).map(([key,label])=>label+': '+money(summary[key]||0)).join('\n'));
+  }));
   document.querySelectorAll("[data-fiscal-xml]").forEach((button) => {
     button.addEventListener("click", () => exportFiscalXml(Number(button.dataset.fiscalXml)));
   });
@@ -4951,6 +4990,9 @@ function captureProductDraft() {
     retainedFcpValue: byId("product-retained-fcp-value")?.value ?? pendingProductDraft.fiscal?.retainedFcpValue,
     mva: byId("product-mva")?.value ?? pendingProductDraft.fiscal?.mva ?? 0,
     fcpRate: byId("product-fcp-rate")?.value ?? pendingProductDraft.fiscal?.fcpRate ?? 0,
+    ipi: readAdvancedFiscal('ipi',pendingProductDraft.fiscal?.ipi),
+    difal: readAdvancedFiscal('difal',pendingProductDraft.fiscal?.difal),
+    fuel: readAdvancedFiscal('fuel',pendingProductDraft.fiscal?.fuel),
     ipiCst: byId("product-ipi-cst")?.value ?? pendingProductDraft.fiscal?.ipiCst ?? "",
     ipiRate: byId("product-ipi-rate")?.value ?? pendingProductDraft.fiscal?.ipiRate ?? 0,
     pisInCst: byId("product-pis-in-cst")?.value ?? pendingProductDraft.fiscal?.pisInCst ?? "",
@@ -4964,6 +5006,8 @@ function captureProductDraft() {
   };
   pendingProductDraft.reform = {
     ...(pendingProductDraft.reform || {}),
+    rtcMono: readAdvancedFiscal('rtcMono',pendingProductDraft.reform?.rtcMono),
+    rtcCredit: readAdvancedFiscal('rtcCredit',pendingProductDraft.reform?.rtcCredit),
     classTrib: byId("product-class-trib")?.value ?? pendingProductDraft.reform?.classTrib ?? pendingProductDraft.ibsClass ?? "000001",
     cst: byId("product-reform-cst")?.value ?? pendingProductDraft.reform?.cst ?? "",
     rateYear: byId("product-cbs-rate-year")?.value ?? pendingProductDraft.reform?.rateYear,
@@ -6589,7 +6633,7 @@ async function createFiscalRecord() {
     xml: ""
   };
   Object.assign(row,readRtcDocumentFields(row.items));
-  try { const preview=await previewFiscalRecord(row); row.xml=preview.xml; row.rtcRelease=preview.release; }
+  try { const preview=await previewFiscalRecord(row); row.xml=preview.xml; row.rtcRelease=preview.release; row.taxSummary=preview.taxSummary; }
   catch(error){alert(`Não foi possível gerar ${model}: ${error.message}`);return;}
   state.fiscalQueue.push(row);
   audit("Documento fiscal gerado", `${model} ${row.customer} ${money(row.total)}`);
@@ -6688,7 +6732,7 @@ async function createNfseRecord() {
       description: byId("nfse-description").value
     }
   };
-  try { const preview=await previewFiscalRecord(row); row.xml=preview.xml; row.rtcRelease=preview.release; }
+  try { const preview=await previewFiscalRecord(row); row.xml=preview.xml; row.rtcRelease=preview.release; row.taxSummary=preview.taxSummary; }
   catch(error){alert(`Não foi possível gerar NFS-e: ${error.message}`);return;}
   state.fiscalQueue.push(row);
   state.receivables.push({

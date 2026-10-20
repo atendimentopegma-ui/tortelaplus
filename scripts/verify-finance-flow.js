@@ -144,7 +144,7 @@ globalThis.__financeTest = {
   const state = test.state;
   test.setCashRegister({
     open: true,
-    openedAt: `${new Date().toISOString().slice(0, 10)}T11:00:00.000Z`,
+    openedAt: new Date().toISOString(),
     openedBy: "Operador",
     initialAmount: 100,
     terminal: "SERIE FIN"

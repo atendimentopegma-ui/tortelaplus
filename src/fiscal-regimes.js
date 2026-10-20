@@ -21,9 +21,9 @@
     if (regime && !compatible) errors.push('CRT incompativel com o regime tributario');
     const icmsSimple = ['1','4'].includes(crt), mei = crt === '4';
     const icmsCodes = mei ? ['102','300','400','900'] : icmsSimple
-      ? ['101','102','103','300','400','500','900'] : ['00','20','40','41','50','51','60','90'];
+      ? ['101','102','103','300','400','500','900'] : ['00','02','15','20','40','41','50','51','53','60','61','90'];
     const nfceCodes = mei ? ['102','300'] : icmsSimple
-      ? ['102','103','300','400','500','900'] : ['00','20','40','41','60','90'];
+      ? ['102','103','300','400','500','900'] : ['00','20','40','41','60','61','90'];
     return { crt, errors, icmsSimple, federalSimple: ['1','2','4'].includes(crt), mei, icmsCodes, nfceCodes };
   }
   return { regimes, profile };

@@ -1,4 +1,7 @@
 const domesticIcms=require('./icms-domestic');
+const advancedFiscal=require('./advanced-fiscal');
+const fuelFiscal=require('./fuel-fiscal');
+const rtcSpecial=require('./rtc-special');
 const {profile,regimes}=require('../fiscal-regimes');
 const crypto = require("crypto");
 const { DEFAULT_REFORM_TAX_TABLES, validateClassificationPair, validateReformTaxTables } = require("./reform-tax-tables");
@@ -97,6 +100,11 @@ function itemRule(state, row, item) {
   const reform = product.reform || {};
   const productValues = {
     ...product,
+    ipi: fiscal.ipi ?? product.ipi,
+    difal: fiscal.difal ?? product.difal,
+    fuel: fiscal.fuel ?? product.fuel,
+    rtcMono: reform.rtcMono ?? product.rtcMono,
+    rtcCredit: reform.rtcCredit ?? product.rtcCredit,
     csosn: fiscal.csosn ?? product.csosn ?? (/^\d{3}$/.test(String(product.cst)) ? product.cst : undefined),
     cst: fiscal.cst ?? product.cst,
     pisCofinsCst: fiscal.pisOutCst ?? product.pisCofinsCst,
@@ -155,6 +163,10 @@ function itemRule(state, row, item) {
   }
   const merged = {...rule, ...Object.fromEntries(Object.entries(productValues).filter(([,value]) => value !== undefined && value !== null)), ...item};
   if (Object.hasOwn(item,"cbsRate")) merged.cbsFederalRate = item.cbsRate;
+  if (advancedFiscal.recipient(state,row).uf!==String(state.settings.uf).toUpperCase()) {
+    for(const [field,external] of [['cfop','cfopExternal'],['cst','cstExternal'],['icmsRate','icmsExternalRate']])
+      if(!Object.hasOwn(item,field)&&merged[external]!==undefined&&merged[external]!=='')merged[field]=merged[external];
+  }
   const indicator=DEFAULT_REFORM_TAX_TABLES.cstIndicators.find(c=>c.cst===merged.ibsCbsCst);
   merged.reformIndicator=indicator;
   return merged;
@@ -256,7 +268,11 @@ function reformValues(rule, base) {
   return {base,reduction,deferral,ibsReduction,cbsReduction,ufDeferral,cityDeferral,cbsDeferral,ibsUfRate,ibsCityRate,cbsRate,vDifIBSUF:uf.vDif,vDifIBSMun:city.vDif,vDifCBS:cbs.vDif,vIBSUF:uf.value,vIBSMun:city.value,vIBS:rounded(uf.value+city.value),vCBS:cbs.value,selectiveRate:number(rule.selectiveTaxRate),vIS:rounded(base*number(rule.selectiveTaxRate)/100)};
 }
 
-function ibsCbsXml(rule, values) {
+function ibsCbsXml(rule, values, line) {
+  if(line?.mono)return `<IBSCBS><CST>${rule.ibsCbsCst}</CST><cClassTrib>${rule.ibsClass||rule.cbsClass}</cClassTrib>${line.mono.xml}</IBSCBS>`;
+  if(line?.credit?.xml){
+    return ibsCbsXml(rule,values).replace('</IBSCBS>',line.credit.xml+'</IBSCBS>');
+  }
   const cst = digits(rule.ibsCbsCst || "000").padStart(3, "0").slice(0, 3);
   const cClassTrib = digits(rule.ibsClass || rule.cbsClass || "000001").padStart(6, "0").slice(0, 6);
   if (["400", "410"].includes(cst)) return `<IBSCBS><CST>${cst}</CST><cClassTrib>${cClassTrib}</cClassTrib></IBSCBS>`;
@@ -272,7 +288,7 @@ function selectiveTaxXml(rule, values) {
 
 function ibsCbsTotalsXml(totals) {
   if (!totals.hasReform) return "";
-  return `<IBSCBSTot><vBCIBSCBS>${decimal(totals.base)}</vBCIBSCBS><gIBS><gIBSUF><vDif>${decimal(totals.vDifIBSUF)}</vDif><vDevTrib>0.00</vDevTrib><vIBSUF>${decimal(totals.vIBSUF)}</vIBSUF></gIBSUF><gIBSMun><vDif>${decimal(totals.vDifIBSMun)}</vDif><vDevTrib>0.00</vDevTrib><vIBSMun>${decimal(totals.vIBSMun)}</vIBSMun></gIBSMun><vIBS>${decimal(totals.vIBS)}</vIBS><vCredPres>0.00</vCredPres><vCredPresCondSus>0.00</vCredPresCondSus></gIBS><gCBS><vDif>${decimal(totals.vDifCBS)}</vDif><vDevTrib>0.00</vDevTrib><vCBS>${decimal(totals.vCBS)}</vCBS><vCredPres>0.00</vCredPres><vCredPresCondSus>0.00</vCredPresCondSus></gCBS></IBSCBSTot>`;
+  return `<IBSCBSTot><vBCIBSCBS>${decimal(totals.base)}</vBCIBSCBS><gIBS><gIBSUF><vDif>${decimal(totals.vDifIBSUF)}</vDif><vDevTrib>0.00</vDevTrib><vIBSUF>${decimal(totals.vIBSUF)}</vIBSUF></gIBSUF><gIBSMun><vDif>${decimal(totals.vDifIBSMun)}</vDif><vDevTrib>0.00</vDevTrib><vIBSMun>${decimal(totals.vIBSMun)}</vIBSMun></gIBSMun><vIBS>${decimal(totals.vIBS)}</vIBS><vCredPres>${decimal(totals.creditIbs)}</vCredPres><vCredPresCondSus>${decimal(totals.suspendedIbs)}</vCredPresCondSus></gIBS><gCBS><vDif>${decimal(totals.vDifCBS)}</vDif><vDevTrib>0.00</vDevTrib><vCBS>${decimal(totals.vCBS)}</vCBS><vCredPres>${decimal(totals.creditCbs)}</vCredPres><vCredPresCondSus>${decimal(totals.suspendedCbs)}</vCredPresCondSus></gCBS>${totals.mono?"<gMono>"+[["vIBSMono","ibs"],["vCBSMono","cbs"],["vIBSMonoReten","ibsRetention"],["vCBSMonoReten","cbsRetention"],["vIBSMonoRet","ibsRetained"],["vCBSMonoRet","cbsRetained"]].map(([tag,key])=>`<${tag}>${decimal(totals.mono[key])}</${tag}>`).join("")+"</gMono>":""}</IBSCBSTot>`;
 }
 
 function nfceQrCodeUrl(settings, key, options = {}) {
@@ -338,8 +354,8 @@ function validateNfeState(state, row) {
     const rule = itemRule(state, row, item);
     if (profile(settings).icmsSimple && !profile(settings).icmsCodes.includes(String(rule.csosn))) missing.push(`CSOSN especial sem suporte validado no item ${index+1}`);
     if (!profile(settings).icmsSimple && !profile(settings).icmsCodes.includes(String(rule.cst))) missing.push(`CST ICMS especial sem suporte validado no item ${index+1}`);
-    if(row.model==='NFC-e'&&((profile(settings).icmsSimple&&!['102','103','300','400','500','900'].includes(String(rule.csosn)))||(!profile(settings).icmsSimple&&!['00','20','40','41','60','90'].includes(String(rule.cst)))))missing.push(`CST/CSOSN incompativel com NFC-e no item ${index+1}`);
-    if (number(rule.ipiRate)||number(rule.taxRefundRate)||number(rule.reformTaxRefund)||number(rule.vDevTrib)) missing.push(`IPI/devolucao de tributo exige emissor especializado no item ${index+1}`);
+    if(row.model==='NFC-e'&&((profile(settings).icmsSimple&&!['102','103','300','400','500','900'].includes(String(rule.csosn)))||(!profile(settings).icmsSimple&&!['00','20','40','41','60','61','90'].includes(String(rule.cst)))))missing.push(`CST/CSOSN incompativel com NFC-e no item ${index+1}`);
+    if (number(rule.taxRefundRate)||number(rule.reformTaxRefund)||number(rule.vDevTrib)) missing.push(`IPI/devolucao de tributo exige emissor especializado no item ${index+1}`);
     if ([rule.ibsUfRate,rule.ibsCityRate,rule.cbsFederalRate,rule.icmsRate,rule.pisRate,rule.cofinsRate].some(v=>v!==undefined&&(!Number.isFinite(Number(v))||Number(v)<0||Number(v)>100))) missing.push(`aliquota invalida no item ${index+1}`);
     missing.push(...domesticIcms.errors(settings,rule).map(error=>`${error} no item ${index+1}`));
     if (digits(rule.ncm).length !== 8 || /^0+$/.test(digits(rule.ncm))) missing.push(`NCM do item ${index + 1}`);
@@ -370,7 +386,7 @@ function validateNfeState(state, row) {
       if(indicator&&!indicator.allowsDeferral&&deferrals.some(value=>value!==0))missing.push(`CST ${rule.ibsCbsCst} proibe diferimento no item ${index+1}`);
       if(indicator&&!indicator.allowsReduction&&reductions.some(value=>value!==0))missing.push(`CST ${rule.ibsCbsCst} proibe reducao no item ${index+1}`);
       if(classification&&(reductions[0]!==classification.ibsReduction||reductions[1]!==classification.cbsReduction))missing.push(`reducao IBS/CBS diverge da tabela oficial no item ${index+1}`);
-      if(!['000','200','400','410','510','515','550'].includes(rule.ibsCbsCst)||rule.monophase||classification?.requiresRegularTaxation||classification?.requiresCreditReversal||indicator?.requiresCreditTransfer||indicator?.requiresAdjustment||indicator?.requiresBaseReduction)missing.push(`enquadramento especial IBS/CBS exige emissor especializado no item ${index+1}`);
+      if(!['000','200','400','410','510','515','550','620'].includes(rule.ibsCbsCst)||(rule.monophase&&rule.ibsCbsCst!=='620')||classification?.requiresRegularTaxation||classification?.requiresCreditReversal||indicator?.requiresCreditTransfer||indicator?.requiresAdjustment||indicator?.requiresBaseReduction)missing.push(`enquadramento especial IBS/CBS exige emissor especializado no item ${index+1}`);
       if(number(rule.presumedCreditRate)>0||number(rule.adRemRate)>0)missing.push(`credito presumido/ad rem exige emissor especializado no item ${index+1}; nao sera ignorado`);
       if(number(rule.selectiveTaxRate)>0)missing.push(`Imposto Seletivo exige tabela de CST/cClassTribIS e emissor especializado no item ${index+1}`);
       const policy=rtcPolicy(settings,row),rates=policy.standardRates;
@@ -392,11 +408,16 @@ function validateNfeState(state, row) {
   if(![1,2,9].includes(recipientType))missing.push('Indicador de IE do destinatario invalido');
   if(row.model==='NF-e'&&recipientType===1&&!digits(row.customerIE||customer.stateRegistration))missing.push('IE do destinatario contribuinte');
   if(row.model==='NF-e'&&recipientType===9&&profile(settings).icmsSimple&&items.some(item=>['101','201'].includes(String(itemRule(state,row,item).csosn)))&&!['return','exchange-return'].includes(row.operationType)&&Number(row.purpose)!==4)missing.push('Credito do Simples exige destinatario contribuinte');
-  const destinationUf = String(customer.uf || row.customerUf || settings.uf || "").toUpperCase();
-  if(destinationUf!==String(settings.uf).toUpperCase())missing.push('Operacao interestadual exige apuracao DIFAL e emissor especializado');
+  const destinationUf = advancedFiscal.recipient(state,row).uf;
+  if(destinationUf!==String(settings.uf).toUpperCase()){
+    if(row.model!=='NF-e')missing.push('Operacao interestadual exige NF-e');
+    if(!customer.address||!customer.number||!customer.district||!customer.city||digits(customer.cityCode).length!==7||digits(customer.cep).length!==8)missing.push('Endereco completo do destinatario interestadual');
+    items.forEach((item,i)=>{if(!/^[26]/.test(String(itemRule(state,row,item).cfop)))missing.push(`CFOP interestadual do item ${i+1}`);});
+  }
   if (row.model === "NF-e" && !UF_CODES[destinationUf]) missing.push("UF valida do destinatario da NF-e");
   if (row.model === "NF-e" && digits(customer.cityCode || row.customerCityCode || settings.cityCode).length !== 7) missing.push("codigo IBGE do municipio do destinatario da NF-e");
   const totals = totalsFromItems(items, row);
+  try {totals.net=rounded(fiscalLedger(state,row).reduce((n,l)=>n+l.vItem,0));}catch(error){missing.push(error.message);}
   if([row.total,row.discount,row.addition,row.exchangeCredit,row.change].some(v=>v!==undefined&&!Number.isFinite(Number(v))))missing.push('valor monetario invalido');
   const paymentTotal = (row.payments?.length ? row.payments : [{ value: row.total ?? totals.net }]).reduce((sum, payment) => sum + number(payment.value), 0);
   const change = Math.max(number(row.change), paymentTotal - totals.net, 0);
@@ -413,25 +434,44 @@ function fiscalLedger(state,row) {
   const items=resolveItems(state,row),policy=rtcPolicy(state.settings,row),totals=totalsFromItems(items,row);
   let discounts=0,others=0;
   return items.map((item,index)=>{
-    const rule=itemRule(state,row,item),gross=rounded(number(item.qty)*number(item.price));
-    const discount=rounded(splitValue(totals.discount,totals.gross,gross,index,items.length,discounts));discounts=rounded(discounts+discount);
-    const other=rounded(splitValue(totals.other,totals.gross,gross,index,items.length,others));others=rounded(others+other);
-    const net=rounded(gross-discount+other),isSimple=profile(state.settings).icmsSimple;
-    const icmsDetails=domesticIcms.calculate(state.settings,rule,net);
+    const rule=itemRule(state,row,item),originalGross=rounded(number(item.qty)*number(item.price));
+    const discount=rounded(splitValue(totals.discount,totals.gross,originalGross,index,items.length,discounts));discounts=rounded(discounts+discount);
+    const other=rounded(splitValue(totals.other,totals.gross,originalGross,index,items.length,others));others=rounded(others+other);
+    const ipi=advancedFiscal.ipi(state.settings,row,rule,originalGross,discount,other,number(item.qty));
+    const gross=ipi.gross,net=ipi.net;
+    const fuel=fuelFiscal.calculate(state.settings,row,rule,item);
+    const recipient=advancedFiscal.recipient(state,row);
+    const icmsNet=rounded(net+(ipi.value&&(recipient.final||recipient.type===9)?ipi.value:0));
+    const icmsDetails=fuel.active?{base:0,icms:0,fcp:0}:domesticIcms.calculate(state.settings,rule,icmsNet);
     const icmsBase=icmsDetails.base,icms=icmsDetails.icms,fcp=icmsDetails.fcp;
+    const difal=fuel.active?{destination:0,origin:0,fcp:0,xml:'',recipientLiability:0}:advancedFiscal.difal(state,row,rule,icmsNet);
     const pisCst=String(rule.pisCofinsCst||rule.pisCst||'01'),cofinsCst=String(rule.cofinsCst||rule.pisCofinsCst||'01');
     const nonTax=['04','06','07','08','09'];
     const pis=nonTax.includes(pisCst)?0:rounded(net*number(rule.pisRate)/100);
     const cofins=nonTax.includes(cofinsCst)?0:rounded(net*number(rule.cofinsRate)/100);
-    const taxableRtc=policy.emit&&!['400','410'].includes(rule.ibsCbsCst);
+    const credit=rtcSpecial.credit(state.settings,row,rule,item);
+    const taxableRtc=policy.emit&&!['400','410','620'].includes(rule.ibsCbsCst);
     const reference=reformValues(rule,100);
     const effective=(reference.ibsUfRate*(1-reference.ibsReduction/100)*(1-reference.ufDeferral/100)+reference.ibsCityRate*(1-reference.ibsReduction/100)*(1-reference.cityDeferral/100)+reference.cbsRate*(1-reference.cbsReduction/100)*(1-reference.cbsDeferral/100))/100;
-    const numerator=rounded(Math.max(0,net-icms-fcp-pis-cofins));
-    const rtcBase=taxableRtc?rounded(policy.taxesInProduct?numerator/(1+effective):numerator):0;
+    const numerator=rounded(Math.max(0,net-icms-fcp-fuel.tax-difal.destination-difal.fcp-pis-cofins));
+    const rtcBase=taxableRtc?rounded(policy.taxesInProduct?(numerator+credit.deductIbs)/(1+effective):numerator):0;
     const reform=reformValues(taxableRtc?rule:{},rtcBase);
-    const productLiquid=rounded(gross-icms-fcp-pis-cofins-(policy.taxesInProduct?reform.vIBS+reform.vCBS+reform.vIS:0));
-    return {item,rule,gross,discount,other,net,icmsBase,icms,fcp,pis,cofins,pisCst,cofinsCst,reform,productLiquid,unitLiquid:productLiquid/number(item.qty),vItem:net};
+    if(credit.deductIbs>reform.vIBS)throw Error('Credito presumido dedutivel supera IBS da operacao');
+    reform.vIBS=rounded(reform.vIBS-credit.deductIbs);
+    let mono=policy.emit?rtcSpecial.mono(state.settings,row,rule,item,numerator):null;
+    if(mono&&policy.taxesInProduct){
+      const sample=rtcSpecial.mono(state.settings,row,rule,item,100),zero=rtcSpecial.mono(state.settings,row,rule,item,0);
+      const fixed=zero.ibsTotal+zero.cbsTotal,rate=(sample.ibsTotal+sample.cbsTotal-fixed)/100;
+      if(fixed>numerator)throw Error('Tributacao monofasica supera valor do item');
+      mono=rtcSpecial.mono(state.settings,row,rule,item,rounded((numerator-fixed)/(1+rate)));
+    }
+    const productLiquid=rounded(gross-icms-fcp-fuel.tax-difal.destination-difal.fcp-pis-cofins-(policy.taxesInProduct?reform.vIBS+reform.vCBS+reform.vIS+(mono?mono.ibsTotal+mono.cbsTotal:0):0));
+    return {item,rule,gross,discount,other,net,icmsNet,icmsBase,icms,fcp,pis,cofins,pisCst,cofinsCst,reform,ipi,difal,fuel,mono,credit,productLiquid,unitLiquid:productLiquid/number(item.qty),vItem:rounded(net+ipi.value+fuel.retentionValue)};
   });
+}
+function fiscalTaxSummary(state,row){
+  const lines=fiscalLedger(state,row),sum=(group,key)=>rounded(lines.reduce((n,l)=>n+number(group?l[group]?.[key]:l[key]),0));
+  return {total:sum(null,'vItem'),icms:sum(null,'icms'),ipi:sum('ipi','value'),difal:sum('difal','destination'),fcpDestination:sum('difal','fcp'),difalRecipient:sum('difal','recipientLiability'),icmsMono:sum('fuel','value'),icmsMonoRetention:sum('fuel','retentionValue'),icmsMonoPreviouslyRetained:sum('fuel','retainedValue'),ibs:sum('reform','vIBS'),cbs:sum('reform','vCBS'),ibsMono:sum('mono','ibsTotal'),cbsMono:sum('mono','cbsTotal'),ibsCredit:sum('credit','ibs'),cbsCredit:sum('credit','cbs'),ibsCreditSuspended:sum('credit','ibsSuspended'),cbsCreditSuspended:sum('credit','cbsSuspended')};
 }
 function validateReformTotals(totals, netTotal, lines) {
   const errors=[];
@@ -442,7 +482,13 @@ function validateReformTotals(totals, netTotal, lines) {
     const computed=rounded(lines.reduce((n,line)=>n+number(line.reform[key]),0));
     if(Math.abs(computed-rounded(totals[key]))>0.01)errors.push(`total ${key} difere dos itens`);
   }
-  if(Math.abs(rounded(totals.vIBS)-rounded(totals.vIBSUF+totals.vIBSMun))>0.01)errors.push('IBS total difere de UF + municipio');
+  if(Math.abs(rounded(totals.vIBS)-rounded(totals.vIBSUF+totals.vIBSMun-lines.reduce((n,l)=>n+number(l.credit?.deductIbs),0)))>0.01)errors.push('IBS total difere de UF + municipio');
+  for(const [total,key]of [['creditIbs','ibs'],['creditCbs','cbs'],['suspendedIbs','ibsSuspended'],['suspendedCbs','cbsSuspended']]){
+    if(Math.abs(number(totals[total])-rounded(lines.reduce((n,l)=>n+number(l.credit?.[key]),0)))>0.01)errors.push(`Total ${total} difere dos creditos dos itens`);
+  }
+  for(const key of ['ibs','cbs','ibsRetention','cbsRetention','ibsRetained','cbsRetained']){
+    if(Math.abs(number(totals.mono?.[key])-rounded(lines.reduce((n,l)=>n+number(l.mono?.[key]),0)))>0.01)errors.push(`Total monofasico ${key} difere dos itens`);
+  }
   return errors;
 }
 
@@ -452,11 +498,19 @@ function generateNfeXml(state, row, options = {}) {
   const settings = state.settings;
   if (row.model === "NFC-e" && !options.csc) throw new Error("XML NFC-e incompleto: CSC protegido da NFC-e");
   const customer = { ...findCustomer(state, row), document: row.customerDocument || findCustomer(state, row).document };
+  // A destination override must affect both the calculation and the emitted address.
+  if(row.customerUf)customer.uf=row.customerUf;
+  if(row.customerCityCode)customer.cityCode=row.customerCityCode;
   const items = resolveItems(state, row);
   const key = accessKey(settings, row);
   const model = row.model === "NFC-e" ? "65" : "55";
   const totals = totalsFromItems(items, row);
   const ledger=fiscalLedger(state,row),policy=rtcPolicy(settings,row);
+  totals.gross=rounded(ledger.reduce((n,l)=>n+l.gross,0));totals.net=rounded(ledger.reduce((n,l)=>n+l.vItem,0));
+  const totalIpi=rounded(ledger.reduce((n,l)=>n+l.ipi.value,0));
+  const sumAdvanced=(group,key)=>rounded(ledger.reduce((n,l)=>n+number(l[group]?.[key]),0));
+  const difalTotals=ledger.some(l=>l.difal.xml)?`<vFCPUFDest>${decimal(sumAdvanced('difal','fcp'))}</vFCPUFDest><vICMSUFDest>${decimal(sumAdvanced('difal','destination'))}</vICMSUFDest><vICMSUFRemet>0.00</vICMSUFRemet>`:'';
+  const fuelTotals=ledger.some(l=>l.fuel.active)?[['qBCMono','quantity'],['vICMSMono','value'],['qBCMonoReten','retentionQuantity'],['vICMSMonoReten','retentionValue'],['qBCMonoRet','retainedQuantity'],['vICMSMonoRet','retainedValue']].map(([tag,key])=>`<${tag}>${decimal(sumAdvanced('fuel',key))}</${tag}>`).join(''):'';
   const totalIcms=rounded(ledger.reduce((n,line)=>n+line.icms,0));
   const totalFcp=rounded(ledger.reduce((n,line)=>n+line.fcp,0));
   const totalFcpRetained=rounded(ledger.reduce((n,line)=>n+number(line.rule.retainedFcpValue),0));
@@ -477,7 +531,9 @@ function generateNfeXml(state, row, options = {}) {
     reformTotals.vIBS += reform.vIBS;
     reformTotals.vCBS += reform.vCBS;
     reformTotals.vIS += reform.vIS;
-    return `<det nItem="${index + 1}"><prod><cProd>${xml(item.id || item.productId || index + 1)}</cProd><cEAN>${digits(rule.barcode) || "SEM GTIN"}</cEAN><xProd>${xml(item.description || rule.description)}</xProd><NCM>${digits(rule.ncm)}</NCM>${rule.cest ? `<CEST>${digits(rule.cest)}</CEST>` : ""}${rule.taxBenefitCode?`<cBenef>${xml(rule.taxBenefitCode)}</cBenef>`:""}<CFOP>${digits(rule.cfop)}</CFOP><uCom>${xml(item.unit || rule.unit || "UN")}</uCom><qCom>${decimal(item.qty, 4)}</qCom><vUnCom>${decimal(item.price, 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd>${policy.netPriceFields && row.useNetPriceFields ? `<vUnComLiq>${decimal(line.unitLiquid,10)}</vUnComLiq><vProdLiq>${decimal(line.productLiquid)}</vProdLiq>` : ""}<cEANTrib>${digits(rule.barcode) || "SEM GTIN"}</cEANTrib><uTrib>${xml(item.unit || rule.unit || "UN")}</uTrib><qTrib>${decimal(item.qty, 4)}</qTrib><vUnTrib>${decimal(item.price, 10)}</vUnTrib>${itemDiscount ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}${itemOther ? `<vOutro>${decimal(itemOther)}</vOutro>` : ""}<indTot>1</indTot></prod><imposto><ICMS>${icmsXml(settings, rule, line.net)}</ICMS><PIS>${pisCofinsXml("PIS", line.pisCst, line.net, pisRate)}</PIS><COFINS>${pisCofinsXml("COFINS", line.cofinsCst, line.net, cofinsRate)}</COFINS>${reformRequired(state,row) ? selectiveTaxXml(rule, reform) + ibsCbsXml(rule, reform) : ""}</imposto><vItem>${decimal(line.vItem)}</vItem>${itemReferenceXml(settings,row,item)}</det>`;
+    for(const [field,key] of [['creditIbs','ibs'],['creditCbs','cbs'],['suspendedIbs','ibsSuspended'],['suspendedCbs','cbsSuspended']])reformTotals[field]=number(reformTotals[field])+number(line.credit[key]);
+    if(line.mono){reformTotals.mono ||= {ibs:0,cbs:0,ibsRetention:0,cbsRetention:0,ibsRetained:0,cbsRetained:0};for(const key of Object.keys(reformTotals.mono))reformTotals.mono[key]+=line.mono[key];}
+    return `<det nItem="${index + 1}"><prod><cProd>${xml(item.id || item.productId || index + 1)}</cProd><cEAN>${digits(rule.barcode) || "SEM GTIN"}</cEAN><xProd>${xml(item.description || rule.description)}</xProd><NCM>${digits(rule.ncm)}</NCM>${rule.cest ? `<CEST>${digits(rule.cest)}</CEST>` : ""}${rule.taxBenefitCode?`<cBenef>${xml(rule.taxBenefitCode)}</cBenef>`:""}<CFOP>${digits(rule.cfop)}</CFOP><uCom>${xml(item.unit || rule.unit || "UN")}</uCom><qCom>${decimal(item.qty, 4)}</qCom><vUnCom>${decimal(line.gross/number(item.qty), 10)}</vUnCom><vProd>${decimal(itemTotal)}</vProd>${policy.netPriceFields && row.useNetPriceFields ? `<vUnComLiq>${decimal(line.unitLiquid,10)}</vUnComLiq><vProdLiq>${decimal(line.productLiquid)}</vProdLiq>` : ""}<cEANTrib>${digits(rule.barcode) || "SEM GTIN"}</cEANTrib><uTrib>${xml(line.fuel.unit || item.unit || rule.unit || "UN")}</uTrib><qTrib>${decimal(line.fuel.tributaryQuantity || item.qty, 4)}</qTrib><vUnTrib>${decimal(line.gross/number(line.fuel.tributaryQuantity || item.qty), 10)}</vUnTrib>${itemDiscount ? `<vDesc>${decimal(itemDiscount)}</vDesc>` : ""}${itemOther ? `<vOutro>${decimal(itemOther)}</vOutro>` : ""}<indTot>1</indTot>${line.credit.usedGoods?"<indBemMovelUsado>1</indBemMovelUsado>":""}${line.fuel.productXml}</prod><imposto><ICMS>${line.fuel.active?line.fuel.xml:icmsXml(settings, rule, line.icmsNet)}</ICMS>${line.ipi.xml}<PIS>${pisCofinsXml("PIS", line.pisCst, line.net, pisRate)}</PIS><COFINS>${pisCofinsXml("COFINS", line.cofinsCst, line.net, cofinsRate)}</COFINS>${line.difal.xml}${reformRequired(state,row) ? selectiveTaxXml(rule, reform) + ibsCbsXml(rule, reform,line) : ""}</imposto><vItem>${decimal(line.vItem)}</vItem>${itemReferenceXml(settings,row,item)}</det>`;
   }).join("");
   const reformTotalErrors = validateReformTotals(reformTotals, totals.net, ledger);
   if (reformTotalErrors.length) throw new Error(`XML ${row.model} com totalizadores da reforma invalidos: ${reformTotalErrors.join(", ")}`);
@@ -498,7 +554,7 @@ function generateNfeXml(state, row, options = {}) {
     ? `<dhCont>${isoDateTime(row.contingencyAt)}</dhCont><xJust>${xml(row.contingencyReason || "Indisponibilidade temporaria de comunicacao com a SEFAZ")}</xJust>`
     : "";
   const reference = isReturn && !policy.returnItemReference && /^\d{44}$/.test(digits(row.referencedKey)) ? `<NFref><refNFe>${digits(row.referencedKey)}</refNFe></NFref>` : "";
-  const nfe = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00"><ide><cUF>${UF_CODES[settings.uf]}</cUF><cNF>${key.slice(35, 43)}</cNF><natOp>${xml(row.nature || (isReturn ? "Devolucao de venda" : "Venda de mercadoria"))}</natOp><mod>${model}</mod><serie>${Number(row.serie || 1)}</serie><nNF>${Number(row.number || row.id || 1)}</nNF><dhEmi>${isoDateTime(row.issuedAt || (row.date ? row.date + "T12:00:00-03:00" : new Date()))}</dhEmi><tpNF>${isReturn ? "0" : "1"}</tpNF><idDest>1</idDest><cMunFG>${digits(settings.cityCode)}</cMunFG><tpImp>${model === "65" ? "4" : "1"}</tpImp><tpEmis>${Number(row.emissionType || 1)}</tpEmis><cDV>${key.slice(-1)}</cDV><tpAmb>${settings.fiscalEnvironment === "Producao" ? "1" : "2"}</tpAmb><finNFe>${Number(row.purpose || (isReturn ? 4 : 1))}</finNFe><indFinal>${finalConsumer}</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TortelaPlus-0.1.0</verProc>${contingency}${reference}</ide><emit><CNPJ>${digits(settings.document)}</CNPJ><xNome>${xml(settings.legalName || settings.company)}</xNome><enderEmit><xLgr>${xml(settings.address)}</xLgr><nro>${xml(settings.number)}</nro><xBairro>${xml(settings.district)}</xBairro><cMun>${digits(settings.cityCode)}</cMun><xMun>${xml(settings.city)}</xMun><UF>${xml(settings.uf)}</UF><CEP>${digits(settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>${digits(settings.stateRegistration)}</IE><CRT>${policy.crt}</CRT></emit>${destination}${details}<total>${liquidTotalXml}<ICMSTot><vBC>${decimal(totalIcmsBase)}</vBC><vICMS>${decimal(totalIcms)}</vICMS><vICMSDeson>0.00</vICMSDeson><vFCP>${decimal(totalFcp)}</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>${decimal(totalFcpRetained)}</vFCPSTRet><vProd>${decimal(totals.gross)}</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>${decimal(totals.discount)}</vDesc><vII>0.00</vII><vIPI>0.00</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>${decimal(totalPis)}</vPIS><vCOFINS>${decimal(totalCofins)}</vCOFINS><vOutro>${decimal(totals.other)}</vOutro><vNF>${decimal(totals.net)}</vNF></ICMSTot>${reformTotalsXml}</total><transp><modFrete>9</modFrete></transp><pag>${payments}${change ? `<vTroco>${decimal(change)}</vTroco>` : ""}</pag>${paymentLinksXml(row)}${settings.fiscalResponsible ? `<infAdic><infCpl>${xml(`Responsavel fiscal: ${settings.fiscalResponsible}`)}</infCpl></infAdic>` : ""}</infNFe></NFe>`;
+  const nfe = `<NFe xmlns="http://www.portalfiscal.inf.br/nfe"><infNFe Id="NFe${key}" versao="4.00"><ide><cUF>${UF_CODES[settings.uf]}</cUF><cNF>${key.slice(35, 43)}</cNF><natOp>${xml(row.nature || (isReturn ? "Devolucao de venda" : "Venda de mercadoria"))}</natOp><mod>${model}</mod><serie>${Number(row.serie || 1)}</serie><nNF>${Number(row.number || row.id || 1)}</nNF><dhEmi>${isoDateTime(row.issuedAt || (row.date ? row.date + "T12:00:00-03:00" : new Date()))}</dhEmi><tpNF>${isReturn ? "0" : "1"}</tpNF><idDest>${advancedFiscal.recipient(state,row).uf===String(settings.uf).toUpperCase()?1:2}</idDest><cMunFG>${digits(settings.cityCode)}</cMunFG><tpImp>${model === "65" ? "4" : "1"}</tpImp><tpEmis>${Number(row.emissionType || 1)}</tpEmis><cDV>${key.slice(-1)}</cDV><tpAmb>${settings.fiscalEnvironment === "Producao" ? "1" : "2"}</tpAmb><finNFe>${Number(row.purpose || (isReturn ? 4 : 1))}</finNFe><indFinal>${finalConsumer}</indFinal><indPres>1</indPres><procEmi>0</procEmi><verProc>TortelaPlus-0.1.0</verProc>${contingency}${reference}</ide><emit><CNPJ>${digits(settings.document)}</CNPJ><xNome>${xml(settings.legalName || settings.company)}</xNome><enderEmit><xLgr>${xml(settings.address)}</xLgr><nro>${xml(settings.number)}</nro><xBairro>${xml(settings.district)}</xBairro><cMun>${digits(settings.cityCode)}</cMun><xMun>${xml(settings.city)}</xMun><UF>${xml(settings.uf)}</UF><CEP>${digits(settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderEmit><IE>${digits(settings.stateRegistration)}</IE><CRT>${policy.crt}</CRT></emit>${destination}${details}<total>${liquidTotalXml}<ICMSTot><vBC>${decimal(totalIcmsBase)}</vBC><vICMS>${decimal(totalIcms)}</vICMS><vICMSDeson>0.00</vICMSDeson>${difalTotals}<vFCP>${decimal(totalFcp)}</vFCP><vBCST>0.00</vBCST><vST>0.00</vST><vFCPST>0.00</vFCPST><vFCPSTRet>${decimal(totalFcpRetained)}</vFCPSTRet>${fuelTotals}<vProd>${decimal(totals.gross)}</vProd><vFrete>0.00</vFrete><vSeg>0.00</vSeg><vDesc>${decimal(totals.discount)}</vDesc><vII>0.00</vII><vIPI>${decimal(totalIpi)}</vIPI><vIPIDevol>0.00</vIPIDevol><vPIS>${decimal(totalPis)}</vPIS><vCOFINS>${decimal(totalCofins)}</vCOFINS><vOutro>${decimal(totals.other)}</vOutro><vNF>${decimal(totals.net)}</vNF></ICMSTot>${reformTotalsXml}</total><transp><modFrete>9</modFrete></transp><pag>${payments}${change ? `<vTroco>${decimal(change)}</vTroco>` : ""}</pag>${paymentLinksXml(row)}${settings.fiscalResponsible ? `<infAdic><infCpl>${xml(`Responsavel fiscal: ${settings.fiscalResponsible}`)}</infCpl></infAdic>` : ""}</infNFe></NFe>`;
   const supplement = model === "65" ? nfceSupplement(settings, key, options) : "";
   return `<?xml version="1.0" encoding="UTF-8"?>${nfe.replace("</infNFe></NFe>", `</infNFe>${supplement}</NFe>`)}`;
 }
@@ -591,6 +647,7 @@ function importNfeXml(content) {
 }
 
 module.exports = {
+  fiscalTaxSummary,
   fiscalLedger,
   validateReformTotals,
   generateFiscalXml,

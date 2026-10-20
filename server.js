@@ -4236,7 +4236,7 @@ async function handleApi(req, res, urlPath) {
     if(access.error)return deny(res,access);
     const body=await readBody(req),row=body.document||{},state=readTenantState(code);
     if(!['NF-e','NFC-e','NFS-e'].includes(row.model))return sendJson(res,400,{ok:false,error:'Modelo fiscal invalido'});
-    try {const xml=fiscalXmlFromState(state,row,code);return sendJson(res,200,{ok:true,xml,release:require('./src/server/rtc-policy').RTC_RELEASE.version});}
+    try {const xml=fiscalXmlFromState(state,row,code);return sendJson(res,200,{ok:true,xml,taxSummary:row.model==='NFS-e'?null:require('./src/server/fiscal-documents').fiscalTaxSummary(state,row),release:require('./src/server/rtc-policy').RTC_RELEASE.version});}
     catch(error){return sendJson(res,422,{ok:false,error:error.message});}
   }
 
