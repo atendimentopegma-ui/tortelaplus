@@ -7028,3 +7028,27 @@ body.tortela-kiosk-page .kiosk-menu-footer {
   grid-template-rows: none;
   grid-auto-rows: auto;
 }
+
+/* Franchise editor: aligned fields and explicit action rows. */
+.franchise-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:20px; }
+.franchise-heading h2 { margin:0 0 6px; }
+.franchise-heading p { margin:0; color:var(--muted); }
+.franchise-mode { background:#eef7fa; color:#075985; border-radius:20px; padding:7px 12px; font-size:13px; font-weight:700; white-space:nowrap; }
+.franchise-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:16px; padding-bottom:20px; border-bottom:1px solid var(--line); margin-bottom:24px; }
+.network-form.franchise-editor { display:flex; flex-direction:column; gap:24px; }
+.franchise-section { margin:0; min-width:0; padding:20px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
+.franchise-section legend { padding:0 8px; font-size:16px; font-weight:750; color:#17243d; }
+.franchise-section > p { margin:0 0 14px; color:var(--muted); font-size:14px; }
+.franchise-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 24px; align-items:start; }
+.franchise-fields-four { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.franchise-fields .field { display:flex; flex-direction:column; gap:6px; margin:0; min-width:0; }
+.franchise-fields label,.franchise-toolbar label { display:flex; flex-direction:column; gap:8px; font-size:14px; font-weight:650; }
+.franchise-fields input,.franchise-fields select,.franchise-toolbar select { width:100%; height:44px; min-width:0; }
+.franchise-fields small { color:var(--muted); font-size:12px; }
+.franchise-modules.store-permission-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; background:transparent; padding:0; border:0; }
+.franchise-modules .check-row { display:flex; align-items:center; gap:10px; margin:0; padding:12px; border:1px solid #e2e8f0; border-radius:7px; background:#f8fafc; min-height:44px; }
+.franchise-modules input[type="checkbox"] { width:18px; height:18px; margin:0; flex:none; }
+.franchise-actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding-top:18px; border-top:1px solid #e2e8f0; }
+.franchise-actions .btn,.franchise-toolbar .btn { min-height:44px; width:auto; padding:11px 20px; white-space:normal; align-self:auto; }
+@media(max-width:1100px) { .franchise-fields-four,.franchise-modules.store-permission-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:640px) { .franchise-heading { align-items:flex-start; flex-direction:column; } .franchise-toolbar,.franchise-fields,.franchise-fields-four { grid-template-columns:1fr; } .franchise-section { padding:16px; } .franchise-actions .btn { flex:1 1 100%; } }

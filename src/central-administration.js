@@ -29,19 +29,23 @@ window.CentralAdministration = {
     try{
       const {clients}=await api("/api/network/franchisees");
       const modules=["PDV","NF-e","NFC-e","NFS-e","Estoque","Financeiro","Relatorios","Compras","CTe","CTe-OS","MDFe","SAT","MFe","SPED","Sintegra"];
-      container.innerHTML=`<h2>Cadastro e poderes da unidade</h2><div class="field"><label>Franqueado<select id="managed-franchise">${clients.map(row=>`<option value="${escape(row.tenantCode)}">${escape(row.tradeName)} — ${escape(row.tenantCode)}</option>`).join("")}</select></label></div>
-        <button class="btn" type="button" id="new-franchise">Cadastrar franqueado</button>
-        <form class="network-form" id="franchise-form">
-          <div class="field"><label>Codigo da unidade<input name="tenantCode" required pattern="[a-z0-9-]+" /></label></div>
-          <div class="field"><label>Nome do franqueado / unidade<input name="tradeName" required /></label></div>
-          <div class="field"><label>CNPJ / CPF<input name="document" /></label></div>
-          <div class="field"><label>Responsavel / contato<input name="adminUser" /></label></div>
-          <div class="field"><label>Plano<input name="plan" /></label></div>
-          <div class="field"><label>Terminais permitidos<input name="maxTerminals" type="number" min="1" required /></label></div>
-          <div class="field"><label>Dias por renovacao<input name="renewalDays" type="number" min="1" required /></label></div>
-          <div class="field"><label>Situacao<select name="status"><option>Ativo</option><option>Homologacao</option><option>Inadimplente</option><option>Bloqueado</option></select></label></div>
-          <div style="grid-column:1/-1"><strong>Modulos liberados para esta franquia</strong><div class="store-permission-grid">${modules.map(name=>`<label class="check-row"><input type="checkbox" name="module" value="${escape(name)}" /> ${escape(name)}</label>`).join("")}</div></div>
-          <button class="btn primary" type="submit">Salvar franqueado e poderes</button><span role="status" style="grid-column:1/-1"></span>
+      container.innerHTML=`<div class="franchise-heading"><div><h2>Cadastro da franqueada</h2><p>Selecione uma unidade para editar ou cadastre uma nova.</p></div><span class="franchise-mode" id="franchise-mode"></span></div>
+        <div class="franchise-toolbar"><div class="field"><label>Unidade selecionada<select id="managed-franchise"><option value="" disabled>Nova franqueada — preencha o cadastro abaixo</option>${clients.map(row=>`<option value="${escape(row.tenantCode)}">${escape(row.tradeName)} — ${escape(row.tenantCode)}</option>`).join("")}</select></label></div><button class="btn" type="button" id="new-franchise">+ Cadastrar franqueado</button></div>
+        <form class="network-form franchise-editor" id="franchise-form">
+          <fieldset class="franchise-section"><legend>1. Identificação e contato</legend><div class="franchise-fields">
+            <div class="field"><label>Código da unidade<input name="tenantCode" required pattern="[a-z0-9-]+" placeholder="Ex.: loja-02" /></label><small>Use letras minúsculas, números e hífen.</small></div>
+            <div class="field"><label>Nome da franqueada / unidade<input name="tradeName" required /></label></div>
+            <div class="field"><label>CNPJ / CPF<input name="document" /></label></div>
+            <div class="field"><label>Responsável / contato<input name="adminUser" /></label></div>
+          </div></fieldset>
+          <fieldset class="franchise-section"><legend>2. Plano e operação</legend><div class="franchise-fields franchise-fields-four">
+            <div class="field"><label>Plano<input name="plan" /></label></div>
+            <div class="field"><label>Situação<select name="status"><option>Ativo</option><option>Homologacao</option><option>Inadimplente</option><option>Bloqueado</option></select></label></div>
+            <div class="field"><label>Terminais permitidos<input name="maxTerminals" type="number" min="1" required /></label></div>
+            <div class="field"><label>Renovação (dias)<input name="renewalDays" type="number" min="1" required /></label></div>
+          </div></fieldset>
+          <fieldset class="franchise-section"><legend>3. Módulos liberados</legend><p>Marque os recursos que esta unidade poderá utilizar.</p><div class="store-permission-grid franchise-modules">${modules.map(name=>`<label class="check-row"><input type="checkbox" name="module" value="${escape(name)}" /> ${escape(name)}</label>`).join("")}</div></fieldset>
+          <div class="franchise-actions"><button class="btn primary" type="submit">Salvar franqueado e poderes</button><button class="btn" type="button" id="cancel-franchise-edit">Cancelar alterações</button></div><span role="status" aria-live="polite" class="full"></span>
         </form>`;
       const select=container.querySelector('#managed-franchise'),form=container.querySelector('#franchise-form'),status=form.querySelector('[role="status"]');
       const users=document.getElementById("franchise-users");let creating=false;
@@ -55,12 +59,14 @@ window.CentralAdministration = {
           }});
           else{companyContainer.companyMount={};companyContainer.textContent="Salve a nova unidade para configurar os dados da empresa.";}
         }
+        select.value=row?.tenantCode||"";container.querySelector('#franchise-mode').textContent=row?'Editando unidade':'Nova franqueada';
         creating=!row;for(const key of ["tenantCode","tradeName","document","adminUser","plan","maxTerminals","renewalDays","status"])form.elements[key].value=row?.[key]??({maxTerminals:1,renewalDays:30,status:"Ativo",plan:"Essencial"}[key]||"");
         form.elements.tenantCode.disabled=!!row;form.querySelectorAll('[name="module"]').forEach(input=>input.checked=(row?.modules||["PDV","Estoque","Financeiro","Relatorios","Compras"]).includes(input.value));status.textContent="";
         if(row)window.UserAccessPanel.mount(users,{api,basePath:`/api/provider/tenant/${encodeURIComponent(row.tenantCode)}/users`,permissions:window.UserAccessPanel.tenantPermissions});else users.textContent="Salve a nova franquia para administrar seus usuarios.";
       };
       select.addEventListener("change",()=>load(clients.find(row=>row.tenantCode===select.value)));
       container.querySelector('#new-franchise').addEventListener("click",()=>load(null));
+      container.querySelector('#cancel-franchise-edit').addEventListener("click",()=>load(clients.find(row=>row.tenantCode===select.value)||clients[0]||null));
       form.addEventListener("submit",async event=>{
         event.preventDefault();const button=form.querySelector('button[type="submit"]');button.disabled=true;
         const body=Object.fromEntries(["tenantCode","tradeName","document","adminUser","plan","maxTerminals","renewalDays","status"].map(key=>[key,form.elements[key].value]));
