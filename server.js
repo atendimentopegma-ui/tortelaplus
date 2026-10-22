@@ -1,3 +1,4 @@
+const companyProfile = require("./src/company-profile");
 const itemPreparation = require("./src/item-preparation");
 const http = require("http");
 const fs = require("fs");
@@ -1069,7 +1070,7 @@ function publicTenantState(state) {
 }
 
 function publicProvider(provider) {
-  const { providerAdmins, ...safe } = provider;
+  const { providerAdmins, companyProfile: privateCompanyProfile, ...safe } = provider;
   return {
     ...safe,
     clients: (safe.clients || []).map(publicTenant)
@@ -3500,7 +3501,7 @@ async function handleApi(req, res, urlPath) {
         licensePassword: existing?.licensePassword || client.licensePassword || "PEGMA-2026"
       };
     });
-    writeProvider({ ...incoming, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
+    writeProvider({ ...incoming, companyProfile: current.companyProfile, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
     appendProviderAudit("Central atualizada", "Configuracoes gerais alteradas", providerAccess(req).username, requestIp(req));
     sendJson(res, 200, { ok: true });
     return;
@@ -4024,6 +4025,30 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 503, { ok: false, error: error.message });
     }
     return;
+  }
+
+  const companyTenantMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/company-profile$/);
+  if((urlPath==='/api/provider/company-profile'||companyTenantMatch)&&['GET','POST'].includes(req.method)){
+    const provider=readProvider(),central=urlPath==='/api/provider/company-profile';
+    const code=central?'':normalizeTenantCode(companyTenantMatch[1]);
+    const access=central?providerAccess(req):tenantAccessOrProvider(req,provider,code,'settings');
+    if(!access)return sendJson(res,401,{ok:false,error:'Sessão administrativa obrigatória.'});
+    if(access.error)return deny(res,access);
+    const state=central?null:readTenantState(code);
+    const current=companyProfile.profile(central?provider.companyProfile:state.settings);
+    const revision=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    const payload=profile=>({ok:true,scope:central?'central':'unit',unit:central?'Central da rede':(access.tenant.tradeName||code),profile,revision:revision(profile)});
+    if(req.method==='GET')return sendJson(res,200,payload(current));
+    const body=await readBody(req);
+    if(body.revision!==revision(current))return sendJson(res,409,{ok:false,error:'O cadastro foi alterado. Recarregue os dados antes de salvar.'});
+    let profile;try{profile=companyProfile.validate(body.profile,current);}catch(error){return sendJson(res,422,{ok:false,error:error.message});}
+    if(central){provider.companyProfile=profile;writeProvider(provider);appendProviderAudit('Dados da empresa franqueadora alterados','Cadastro exclusivo da Central da rede',access.username,requestIp(req));}
+    else{
+      Object.assign(state.settings,profile,{legalName:profile.company,company:profile.tradeName||profile.company});writeTenantState(code,state);
+      access.tenant.tradeName=profile.tradeName||profile.company;access.tenant.document=profile.document;
+      writeProvider(provider);appendTenantAudit(code,'Dados da empresa da unidade alterados','Cadastro da própria unidade',access.session.user);
+    }
+    return sendJson(res,200,payload(profile));
   }
 
   const fiscalDocumentsMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/fiscal\/documents$/);

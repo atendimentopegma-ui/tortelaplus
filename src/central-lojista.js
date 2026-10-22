@@ -40,6 +40,7 @@ const permissionLabels = {
 
 const modules = [
   ["overview", "Painel", "Resumo da loja"],
+  ["company", "Dados da empresa", "Empresa desta unidade"],
   ["channels", "Pedidos", "PDV, totem e loja"],
   ["people", "Pessoas", "Clientes e fornecedores"],
   ["products", "Produtos", "Cadastro da unidade"],
@@ -373,7 +374,7 @@ function render() {
 }
 
 function allowedStoreModule(key) {
-  const map={overview:"dashboard",channels:"sales",people:"people",products:"products",qr:"stock",stock:"stock",purchases:"purchases",fiscal:"fiscal",imports:"settings",payables:"finance",receivables:"finance",reports:"reports",users:"manage_users"};
+  const map={company:"settings",overview:"dashboard",channels:"sales",people:"people",products:"products",qr:"stock",stock:"stock",purchases:"purchases",fiscal:"fiscal",imports:"settings",payables:"finance",receivables:"finance",reports:"reports",users:"manage_users"};
   const permission=map[key]||key;
   const contract={channels:["PDV"],products:["Estoque","PDV","Compras"],qr:["Estoque"],stock:["Estoque"],purchases:["Compras"],fiscal:["NF-e","NFC-e","NFS-e"],payables:["Financeiro"],receivables:["Financeiro"],reports:["Relatorios"]};
   return can(permission) && (!contract[key] || contract[key].some(module=>(tenant?.modules || []).includes(module)));
@@ -390,6 +391,7 @@ function renderCurrentModule() {
   if(!currentModule)return "<p>Nenhum setor liberado. Solicite acesso ao administrador.</p>";
   const renderers = {
     overview: renderOverview,
+    company: () => `<div class="network-module"><h1>Dados da empresa — Esta unidade</h1><section class="network-card" id="store-company-profile"></section></div>`,
     channels: renderChannels,
     people: renderPeople,
     products: renderProducts,
@@ -1408,6 +1410,7 @@ function bind() {
   });
   byId("refresh")?.addEventListener("click", boot);
   byId("logout")?.addEventListener("click", () => logout(true));
+  if(byId("store-company-profile")&&window.CompanyProfile)window.CompanyProfile.mount(byId("store-company-profile"),{api,endpoint:`/api/tenant/${encodeURIComponent(tenantCode)}/company-profile`,onSaved:profile=>Object.assign(state.settings,profile,{legalName:profile.company,company:profile.tradeName||profile.company})});
   byId("person-form")?.addEventListener("submit", savePerson);
   byId("product-form")?.addEventListener("submit", saveProduct);
   byId("qr-form")?.addEventListener("submit", receiveQr);

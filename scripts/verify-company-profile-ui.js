@@ -1,0 +1,14 @@
+const assert=require('assert/strict'),company=require('../src/company-profile');
+const profile=company.profile({company:'Empresa Teste',document:'11222333000181',uf:'SP',regime:'Simples Nacional',crt:'1'});
+assert.match(company.form({scope:'central',profile}),/Empresa franqueadora/);assert.match(company.form({scope:'unit',unit:'Loja A',profile}),/Empresa desta unidade: Loja A/);
+assert(!company.form({scope:'central',profile}).includes('type="password"'));assert.match(company.form({scope:'central',profile:{...profile,company:'<script>alert(1)</script>'}}),/&lt;script&gt;/);
+(async()=>{
+ const elements=Object.fromEntries(company.fields.map(([,key])=>[key,{value:profile[key]}])),status={},buttons=[{},{}],events={},reload={addEventListener:(name,fn)=>reload[name]=fn};
+ const form={elements,querySelector:selector=>selector==='[role="status"]'?status:reload,querySelectorAll:()=>buttons,addEventListener:(name,fn)=>events[name]=fn};const container={querySelector:()=>form};let requests=[],saved=0,release,reject=false;
+ const api=async(endpoint,options)=>{requests.push({endpoint,options});if(!options)return {scope:'unit',unit:'Loja A',profile,revision:'original'};await new Promise(resolve=>release=resolve);if(reject)throw Error('Recarregue os dados antes de salvar');const body=JSON.parse(options.body);return {profile:body.profile,revision:'atualizada'};};
+ await company.mount(container,{api,endpoint:'/api/tenant/loja-a/company-profile',onSaved:()=>saved++});elements.company.value='';await events.submit({preventDefault(){}});assert.equal(requests.length,1);assert.match(status.textContent,/razão social/);
+ elements.company.value='Empresa Nova';const submit=events.submit({preventDefault(){}});await events.submit({preventDefault(){}});assert.equal(requests.length,2);assert.equal(saved,0);assert.equal(buttons[0].disabled,true);assert.equal(JSON.parse(requests[1].options.body).revision,'original');release();await submit;assert.equal(saved,1);assert.equal(buttons[0].disabled,false);assert.match(status.textContent,/salvos/);
+ reject=true;const failed=events.submit({preventDefault(){}});assert.equal(JSON.parse(requests[2].options.body).revision,'atualizada');release();await failed;assert.equal(saved,1);assert.match(status.textContent,/Recarregue/);
+ let resolveOld;const reused={querySelector:()=>form};const old=company.mount(reused,{endpoint:'/loja-antiga',api:()=>new Promise(resolve=>resolveOld=resolve)});await company.mount(reused,{endpoint:'/loja-nova',api:async()=>({scope:'unit',unit:'Nova',profile,revision:'nova'})});resolveOld({scope:'unit',unit:'Antiga',profile,revision:'antiga'});await old;assert.match(reused.innerHTML,/unidade: Nova/);assert.doesNotMatch(reused.innerHTML,/unidade: Antiga/);
+ console.log('OK UI empresas: campos e escopo corretos, validacao, envio unico, revisao atualizada, erro sem falso sucesso e troca de unidade sem mistura.');
+})().catch(error=>{console.error(error.stack);process.exitCode=1});

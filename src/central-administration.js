@@ -1,6 +1,6 @@
 window.CentralAdministration = {
   render(key) {
-    if(key==="franchisees")return '<div class="network-module compact"><div class="network-module-title"><div><h1>Franqueados e seus acessos</h1><p>Identifique a unidade, controle os modulos liberados e administre os usuarios de cada franquia.</p></div></div><section class="network-card" id="franchise-management"></section><section class="network-card" id="franchise-users"></section></div>';
+    if(key==="franchisees")return '<div class="network-module compact"><div class="network-module-title"><div><h1>Franqueados e seus acessos</h1><p>Identifique a unidade, controle os modulos liberados e administre os usuarios de cada franquia.</p></div></div><section class="network-card" id="franchise-management"></section><section class="network-card"><h2>Dados da empresa da unidade selecionada</h2><div id="managed-company-profile"></div></section><section class="network-card" id="franchise-users"></section></div>';
     if(key==="users")return '<div class="network-module compact"><h1>Usuarios da Central do Administrador</h1><p>Estes usuarios administram a rede. Os funcionarios das lojas ficam em Franqueados.</p><section class="network-card" id="central-user-access"></section></div>';
     return `<div class="network-module compact"><section class="network-card"><h1>Meu acesso</h1><p>Altere a senha do usuario conectado a Central do Administrador.</p>
       <form id="central-password-form" class="network-form">
@@ -46,6 +46,15 @@ window.CentralAdministration = {
       const select=container.querySelector('#managed-franchise'),form=container.querySelector('#franchise-form'),status=form.querySelector('[role="status"]');
       const users=document.getElementById("franchise-users");let creating=false;
       const load=row=>{
+        const companyContainer=document.getElementById("managed-company-profile");
+        if(companyContainer&&window.CompanyProfile){
+          if(row)window.CompanyProfile.mount(companyContainer,{api,endpoint:`/api/tenant/${encodeURIComponent(row.tenantCode)}/company-profile`,onSaved:profile=>{
+            row.tradeName=profile.tradeName||profile.company;row.document=profile.document;
+            form.elements.tradeName.value=row.tradeName;form.elements.document.value=row.document;
+            const option=[...select.options].find(option=>option.value===row.tenantCode);if(option)option.textContent=`${row.tradeName} — ${row.tenantCode}`;
+          }});
+          else{companyContainer.companyMount={};companyContainer.textContent="Salve a nova unidade para configurar os dados da empresa.";}
+        }
         creating=!row;for(const key of ["tenantCode","tradeName","document","adminUser","plan","maxTerminals","renewalDays","status"])form.elements[key].value=row?.[key]??({maxTerminals:1,renewalDays:30,status:"Ativo",plan:"Essencial"}[key]||"");
         form.elements.tenantCode.disabled=!!row;form.querySelectorAll('[name="module"]').forEach(input=>input.checked=(row?.modules||["PDV","Estoque","Financeiro","Relatorios","Compras"]).includes(input.value));status.textContent="";
         if(row)window.UserAccessPanel.mount(users,{api,basePath:`/api/provider/tenant/${encodeURIComponent(row.tenantCode)}/users`,permissions:window.UserAccessPanel.tenantPermissions});else users.textContent="Salve a nova franquia para administrar seus usuarios.";

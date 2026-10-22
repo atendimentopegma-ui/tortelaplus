@@ -4,6 +4,7 @@ let currentModule = sessionStorage.getItem("tortela-central-module") || "overvie
 
 const modules = [
   ["overview", "Painel", "Visao geral"],
+  ["company", "Dados da empresa", "Empresa franqueadora"],
   ["franchisees", "Franqueados", "Cadastros e poderes"],
   ["users", "Usuarios da Central", "Acessos por setor"],
   ["myaccess", "Meu acesso", "Alterar minha senha"],
@@ -200,6 +201,7 @@ function render() {
 }
 
 function centralModuleAllowed(key) {
+  if(key==="company")return (summary.centralPermissions||[]).includes("deployment");
   return key === "myaccess" || (summary.centralPermissions || modules.map(([key])=>key)).includes(key);
 }
 function renderNav() {
@@ -213,6 +215,7 @@ function renderCurrentModule() {
   if(!centralModuleAllowed(currentModule))currentModule=modules.find(([key])=>centralModuleAllowed(key))?.[0]||"myaccess";
   const renderers = {
     overview: renderOverview,
+    company: () => `<div class="network-module"><h1>Dados da empresa — Central da rede</h1><section class="network-card" id="central-company-profile"></section></div>`,
     franchisees: () => window.CentralAdministration.render("franchisees"),
     users: () => window.CentralAdministration.render("users"),
     myaccess: () => window.CentralAdministration.render("myaccess"),
@@ -826,6 +829,7 @@ function renderReports() {
 
 function bindRender() {
   if(window.CentralAdministration)window.CentralAdministration.bind({api});
+  if(byId("central-company-profile")&&window.CompanyProfile)window.CompanyProfile.mount(byId("central-company-profile"),{api,endpoint:"/api/provider/company-profile"});
   const fiscalUnit=byId('fiscal-cancel-unit');
   if(fiscalUnit&&window.FiscalCancellationPanel){const load=()=>{if(fiscalUnit.value)window.FiscalCancellationPanel.mount(byId('fiscal-cancellation-panel'),{api,tenantCode:fiscalUnit.value});};fiscalUnit.addEventListener('change',load);load();}
   const unitSelect = byId("terminal-unit");

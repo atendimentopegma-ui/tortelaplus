@@ -4,6 +4,8 @@ const fullAccess = user => centralPermissions.every(p => permissionsFor(user).in
 function routePermissions(path) {
   if (path.startsWith("/api/provider/auth/")) return [];
   if (path === "/api/network/summary") return [];
+  if (path === "/api/provider/company-profile") return ["deployment"];
+  if (/^\/api\/tenant\/[^/]+\/company-profile$/.test(path)) return ["franchisees"];
   if (path === "/api/network/franchisees") return ["franchisees"];
   if (path.startsWith("/api/provider/admins")) return ["users"];
   if (path === "/api/tenants" || /^\/api\/provider\/tenant\/[^/]+(?:\/users(?:\/\d+)?)?$/.test(path)) return ["franchisees"];
