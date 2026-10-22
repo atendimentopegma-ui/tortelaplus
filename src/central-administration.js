@@ -1,6 +1,6 @@
 window.CentralAdministration = {
   render(key) {
-    if(key==="franchisees")return '<div class="network-module compact network-module-flow"><div class="network-module-title"><div><h1>Franqueados e seus acessos</h1><p>Identifique a unidade, controle os modulos liberados e administre os usuarios de cada franquia.</p></div></div><section class="network-card" id="franchise-management"></section><section class="network-card"><h2>Dados da empresa da unidade selecionada</h2><div id="managed-company-profile"></div></section><section class="network-card" id="franchise-users"></section></div>';
+    if(key==="franchisees")return '<div class="network-module compact network-module-flow"><div class="network-module-title"><div><h1>Franqueados e seus acessos</h1><p>Identifique a unidade, controle os modulos liberados e administre os usuarios de cada franquia.</p></div></div><section id="franchise-directory" class="franchise-directory"></section><header id="franchise-detail-header" class="franchise-detail-header" hidden><button class="btn" type="button" id="back-franchise-list">← Todos os franqueados</button><div><h2 id="franchise-detail-name"></h2><p id="franchise-detail-code"></p></div><nav class="franchise-detail-tabs" aria-label="Informações da franqueada"><button type="button" data-franchise-tab="company">Dados da empresa</button><button type="button" data-franchise-tab="management">Cadastro e módulos</button><button type="button" data-franchise-tab="users">Usuários e permissões</button></nav></header><section class="network-card" id="franchise-management" hidden></section><section class="network-card" id="franchise-company-card" hidden><h2>Dados da empresa</h2><div id="managed-company-profile"></div></section><section class="network-card" id="franchise-users" hidden></section></div>';
     if(key==="users")return '<div class="network-module compact network-module-flow"><h1>Usuarios da Central do Administrador</h1><p>Estes usuarios administram a rede. Os funcionarios das lojas ficam em Franqueados.</p><section class="network-card" id="central-user-access"></section></div>';
     return `<div class="network-module compact network-module-flow"><section class="network-card"><h1>Meu acesso</h1><p>Altere a senha do usuario conectado a Central do Administrador.</p>
       <form id="central-password-form" class="network-form">
@@ -51,6 +51,22 @@ window.CentralAdministration = {
         </form>`;
       const select=container.querySelector('#managed-franchise'),form=container.querySelector('#franchise-form'),status=form.querySelector('[role="status"]');
       const users=document.getElementById("franchise-users");let creating=false,lookupVersion=0,lookingUp=false;
+      const directory=document.getElementById('franchise-directory'),detailHeader=document.getElementById('franchise-detail-header'),companyCard=document.getElementById('franchise-company-card');
+      const showTab=tab=>{container.hidden=tab!=='management';companyCard.hidden=tab!=='company';users.hidden=tab!=='users';detailHeader.querySelectorAll('[data-franchise-tab]').forEach(button=>{button.classList.toggle('active',button.dataset.franchiseTab===tab);button.setAttribute('aria-pressed',String(button.dataset.franchiseTab===tab));});};
+      const showDirectory=()=>{lookupVersion++;directory.hidden=false;detailHeader.hidden=true;container.hidden=companyCard.hidden=users.hidden=true;renderDirectory();directory.scrollIntoView({block:'start'});};
+      const openUnit=(row,tab='company')=>{load(row);showTab(row?tab:'management');directory.hidden=true;detailHeader.hidden=false;document.getElementById('franchise-detail-name').textContent=row?.tradeName||'Cadastrar nova franqueada';document.getElementById('franchise-detail-code').textContent=row?`Código: ${row.tenantCode} · ${row.document||'CNPJ não informado'} · ${row.status||'Ativo'}`:'Preencha o cadastro e salve para liberar os dados da empresa e os usuários.';detailHeader.querySelector('nav').hidden=!row;detailHeader.scrollIntoView({block:'start'});};
+      const renderDirectory=()=>{
+        directory.innerHTML=`<div class="franchise-directory-top"><div><h2>Franqueados cadastrados <span>${clients.length}</span></h2><p>Encontre uma unidade e escolha o que deseja consultar.</p></div><button type="button" class="btn primary" id="directory-new-franchise">+ Novo franqueado</button></div><div class="franchise-directory-search"><label for="franchise-search">Buscar franqueado</label><input id="franchise-search" type="search" placeholder="Digite o nome, CNPJ ou código da unidade" /><p id="franchise-search-count" role="status"></p></div><div id="franchise-unit-list" class="franchise-unit-list"></div>`;
+        const draw=()=>{const query=directory.querySelector('#franchise-search').value.toLocaleLowerCase('pt-BR').trim(),digits=query.replace(/\D/g,'');const matches=clients.filter(row=>[row.tradeName,row.tenantCode,row.document].some(value=>String(value||'').toLocaleLowerCase('pt-BR').includes(query))||(digits.length>2&&String(row.document||'').replace(/\D/g,'').includes(digits)));
+          directory.querySelector('#franchise-search-count').textContent=`${matches.length} de ${clients.length} franqueados`;
+          directory.querySelector('#franchise-unit-list').innerHTML=matches.length?matches.map(row=>`<article class="franchise-unit-card"><div class="franchise-unit-title"><h3>${escape(row.tradeName)}</h3><span class="franchise-unit-status">${escape(row.status||'Ativo')}</span></div><dl><div><dt>Código da unidade</dt><dd>${escape(row.tenantCode)}</dd></div><div><dt>CNPJ / CPF</dt><dd>${escape(row.document||'Não informado')}</dd></div><div><dt>Plano</dt><dd>${escape(row.plan||'Essencial')}</dd></div><div><dt>Terminais</dt><dd>${escape(row.maxTerminals||1)}</dd></div></dl><div class="franchise-unit-actions"><button type="button" class="btn primary" data-open-unit="${escape(row.tenantCode)}" data-open-tab="company">Abrir dados da empresa</button><button type="button" class="btn" data-open-unit="${escape(row.tenantCode)}" data-open-tab="management">Cadastro e módulos</button><button type="button" class="btn" data-open-unit="${escape(row.tenantCode)}" data-open-tab="users">Usuários e permissões</button></div></article>`).join(''):'<div class="franchise-empty"><h3>Nenhuma unidade encontrada</h3><p>Confira o nome, CNPJ ou código pesquisado.</p></div>';
+          directory.querySelectorAll('[data-open-unit]').forEach(button=>button.addEventListener('click',()=>openUnit(clients.find(row=>row.tenantCode===button.dataset.openUnit),button.dataset.openTab)));
+        };
+        directory.querySelector('#franchise-search').addEventListener('input',draw);directory.querySelector('#directory-new-franchise').addEventListener('click',()=>openUnit(null));draw();
+      };
+      document.getElementById('back-franchise-list').onclick=showDirectory;
+      detailHeader.querySelectorAll('[data-franchise-tab]').forEach(button=>button.onclick=()=>showTab(button.dataset.franchiseTab));
+
       const load=row=>{
         lookupVersion++;lookingUp=false;container.querySelector('#lookup-franchise-cnpj').disabled=false;
         container.querySelector('#franchise-lookup-status').textContent='';
@@ -73,8 +89,8 @@ window.CentralAdministration = {
         if(row)window.UserAccessPanel.mount(users,{api,basePath:`/api/provider/tenant/${encodeURIComponent(row.tenantCode)}/users`,permissions:window.UserAccessPanel.tenantPermissions});else users.textContent="Salve a nova franquia para administrar seus usuarios.";
       };
       select.addEventListener("change",()=>load(clients.find(row=>row.tenantCode===select.value)));
-      container.querySelector('#new-franchise').addEventListener("click",()=>load(null));
-      container.querySelector('#cancel-franchise-edit').addEventListener("click",()=>load(clients.find(row=>row.tenantCode===select.value)||clients[0]||null));
+      container.querySelector('#new-franchise').addEventListener("click",()=>openUnit(null));
+      container.querySelector('#cancel-franchise-edit').addEventListener("click",()=>{if(creating)showDirectory();else load(clients.find(row=>row.tenantCode===select.value)||clients[0]||null);});
       container.querySelector('#lookup-franchise-cnpj').addEventListener('click',async()=>{
         if(lookingUp)return;const version=++lookupVersion,documentValue=form.elements.document.value,code=documentValue.replace(/\D/g,''),wasCreating=creating;
         const before=Object.fromEntries([...form.elements].filter(input=>input.name).map(input=>[input.name,input.value]));const button=container.querySelector('#lookup-franchise-cnpj'),message=container.querySelector('#franchise-lookup-status');
@@ -93,7 +109,7 @@ window.CentralAdministration = {
         body.modules=[...form.querySelectorAll('[name="module"]:checked')].map(input=>input.value);
         try{if(creating){body.adminUser=form.elements.initialUsername.value;body.adminPassword=form.elements.adminPassword.value;body.companyProfile=window.CompanyProfile.validate({...Object.fromEntries(window.CompanyProfile.fields.map(([,key])=>[key,form.elements['profile_'+key]?.value||''])),company:form.elements.profile_company.value||body.tradeName,tradeName:body.tradeName,document:body.document});}await api(creating?"/api/tenants":`/api/provider/tenant/${encodeURIComponent(body.tenantCode)}`,{method:"POST",body:JSON.stringify(body)});await this.mountFranchisees(container,api,body.tenantCode,onFranchiseSaved);container.querySelector('[data-franchise-feedback]').textContent=`Unidade ${body.tradeName} (${body.tenantCode}) salva e selecionada.`;container.scrollIntoView({block:'start',behavior:'smooth'});await onFranchiseSaved();}catch(error){status.textContent=error.message;button.disabled=false;}
       });
-      load(clients.find(row=>row.tenantCode===selectedCode)||clients[0]||null);
+      if(selectedCode){const selected=clients.find(row=>row.tenantCode===selectedCode);if(selected)openUnit(selected,'management');else showDirectory();}else showDirectory();
     }catch(error){container.textContent=error.message;}
   }
 };
