@@ -35,6 +35,12 @@ const root=path.resolve(__dirname,'..'),profiles=require('../src/company-profile
   const units=(await api('/api/provider/auth/login',null,{username:'unidades',password:'OnlyTest123'})).sessionId;await api(unitRoute,units);await api(centralRoute,units,null,403);
   const sales=(await api('/api/provider/auth/login',null,{username:'vendascentral',password:'OnlyTest123'})).sessionId;await api(unitRoute,sales,null,403);await api(centralRoute,sales,null,403);
   const cashier=(await api('/api/auth/login',null,{tenantCode:'cliente-exemplo',user:'vendas',password:'123456'})).sessionId;await api(unitRoute,cashier,null,403);
+  const beforeCreate=hash(tenantFile);
+  await api('/api/tenants',admin,{tenantCode:'nova-invalida',tradeName:'Nova',adminUser:'gestor',adminPassword:'OnlyTest123',companyProfile:{company:'Empresa',cep:'1'}},422);
+  assert(!read(providerFile).clients.some(c=>c.tenantCode==='nova-invalida'));
+  await api('/api/tenants',admin,{tenantCode:'nova-consulta',tradeName:'Fantasia Nova',document:'11222333000181',adminUser:'gestor',adminPassword:'OnlyTest123',companyProfile:{company:'Razao Nova Ltda',cnae:'5611201',cep:'01001000',address:'Praca da Se',number:'10',city:'Sao Paulo',cityCode:'3550308',uf:'SP',email:'nova@example.test'}},201);
+  const created=await api('/api/tenant/nova-consulta/company-profile',admin);assert.equal(created.profile.company,'Razao Nova Ltda');assert.equal(created.profile.tradeName,'Fantasia Nova');assert.equal(created.profile.cityCode,'3550308');assert.equal(created.profile.document,'11222333000181');assert.equal(hash(tenantFile),beforeCreate);
+  const loginCreated=await api('/api/auth/login',null,{tenantCode:'nova-consulta',user:'gestor',password:'OnlyTest123'});assert(loginCreated.sessionId);
   await stop();await start();admin=(await api('/api/provider/auth/login',null,{username:'admin',password:'OnlyTest123'})).sessionId;assert.equal((await api(centralRoute,admin)).profile.company,'Franqueadora Ficticia Ltda');assert.equal((await api(unitRoute,admin)).profile.company,'Loja Ficticia Ltda');assert.equal(hash(otherFile),otherHash);
   assert.throws(()=>profiles.validate({company:'Empresa',regime:'MEI',crt:'3'}),/CRT incompat/);assert.throws(()=>profiles.validate({company:'Empresa',website:'javascript:alert(1)'}),/https/);
   console.log('OK empresas HTTP: central independente, unidade propria, isolamento entre lojas, permissoes, validacao, conflitos, auditoria e persistencia apos reinicio; dados comerciais preservados.');

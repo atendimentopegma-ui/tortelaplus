@@ -4688,6 +4688,8 @@ async function handleApi(req, res, urlPath) {
       sendJson(res, 409, { ok: false, error: "Cliente ja cadastrado" });
       return;
     }
+    let initialCompanyProfile;
+    if(body.companyProfile){try{initialCompanyProfile=companyProfile.validate({...body.companyProfile,tradeName:body.tradeName||body.companyProfile.tradeName,document:body.document||body.companyProfile.document});}catch(error){sendJson(res,422,{ok:false,error:error.message});return;}}
     const renewalDays = Number(body.renewalDays || 30);
     const tenant = withTenantDefaults({
       id: Math.max(0, ...provider.clients.map((client) => Number(client.id) || 0)) + 1,
@@ -4707,7 +4709,7 @@ async function handleApi(req, res, urlPath) {
     provider.clients.push(tenant);
     writeProvider(provider);
     writeTenantState(tenantCode, {
-      settings: { company: tenant.tradeName, tenantCode },
+      settings: { ...(initialCompanyProfile||{}), legalName:initialCompanyProfile?.company||"", company: tenant.tradeName, document:tenant.document, tenantCode },
       users: [
         {
           id: 1,

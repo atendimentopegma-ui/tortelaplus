@@ -35,9 +35,11 @@ window.CentralAdministration = {
           <fieldset class="franchise-section"><legend>1. Identificação e contato</legend><div class="franchise-fields">
             <div class="field"><label>Código da unidade<input name="tenantCode" required pattern="[a-z0-9-]+" placeholder="Ex.: loja-02" /></label><small>Use letras minúsculas, números e hífen.</small></div>
             <div class="field"><label>Nome da franqueada / unidade<input name="tradeName" required /></label></div>
-            <div class="field"><label>CNPJ / CPF<input name="document" /></label></div>
+            <div class="field"><label>CNPJ / CPF<div class="franchise-document-row"><input name="document" /><button class="btn" type="button" id="lookup-franchise-cnpj">Buscar CNPJ</button></div></label><small id="franchise-lookup-status" aria-live="polite"></small></div>
             <div class="field"><label>Responsável / contato<input name="adminUser" /></label></div>
           </div></fieldset>
+          <fieldset class="franchise-section" id="franchise-initial-company"><legend>Dados da empresa e endereço</legend><p>Preenchidos pela consulta do CNPJ. Confira antes de salvar.</p><div class="franchise-fields">${window.CompanyProfile.fields.filter(([,key])=>['company','cnae','stateRegistration','municipalRegistration','cep','address','number','complement','district','city','cityCode','uf','phone','email'].includes(key)).map(([,key,label,type,limit])=>`<div class="field"><label>${escape(label)}<input name="profile_${key}" type="${type==='select'?'text':type}" maxlength="${limit}" /></label></div>`).join('')}</div></fieldset>
+          <fieldset class="franchise-section" id="franchise-initial-access"><legend>Acesso inicial da unidade</legend><p>Defina o usuário administrador para o primeiro acesso.</p><div class="franchise-fields"><div class="field"><label>Login do administrador<input name="initialUsername" autocomplete="off" /></label></div><div class="field"><label>Senha inicial (mínimo 8 caracteres)<input name="adminPassword" type="password" minlength="8" autocomplete="new-password" /></label></div></div></fieldset>
           <fieldset class="franchise-section"><legend>2. Plano e operação</legend><div class="franchise-fields franchise-fields-four">
             <div class="field"><label>Plano<input name="plan" /></label></div>
             <div class="field"><label>Situação<select name="status"><option>Ativo</option><option>Homologacao</option><option>Inadimplente</option><option>Bloqueado</option></select></label></div>
@@ -48,8 +50,14 @@ window.CentralAdministration = {
           <div class="franchise-actions"><button class="btn primary" type="submit">Salvar franqueado e poderes</button><button class="btn" type="button" id="cancel-franchise-edit">Cancelar alterações</button></div><span role="status" aria-live="polite" class="full"></span>
         </form>`;
       const select=container.querySelector('#managed-franchise'),form=container.querySelector('#franchise-form'),status=form.querySelector('[role="status"]');
-      const users=document.getElementById("franchise-users");let creating=false;
+      const users=document.getElementById("franchise-users");let creating=false,lookupVersion=0,lookingUp=false;
       const load=row=>{
+        lookupVersion++;lookingUp=false;container.querySelector('#lookup-franchise-cnpj').disabled=false;
+        container.querySelector('#franchise-lookup-status').textContent='';
+        for(const id of ['franchise-initial-company','franchise-initial-access']){const section=container.querySelector('#'+id);section.hidden=!!row;section.disabled=!!row;}
+        for(const input of form.querySelectorAll('[name^="profile_"]'))input.value='';
+        form.elements.initialUsername.value='';form.elements.adminPassword.value='';form.elements.initialUsername.required=!row;form.elements.adminPassword.required=!row;
+
         const companyContainer=document.getElementById("managed-company-profile");
         if(companyContainer&&window.CompanyProfile){
           if(row)window.CompanyProfile.mount(companyContainer,{api,endpoint:`/api/tenant/${encodeURIComponent(row.tenantCode)}/company-profile`,onSaved:profile=>{
@@ -67,11 +75,23 @@ window.CentralAdministration = {
       select.addEventListener("change",()=>load(clients.find(row=>row.tenantCode===select.value)));
       container.querySelector('#new-franchise').addEventListener("click",()=>load(null));
       container.querySelector('#cancel-franchise-edit').addEventListener("click",()=>load(clients.find(row=>row.tenantCode===select.value)||clients[0]||null));
+      container.querySelector('#lookup-franchise-cnpj').addEventListener('click',async()=>{
+        if(lookingUp)return;const version=++lookupVersion,documentValue=form.elements.document.value,code=documentValue.replace(/\D/g,''),wasCreating=creating;
+        const before=Object.fromEntries([...form.elements].filter(input=>input.name).map(input=>[input.name,input.value]));const button=container.querySelector('#lookup-franchise-cnpj'),message=container.querySelector('#franchise-lookup-status');
+        lookingUp=true;button.disabled=true;message.textContent='Consultando CNPJ...';
+        try{const values=await window.CompanyProfile.lookupCnpj(code);if(version!==lookupVersion||form.elements.document.value!==documentValue)return;
+          const fill=(name,value)=>{const input=form.elements[name];if(input&&input.value===before[name])input.value=String(value||'').slice(0,input.maxLength>0?input.maxLength:160);};
+          fill('tradeName',values.tradeName||values.company);fill('adminUser',values.email||values.phone);
+          if(wasCreating){for(const [key,value]of Object.entries(values))fill('profile_'+key,value);}
+          else{const company=document.getElementById('managed-company-profile');const fields=company?.querySelector('form')?.elements;if(fields&&fields.document.value.replace(/\D/g,'')===code){for(const [key,value]of Object.entries(values))if(fields[key])fields[key].value=String(value||'').slice(0,fields[key].maxLength>0?fields[key].maxLength:160);}}
+          message.textContent=wasCreating?'Dados preenchidos. Confira os dados da empresa e o endereço abaixo antes de salvar.':'Nome e contato preenchidos. Confira e salve cada bloco alterado.';
+        }catch(error){if(version===lookupVersion)message.textContent=error.message;}finally{if(version===lookupVersion){lookingUp=false;button.disabled=false;}}
+      });
       form.addEventListener("submit",async event=>{
-        event.preventDefault();const button=form.querySelector('button[type="submit"]');button.disabled=true;
+        event.preventDefault();if(lookingUp){status.textContent="Aguarde a consulta do CNPJ terminar.";return;}const button=form.querySelector('button[type="submit"]');button.disabled=true;
         const body=Object.fromEntries(["tenantCode","tradeName","document","adminUser","plan","maxTerminals","renewalDays","status"].map(key=>[key,form.elements[key].value]));
         body.modules=[...form.querySelectorAll('[name="module"]:checked')].map(input=>input.value);
-        try{await api(creating?"/api/tenants":`/api/provider/tenant/${encodeURIComponent(body.tenantCode)}`,{method:"POST",body:JSON.stringify(body)});await this.mountFranchisees(container,api);container.querySelector('[role="status"]').textContent="Franqueado e poderes salvos.";}catch(error){status.textContent=error.message;button.disabled=false;}
+        try{if(creating){body.adminUser=form.elements.initialUsername.value;body.adminPassword=form.elements.adminPassword.value;body.companyProfile=window.CompanyProfile.validate({...Object.fromEntries(window.CompanyProfile.fields.map(([,key])=>[key,form.elements['profile_'+key]?.value||''])),company:form.elements.profile_company.value||body.tradeName,tradeName:body.tradeName,document:body.document});}await api(creating?"/api/tenants":`/api/provider/tenant/${encodeURIComponent(body.tenantCode)}`,{method:"POST",body:JSON.stringify(body)});await this.mountFranchisees(container,api);container.querySelector('[role="status"]').textContent="Franqueado e poderes salvos.";}catch(error){status.textContent=error.message;button.disabled=false;}
       });
       load(clients[0]||null);
     }catch(error){container.textContent=error.message;}
