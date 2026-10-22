@@ -37,6 +37,7 @@ const root=path.resolve(__dirname,'..'),profiles=require('../src/company-profile
   const cashier=(await api('/api/auth/login',null,{tenantCode:'cliente-exemplo',user:'vendas',password:'123456'})).sessionId;await api(unitRoute,cashier,null,403);
   const fiscalPath='/api/tenant/cliente-exemplo/fiscal/settings';
   const beforeFiscal=read(tenantFile),otherBeforeFiscal=hash(otherFile),fiscalConfig=await api(fiscalPath,admin);
+  assert(!fiscalConfig.missing.some(value=>value.includes('NFS-e')||value.includes('municipal')));
   await api(fiscalPath,null,null,401);await api(fiscalPath,units,null,403);await api(fiscalPath,cashier,null,403);
   const fiscalSaved=await api(fiscalPath,admin,{revision:fiscalConfig.revision,config:{...fiscalConfig.config,fiscalEnvironment:'Homologacao',certificateName:'C:/Fiscal/test-only.pfx',certificateExpiresAt:'2099-12-31',cscId:'000001',nfeSerie:3,nfceSerie:4,sefazUf:'SP'},secrets:{certificatePassword:'FakeCertificateOnly',csc:'SyntheticCscOnly',acbrApiToken:'FakeAgentOnly'}});
   assert.equal(fiscalSaved.config.nfeSerie,3);assert.equal(fiscalSaved.config.nfceSerie,4);assert.equal(fiscalSaved.configured.csc,true);assert(!JSON.stringify(fiscalSaved).includes('SyntheticCscOnly'));assert(!JSON.stringify(fiscalSaved).includes('FakeCertificateOnly'));assert.equal(hash(otherFile),otherBeforeFiscal);
