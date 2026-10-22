@@ -5,7 +5,7 @@ const root=path.resolve(__dirname,'..'),profiles=require('../src/company-profile
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'tortela-company-api-'));require('./fixtures/seed-operational-state')(dir);
  const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,()=>{const value=s.address().port;s.close(()=>resolve(value));});});
  const env={...process.env};for(const key of Object.keys(env))if(key==='DATABASE_URL'||key.startsWith('PEGMA_')||key.startsWith('TORTELAPLUS_'))delete env[key];
- Object.assign(env,{PORT:String(port),DATABASE_URL:'',TORTELAPLUS_DB_DIR:dir,TORTELAPLUS_CENTRAL_USER:'admin',TORTELAPLUS_CENTRAL_PASSWORD:'OnlyTest123'});
+ Object.assign(env,{PORT:String(port),DATABASE_URL:'',TORTELAPLUS_DB_DIR:dir,TORTELAPLUS_CENTRAL_USER:'admin',TORTELAPLUS_CENTRAL_PASSWORD:'OnlyTest123',TORTELAPLUS_SECRET_KEY:'SyntheticFiscalVaultKeyOnlyForTests12345'});
  const base='http://127.0.0.1:'+port,tenantFile=path.join(dir,'tenants/cliente-exemplo.json'),otherFile=path.join(dir,'tenants/outra-unidade.json'),providerFile=path.join(dir,'provider-state.json');let child;
  async function start(){child=spawn(process.execPath,['server.js'],{cwd:root,env,stdio:'ignore'});for(let n=0;n<100;n++){try{if((await fetch(base+'/api/health',{signal:AbortSignal.timeout(2000)})).ok)return;}catch{}await new Promise(r=>setTimeout(r,100));}throw Error('Servidor isolado indisponivel');}
  async function stop(){if(child?.exitCode===null&&!child.signalCode){const done=new Promise(r=>child.once('exit',r));child.kill();await done;}}
@@ -35,13 +35,29 @@ const root=path.resolve(__dirname,'..'),profiles=require('../src/company-profile
   const units=(await api('/api/provider/auth/login',null,{username:'unidades',password:'OnlyTest123'})).sessionId;await api(unitRoute,units);await api(centralRoute,units,null,403);
   const sales=(await api('/api/provider/auth/login',null,{username:'vendascentral',password:'OnlyTest123'})).sessionId;await api(unitRoute,sales,null,403);await api(centralRoute,sales,null,403);
   const cashier=(await api('/api/auth/login',null,{tenantCode:'cliente-exemplo',user:'vendas',password:'123456'})).sessionId;await api(unitRoute,cashier,null,403);
+  const fiscalPath='/api/tenant/cliente-exemplo/fiscal/settings';
+  const beforeFiscal=read(tenantFile),otherBeforeFiscal=hash(otherFile),fiscalConfig=await api(fiscalPath,admin);
+  await api(fiscalPath,null,null,401);await api(fiscalPath,units,null,403);await api(fiscalPath,cashier,null,403);
+  const fiscalSaved=await api(fiscalPath,admin,{revision:fiscalConfig.revision,config:{...fiscalConfig.config,fiscalEnvironment:'Homologacao',certificateName:'C:/Fiscal/test-only.pfx',certificateExpiresAt:'2099-12-31',cscId:'000001',nfeSerie:3,nfceSerie:4,sefazUf:'SP'},secrets:{certificatePassword:'FakeCertificateOnly',csc:'SyntheticCscOnly',acbrApiToken:'FakeAgentOnly'}});
+  assert.equal(fiscalSaved.config.nfeSerie,3);assert.equal(fiscalSaved.config.nfceSerie,4);assert.equal(fiscalSaved.configured.csc,true);assert(!JSON.stringify(fiscalSaved).includes('SyntheticCscOnly'));assert(!JSON.stringify(fiscalSaved).includes('FakeCertificateOnly'));assert.equal(hash(otherFile),otherBeforeFiscal);
+  const afterFiscal=read(tenantFile);for(const key of ['sales','products','users','fiscalQueue','cash','stockMovements'])assert.deepEqual(afterFiscal[key],beforeFiscal[key]);
+  await api(fiscalPath,admin,{revision:fiscalConfig.revision,config:fiscalConfig.config},409);
+  await api(fiscalPath,admin,{revision:fiscalSaved.revision,config:{...fiscalSaved.config,document:'99999999999999'}},422);
+  await api(fiscalPath,admin,{revision:fiscalSaved.revision,config:{...fiscalSaved.config,acbrApiUrl:'http://remote.test'}},422);
+  const connection=await api(fiscalPath+'/connection',admin,{});assert.equal(connection.connected,false);assert.deepEqual(read(tenantFile).fiscalQueue,beforeFiscal.fiscalQueue);
+  const retained=await api(fiscalPath,admin,{revision:fiscalSaved.revision,config:fiscalSaved.config,secrets:{certificatePassword:'',csc:'',acbrApiToken:''}});assert(retained.configured.csc);assert.equal(hash(otherFile),otherBeforeFiscal);
+  assert(!fs.readFileSync(path.join(dir,'storage/cliente-exemplo/secrets/fiscal-vault.json'),'utf8').includes('SyntheticCscOnly'));
+  await stop();env.TORTELAPLUS_SECRET_KEY='';await start();admin=(await api('/api/provider/auth/login',null,{username:'admin',password:'OnlyTest123'})).sessionId;
+  const noKey=await api(fiscalPath,admin),beforeNoKey=hash(tenantFile);
+  await api(fiscalPath,admin,{revision:noKey.revision,config:{...noKey.config,nfeSerie:9},secrets:{csc:'MustNotSave'}},503);assert.equal(hash(tenantFile),beforeNoKey);
+  await stop();env.TORTELAPLUS_SECRET_KEY='SyntheticFiscalVaultKeyOnlyForTests12345';await start();admin=(await api('/api/provider/auth/login',null,{username:'admin',password:'OnlyTest123'})).sessionId;
   const beforeCreate=hash(tenantFile);
   await api('/api/tenants',admin,{tenantCode:'nova-invalida',tradeName:'Nova',adminUser:'gestor',adminPassword:'OnlyTest123',companyProfile:{company:'Empresa',cep:'1'}},422);
   assert(!read(providerFile).clients.some(c=>c.tenantCode==='nova-invalida'));
   await api('/api/tenants',admin,{tenantCode:'nova-consulta',tradeName:'Fantasia Nova',document:'11222333000181',adminUser:'gestor',adminPassword:'OnlyTest123',companyProfile:{company:'Razao Nova Ltda',cnae:'5611201',cep:'01001000',address:'Praca da Se',number:'10',city:'Sao Paulo',cityCode:'3550308',uf:'SP',email:'nova@example.test'}},201);
   const created=await api('/api/tenant/nova-consulta/company-profile',admin);assert.equal(created.profile.company,'Razao Nova Ltda');assert.equal(created.profile.tradeName,'Fantasia Nova');assert.equal(created.profile.cityCode,'3550308');assert.equal(created.profile.document,'11222333000181');assert.equal(hash(tenantFile),beforeCreate);
   const loginCreated=await api('/api/auth/login',null,{tenantCode:'nova-consulta',user:'gestor',password:'OnlyTest123'});assert(loginCreated.sessionId);
-  await stop();await start();admin=(await api('/api/provider/auth/login',null,{username:'admin',password:'OnlyTest123'})).sessionId;assert.equal((await api(centralRoute,admin)).profile.company,'Franqueadora Ficticia Ltda');assert.equal((await api(unitRoute,admin)).profile.company,'Loja Ficticia Ltda');assert.equal(hash(otherFile),otherHash);
+  await stop();await start();admin=(await api('/api/provider/auth/login',null,{username:'admin',password:'OnlyTest123'})).sessionId;assert.equal((await api(centralRoute,admin)).profile.company,'Franqueadora Ficticia Ltda');assert.equal((await api(unitRoute,admin)).profile.company,'Loja Ficticia Ltda');assert.equal(hash(otherFile),otherHash);assert((await api(fiscalPath,admin)).configured.csc);
   assert.throws(()=>profiles.validate({company:'Empresa',regime:'MEI',crt:'3'}),/CRT incompat/);assert.throws(()=>profiles.validate({company:'Empresa',website:'javascript:alert(1)'}),/https/);
   console.log('OK empresas HTTP: central independente, unidade propria, isolamento entre lojas, permissoes, validacao, conflitos, auditoria e persistencia apos reinicio; dados comerciais preservados.');
  }finally{await stop();}

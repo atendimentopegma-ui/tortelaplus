@@ -2817,7 +2817,7 @@ function renderFiscal() {
         <div class="form-card grid four">
           <div class="field"><label>Modelo</label><input id="fiscal-model" value="${currentModel}" readonly /></div>
           <div class="field"><label>Venda de origem</label><select id="fiscal-sale-id"><option value="">Selecione uma venda fechada</option>${state.sales.filter((sale) => ["Fechado", "Parcialmente devolvido"].includes(sale.status) && Array.isArray(sale.items) && sale.items.length).map((sale) => `<option value="${sale.id}">${sale.id} - ${escapeAttr(sale.customer)} - ${money(sale.total)}</option>`).join("")}</select></div>
-          <div class="field"><label>Serie</label><input id="fiscal-serie" value="1" /></div>
+          <div class="field"><label>Serie</label><input id="fiscal-serie" value="${escapeAttr(state.settings.nfeSerie || '1')}" /></div>
           <div class="field"><label>Natureza da operacao</label><input id="fiscal-nature" value="Venda de mercadoria" /></div>
           <div class="field"><label>Cliente/Tomador</label><input id="fiscal-customer" value="Consumidor Final" /></div>
           <div class="field"><label>Total</label><input id="fiscal-total" type="number" step="0.01" value="0" /></div>
@@ -2936,7 +2936,7 @@ function renderAdvancedFiscalForm(model) {
       <h3>${model}</h3>
       <div class="grid four">
         <div class="field"><label>Modelo</label><input id="fiscal-model" value="${model}" readonly /></div>
-        <div class="field"><label>Serie</label><input id="fiscal-serie" value="1" /></div>
+        <div class="field"><label>Serie</label><input id="fiscal-serie" value="${escapeAttr(state.settings.nfeSerie || '1')}" /></div>
         <div class="field"><label>Natureza/Finalidade</label><input id="fiscal-nature" value="${isFile ? "Arquivo fiscal" : isTransport ? "Transporte" : "Venda fiscal"}" /></div>
         <div class="field"><label>Cliente/Tomador</label><input id="fiscal-customer" value="Consumidor Final" /></div>
         <div class="field"><label>Total</label><input id="fiscal-total" type="number" step="0.01" value="0" /></div>
@@ -7519,7 +7519,7 @@ async function finalizePdvSaleRecord() {
     id: nextId(state.fiscalQueue),
     terminalId: terminal.id,
     model: "NFC-e",
-    serie: "1",
+    serie: String(state.settings.nfceSerie || "1"),
     nature: "Venda de mercadoria",
     status: navigator.onLine ? "Aguardando transmissao" : "Fila offline",
     customer: sale.customer,

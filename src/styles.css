@@ -7096,3 +7096,14 @@ body.tortela-kiosk-page .kiosk-menu-footer {
 .franchise-empty { padding:32px; background:white; border:1px dashed #cbd5e1; border-radius:10px; grid-column:1/-1; text-align:center; }
 @media(max-width:1050px) { .franchise-unit-list { grid-template-columns:1fr; } }
 @media(max-width:640px) { .franchise-directory-top { flex-direction:column; align-items:stretch; } .franchise-unit-card { padding:18px; } .franchise-detail-tabs button { flex:1 1 100%; } }
+
+.fiscal-config-form { display:flex; flex-direction:column; gap:24px; }
+.fiscal-unit-banner { display:flex; flex-direction:column; gap:6px; padding:16px; border-left:4px solid #075985; background:#eff6ff; border-radius:8px; }
+.fiscal-unit-banner span { color:#475569; font-size:14px; }
+.fiscal-config-status { padding:16px 20px; border:1px solid #fde68a; border-radius:8px; background:#fffbeb; margin:20px 0; }
+.fiscal-config-status h3 { margin:0 0 10px; }
+.fiscal-config-status ul { margin:0; padding-left:20px; display:grid; gap:6px; }
+
+.fiscal-config-status summary { cursor:pointer; font-weight:700; }
+.fiscal-config-status[open] summary { margin-bottom:12px; }
+.fiscal-config-form .field label { min-height:90px; justify-content:space-between; }
