@@ -1,7 +1,7 @@
 const {profile}=require('../fiscal-regimes');
 // Sources and activation dates are pinned: publication is not automatic activation.
 const RTC_RELEASE = {
-  version: "RTC-2026-10-22-EMPRESA.1",
+  version: "RTC-2026-10-22-EMPRESA.2",
   nfe: "NT 2025.002 v1.52", netPrices: "NT 2026.008 v1.00", payments: "NT 2026.006 v1.00",
   homologation: "2026-10-26", production: "2026-11-16",
   source: "https://www.nfe.fazenda.gov.br/portal/informe.aspx?AspxAutoDetectCookieSupport=1&Informe=p51cQJEX57A%3D&ehCTG=false"
