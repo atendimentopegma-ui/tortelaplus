@@ -10,7 +10,7 @@ window.CentralAdministration = {
         <button class="btn primary" type="submit">Alterar minha senha</button><span role="status" style="grid-column:1/-1"></span>
       </form></section></div>`;
   },
-  bind({api}) {
+  bind({api,onFranchiseSaved=async()=>{}}) {
     const userContainer=document.getElementById("central-user-access");
     if(userContainer)window.UserAccessPanel.mount(userContainer,{api,basePath:"/api/provider/admins",permissions:window.UserAccessPanel.centralPermissions});
     const passwordForm=document.getElementById("central-password-form");
@@ -21,16 +21,16 @@ window.CentralAdministration = {
       try{await api("/api/provider/auth/password",{method:"POST",body:JSON.stringify({currentPassword:passwordForm.elements.currentPassword.value,newPassword:passwordForm.elements.newPassword.value})});passwordForm.reset();status.textContent="Senha alterada. Use a nova senha nos proximos acessos.";}catch(error){status.textContent=error.message;}finally{button.disabled=false;}
     });
     const management=document.getElementById("franchise-management");
-    if(management)this.mountFranchisees(management,api);
+    if(management)this.mountFranchisees(management,api,"",onFranchiseSaved);
   },
-  async mountFranchisees(container,api) {
+  async mountFranchisees(container,api,selectedCode="",onFranchiseSaved=async()=>{}) {
     const escape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
     container.textContent="Carregando franqueados...";
     try{
       const {clients}=await api("/api/network/franchisees");
       const modules=["PDV","NF-e","NFC-e","NFS-e","Estoque","Financeiro","Relatorios","Compras","CTe","CTe-OS","MDFe","SAT","MFe","SPED","Sintegra"];
       container.innerHTML=`<div class="franchise-heading"><div><h2>Cadastro da franqueada</h2><p>Selecione uma unidade para editar ou cadastre uma nova.</p></div><span class="franchise-mode" id="franchise-mode"></span></div>
-        <div class="franchise-toolbar"><div class="field"><label>Unidade selecionada<select id="managed-franchise"><option value="" disabled>Nova franqueada — preencha o cadastro abaixo</option>${clients.map(row=>`<option value="${escape(row.tenantCode)}">${escape(row.tradeName)} — ${escape(row.tenantCode)}</option>`).join("")}</select></label></div><button class="btn" type="button" id="new-franchise">+ Cadastrar franqueado</button></div>
+        <p class="franchise-save-feedback" data-franchise-feedback role="status" aria-live="polite"></p><div class="franchise-toolbar"><div class="field"><label>Unidade selecionada<select id="managed-franchise"><option value="" disabled>Nova franqueada — preencha o cadastro abaixo</option>${clients.map(row=>`<option value="${escape(row.tenantCode)}">${escape(row.tradeName)} — ${escape(row.tenantCode)}</option>`).join("")}</select></label></div><button class="btn" type="button" id="new-franchise">+ Cadastrar franqueado</button></div>
         <form class="network-form franchise-editor" id="franchise-form">
           <fieldset class="franchise-section"><legend>1. Identificação e contato</legend><div class="franchise-fields">
             <div class="field"><label>Código da unidade<input name="tenantCode" required pattern="[a-z0-9-]+" placeholder="Ex.: loja-02" /></label><small>Use letras minúsculas, números e hífen.</small></div>
@@ -91,9 +91,9 @@ window.CentralAdministration = {
         event.preventDefault();if(lookingUp){status.textContent="Aguarde a consulta do CNPJ terminar.";return;}const button=form.querySelector('button[type="submit"]');button.disabled=true;
         const body=Object.fromEntries(["tenantCode","tradeName","document","adminUser","plan","maxTerminals","renewalDays","status"].map(key=>[key,form.elements[key].value]));
         body.modules=[...form.querySelectorAll('[name="module"]:checked')].map(input=>input.value);
-        try{if(creating){body.adminUser=form.elements.initialUsername.value;body.adminPassword=form.elements.adminPassword.value;body.companyProfile=window.CompanyProfile.validate({...Object.fromEntries(window.CompanyProfile.fields.map(([,key])=>[key,form.elements['profile_'+key]?.value||''])),company:form.elements.profile_company.value||body.tradeName,tradeName:body.tradeName,document:body.document});}await api(creating?"/api/tenants":`/api/provider/tenant/${encodeURIComponent(body.tenantCode)}`,{method:"POST",body:JSON.stringify(body)});await this.mountFranchisees(container,api);container.querySelector('[role="status"]').textContent="Franqueado e poderes salvos.";}catch(error){status.textContent=error.message;button.disabled=false;}
+        try{if(creating){body.adminUser=form.elements.initialUsername.value;body.adminPassword=form.elements.adminPassword.value;body.companyProfile=window.CompanyProfile.validate({...Object.fromEntries(window.CompanyProfile.fields.map(([,key])=>[key,form.elements['profile_'+key]?.value||''])),company:form.elements.profile_company.value||body.tradeName,tradeName:body.tradeName,document:body.document});}await api(creating?"/api/tenants":`/api/provider/tenant/${encodeURIComponent(body.tenantCode)}`,{method:"POST",body:JSON.stringify(body)});await this.mountFranchisees(container,api,body.tenantCode,onFranchiseSaved);container.querySelector('[data-franchise-feedback]').textContent=`Unidade ${body.tradeName} (${body.tenantCode}) salva e selecionada.`;container.scrollIntoView({block:'start',behavior:'smooth'});await onFranchiseSaved();}catch(error){status.textContent=error.message;button.disabled=false;}
       });
-      load(clients[0]||null);
+      load(clients.find(row=>row.tenantCode===selectedCode)||clients[0]||null);
     }catch(error){container.textContent=error.message;}
   }
 };

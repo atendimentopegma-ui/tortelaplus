@@ -828,7 +828,7 @@ function renderReports() {
 }
 
 function bindRender() {
-  if(window.CentralAdministration)window.CentralAdministration.bind({api});
+  if(window.CentralAdministration)window.CentralAdministration.bind({api,onFranchiseSaved:async()=>{summary=normalizeSummary(await api("/api/network/summary"));}});
   if(byId("central-company-profile")&&window.CompanyProfile)window.CompanyProfile.mount(byId("central-company-profile"),{api,endpoint:"/api/provider/company-profile"});
   const fiscalUnit=byId('fiscal-cancel-unit');
   if(fiscalUnit&&window.FiscalCancellationPanel){const load=()=>{if(fiscalUnit.value)window.FiscalCancellationPanel.mount(byId('fiscal-cancellation-panel'),{api,tenantCode:fiscalUnit.value});};fiscalUnit.addEventListener('change',load);load();}
