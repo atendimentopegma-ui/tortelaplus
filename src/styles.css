@@ -7021,3 +7021,10 @@ body.tortela-kiosk-page .kiosk-menu-footer {
     min-height: 160px;
   }
 }
+
+/* Forms with multiple cards must grow before the stage scrolls. */
+.network-module.network-module-flow {
+  height: auto;
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+}
