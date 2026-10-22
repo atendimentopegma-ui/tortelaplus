@@ -5887,7 +5887,10 @@ th {
 
 .network-stage {
   min-height: 0;
-  overflow: hidden;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  padding-bottom: 12px;
 }
 
 .network-module {
