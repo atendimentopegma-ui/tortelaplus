@@ -42,12 +42,12 @@
     const original=Object.fromEntries(fields.map(([,name])=>[name,element.elements[name].value]));
     const code=original[key].replace(/\D/g,'');
     if((kind==='cnpj'&&(!/^\d{14}$/.test(code)||/^(\d)\1+$/.test(code)))||(kind==='cep'&&!/^\d{8}$/.test(code))){status.textContent=kind==='cnpj'?'Informe um CNPJ com 14 dígitos para consultar. CPF não possui consulta pública.':'Informe um CEP com 8 dígitos.';return;}
-    busy=true;element.querySelectorAll('button').forEach(b=>b.disabled=true);status.textContent=kind==='cnpj'?'Consultando CNPJ na BrasilAPI...':'Consultando endereço no ViaCEP...';
+    busy=true;element.querySelectorAll('button').forEach(b=>b.disabled=true);status.textContent=kind==='cnpj'?'Consultando CNPJ na base pública...':'Consultando endereço no ViaCEP...';
     try{
      const request=async url=>{const response=await lookupFetch(url,{signal:AbortSignal.timeout(12000)});if(!response.ok)throw Error(response.status===404?'Cadastro não encontrado.':'Serviço de consulta indisponível. Tente novamente ou preencha manualmente.');const value=await response.json();if(value.erro)throw Error('CEP não encontrado.');return value;};
      let values;
      if(kind==='cnpj'){
-      const result=await request('https://brasilapi.com.br/api/cnpj/v1/'+code);
+      let result;try{result=await request('https://minhareceita.org/'+code);}catch{result=await request('https://brasilapi.com.br/api/cnpj/v1/'+code);}
       if(String(result.cnpj||'').replace(/\D/g,'')!==code||!result.razao_social)throw Error('A consulta retornou dados inconsistentes. Preencha manualmente.');
       values={company:result.razao_social,tradeName:result.nome_fantasia||'',cnae:result.cnae_fiscal||'',cep:result.cep||'',address:[result.descricao_tipo_de_logradouro,result.logradouro].filter(Boolean).join(' '),number:result.numero||'',complement:result.complemento||'',district:result.bairro||'',city:result.municipio||'',uf:result.uf||'',cityCode:'',phone:result.ddd_telefone_1||'',email:result.email||''};
       values.cep=String(values.cep).replace(/\D/g,'');
