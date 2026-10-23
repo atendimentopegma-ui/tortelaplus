@@ -232,7 +232,7 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   assert(state.fiscalQueue.length === beforeReceiptQueue, "Recibo nao fiscal criou NFC-e indevidamente.");
   state.settings.pdvTerminals[0].emissionMode = "nfce";
   test.printLastPdvSale();
-  assert(test.printed().includes("RECIBO N�O FISCAL"), "Reimpressao alterou o modo de uma venda anterior.");
+  assert(test.printed().includes("RECIBO N\u00c3O FISCAL"), "Reimpressao alterou o modo de uma venda anterior.");
   assert(test.printed().includes("logo-tortela.gif") && test.printed().includes("80mm") && !test.printed().includes("QR Code"), "Recibo sem identidade ou com QR Code indevido.");
   test.cancelClosedSale(receiptSale.id);
   assert(receiptSale.status === "Cancelado" && state.fiscalQueue.length === beforeReceiptQueue, "Cancelamento do recibo criou documento fiscal.");
