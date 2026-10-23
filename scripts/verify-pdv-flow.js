@@ -225,7 +225,19 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   test.cancelClosedSale(receiptSale.id);
   assert(receiptSale.status === "Cancelado" && state.fiscalQueue.length === beforeReceiptQueue, "Cancelamento do recibo criou documento fiscal.");
 
-  console.log("OK - fluxo PDV validado: venda, caixa, estoque composto, NFC-e pendente, recibo base e cancelamento com estorno.");
+  state.products.push({id:99001,description:"Bebida do teste",price:1,stock:20,unit:"UN",active:true,composition:[]});
+  state.products.push({id:99002,description:"Combo do teste",price:2,stock:0,unit:"UN",active:true,isBundle:true,comboPricing:{enabled:true,type:"amount",discount:0.7,basePrice:2.7,finalPrice:2},composition:[{productId:5014,qty:2,mode:"sale"},{productId:99001,qty:1,mode:"sale"}]});
+  const comboBefore={flour:flour.stock,oil:oil.stock,drink:20};
+  state.settings.pdvTerminals[0].emissionMode="receipt";
+  test.setField("pdv-club-cpf","52998224725");test.setField("sale-search","99002");test.setField("sale-qty","2");test.setField("sale-price","0");test.setField("pay-money","4");
+  await test.addSaleItem();await test.finishSaleRecord();
+  const comboSale=state.sales.at(-1),drink=state.products.find(p=>p.id===99001);
+  assert(comboSale.total===4&&comboSale.items[0].price===2,"Combo nao cobrou o preco com desconto uma unica vez.");
+  assert(Math.abs(flour.stock-(comboBefore.flour-0.24))<0.00001&&Math.abs(oil.stock-(comboBefore.oil-0.04))<0.00001,"Combo nao baixou as quantidades dos componentes aninhados.");
+  assert(drink.stock===18,"Combo nao baixou a bebida separadamente.");
+  test.cancelClosedSale(comboSale.id);
+  assert(Math.abs(flour.stock-comboBefore.flour)<0.00001&&Math.abs(oil.stock-comboBefore.oil)<0.00001&&drink.stock===20,"Cancelamento do combo nao restituiu componentes.");
+  console.log("OK - fluxo PDV validado: venda, caixa, estoque composto, NFC-e pendente, recibo, combo com desconto e cancelamento com estorno.");
 })().catch((error) => {
   console.error(error.message);
   process.exit(1);

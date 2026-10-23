@@ -7231,3 +7231,23 @@ body.tortela-theme,.tortela-theme .content,.network-shell,.public-register-shell
 .pdv-preparation-dialog .pdv-preparation-option input[type="checkbox"] { accent-color:#15803d; }
 .pdv-preparation-option:focus-within { outline-color:#15803d; }
 input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0284c7; }
+.combo-builder { border-top:4px solid #ffef00; }
+.combo-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.combo-heading h3 { margin:0 0 8px; }
+.combo-heading p { margin:0 0 18px; color:#64748b; }
+.combo-product-list { max-height:320px; overflow:auto; border:1px solid #e2e8f0; border-radius:10px; margin:16px 0; background:#fff; }
+.combo-product-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 16px; border-bottom:1px solid #e2e8f0; }
+.combo-product-row[hidden] { display:none; }
+.combo-product-row > label { display:flex; align-items:center; gap:12px; flex:1; cursor:pointer; min-width:0; }
+.combo-product-row input[type=checkbox] { width:18px; height:18px; min-height:0; flex:0 0 18px; padding:0; margin:0; accent-color:#15803d; }
+.combo-product-row strong { display:block; font-size:14px; overflow-wrap:anywhere; }
+.combo-product-row small { display:block; margin-top:5px; color:#64748b; font-size:12px; }
+.combo-product-row > div { width:100px; flex:none; }
+.combo-product-row > div label { display:block; font-size:11px; margin-bottom:4px; }
+.combo-product-row > div input { width:100%; min-height:38px; }
+.combo-product-row:has(input:checked) { background:#ecfdf3; }
+.combo-pricing { display:grid; grid-template-columns:180px 130px minmax(0,1fr); gap:16px; align-items:end; padding:16px; border-radius:10px; background:#fffde8; }
+.combo-totals { display:grid; gap:5px; font-size:13px; }
+.combo-totals strong { font-size:19px; color:#166534; }
+#combo-feedback { color:#075985; font-weight:650; }
+@media(max-width:700px) { .combo-pricing { grid-template-columns:1fr 1fr; } .combo-totals { grid-column:1/-1; } .combo-heading { flex-direction:column; } }

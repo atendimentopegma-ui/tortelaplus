@@ -1456,7 +1456,7 @@ function renderProducts() {
     { title: "Fabricado", text: "Receita ou kit", icon: "purchases", type: "Produto fabricado" },
     { title: "Servico", text: "Venda sem estoque", icon: "sales", type: "Servico" },
     { title: "Impostos", text: "NCM, CFOP e CST", icon: "fiscal", tab: "impostos" },
-    { title: "Composicao", text: "Ficha tecnica", icon: "reports", tab: "composicao" },
+    { title: "Combos e composição", text: "Produtos e desconto", icon: "reports", tab: "composicao" },
     { title: "Balanca", text: "Codigo e validade", icon: "pdv", tab: "balanca" },
     { title: "Etiquetas", text: "Codigo de barras", icon: "settings", tab: "etiquetas" }
   ];
@@ -1486,7 +1486,7 @@ function renderProducts() {
         ${formHtml}
       </div>
     `
-    : `${productListPanel}${productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>`;
+    : `${currentTab === "composicao" ? productTab()+productListPanel : productListPanel+productTab()}<div class="product-hidden-form" aria-hidden="true">${formHtml}</div>`;
   return `
     <section class="panel erp-screen products-screen desktop-module-screen">
       <div class="desktop-module-titlebar">
@@ -1551,7 +1551,7 @@ function tabLabel(tab) {
   return {
     dados: "Dados",
     impostos: "Impostos",
-    composicao: "Composicao",
+    composicao: "Combos e composição",
     grade: "Grade/Lote",
     balanca: "Balanca",
     etiquetas: "Etiquetas",
@@ -1824,6 +1824,7 @@ function productTab() {
       return sum + Number(product?.cost || 0) * componentStockQty(component, product);
     }, 0);
     return `
+      ${renderComboBuilder()}
       <div class="form-card">
         <h3>Ficha tecnica: composicao e fabricacao</h3>
         <p class="muted">Informe quanto de cada materia-prima entra em 1 unidade do produto final. As quantidades serao convertidas para a unidade de estoque cadastrada.</p>
@@ -3803,6 +3804,7 @@ function bindCurrentModule() {
 
   const saveProduct = byId("save-product");
   if (saveProduct) saveProduct.addEventListener("click", saveProductRecord);
+  bindComboBuilder();
   const newProduct = byId("new-product");
   if (newProduct) newProduct.addEventListener("click", newProductRecord);
   document.querySelectorAll("[data-new-product-type]").forEach((button) => {
@@ -4899,6 +4901,7 @@ function saveProductRecord() {
     reform: structuredClone(pendingProductDraft.reform || {}),
     photo: pendingProductPhoto,
     isBundle: byId("product-is-bundle")?.checked || composition.length > 0,
+    comboPricing: structuredClone(pendingProductDraft.comboPricing || null),
     composition,
     variantColor: pendingProductDraft.variantColor || "",
     variantSize: pendingProductDraft.variantSize || "",
@@ -4940,6 +4943,44 @@ function newProductRecord(type = "") {
   renderShell();
 }
 
+function renderComboBuilder() {
+  const pricing = pendingProductDraft.comboPricing || {};
+  const selected = pricing.enabled ? pendingComposition : [];
+  const candidates = state.products.filter(p => p.active !== false && p.allowsSale !== false && p.type !== "Materia-prima" && Number(p.id) !== Number(editingProductId));
+  return `<section class="form-card combo-builder"><div class="combo-heading"><div><h3>Monte seu combo</h3><p>Selecione os produtos, informe as quantidades e defina um desconto exclusivo para este combo.</p></div><button class="btn" id="new-combo" type="button">+ Novo combo</button></div><div class="grid two"><div class="field"><label for="combo-name">Nome do combo</label><input id="combo-name" value="${escapeAttr(pendingProductDraft.description || '')}" placeholder="Ex.: Tortela + bebida" /></div><div class="field"><label for="combo-filter">Buscar produtos para incluir</label><input id="combo-filter" placeholder="Nome, código ou código de barras" /></div></div><div class="combo-product-list">${candidates.map(p=>{const component=selected.find(c=>Number(c.productId)===Number(p.id));return `<div class="combo-product-row" data-combo-row data-search="${escapeAttr([p.description,p.id,p.barcode].join(' ').toLowerCase())}"><label><input type="checkbox" data-combo-product="${p.id}" ${component?'checked':''} /><span><strong>${escapeHtml(p.description)}</strong><small>Cód. ${p.id} · ${money(p.price)} / ${escapeHtml(p.unit || 'UN')}</small></span></label><div><label for="combo-qty-${p.id}">Quantidade</label><input id="combo-qty-${p.id}" data-combo-qty="${p.id}" type="number" min="0.001" step="0.001" value="${Number(component?.qty || 1)}" /></div></div>`;}).join('') || '<p>Nenhum produto disponível. Cadastre os produtos primeiro.</p>'}</div><p id="combo-filter-empty" hidden>Nenhum produto encontrado.</p><div class="combo-pricing"><div class="field"><label for="combo-discount-type">Desconto do combo</label><select id="combo-discount-type"><option value="percent" ${pricing.type!=='amount'?'selected':''}>Percentual (%)</option><option value="amount" ${pricing.type==='amount'?'selected':''}>Valor em reais (R$)</option></select></div><div class="field"><label for="combo-discount">Desconto</label><input id="combo-discount" type="number" min="0" step="0.01" value="${Number(pricing.discount || 0)}" /></div><div class="combo-totals" aria-live="polite" id="combo-price-preview"></div></div><p class="helper">O preço será a soma dos preços de cadastro dos itens menos o desconto. Não altera os preços avulsos. O estoque dos componentes será baixado na venda.</p><p id="combo-feedback" role="status"></p><div class="actions"><button class="btn primary" type="button" id="apply-combo">Aplicar combo ao cadastro</button></div><p class="helper">Depois de aplicar, confira os dados fiscais e clique em Salvar novo ou Salvar alteração no rodapé.</p></section>`;
+}
+
+function bindComboBuilder() {
+  if (!byId("apply-combo")) return;
+  const read = () => {
+    const components = [...document.querySelectorAll('[data-combo-product]:checked')].map(input=>({productId:Number(input.dataset.comboProduct),qty:Number(byId(`combo-qty-${input.dataset.comboProduct}`).value),mode:'sale',useUnit:''}));
+    const base = Math.round(components.reduce((sum,c)=>sum+Number(state.products.find(p=>Number(p.id)===c.productId)?.price || 0)*c.qty,0)*100)/100;
+    const discount = Number(byId('combo-discount').value), type = byId('combo-discount-type').value;
+    const reduction = Math.round((type==='percent'?base*discount/100:discount)*100)/100;
+    return {components,base,discount,type,reduction,price:Math.round((base-reduction)*100)/100};
+  };
+  const update = () => { const c=read();byId('combo-price-preview').innerHTML=`<span>Itens avulsos <b>${money(c.base)}</b></span><span>Desconto <b>${money(c.reduction)}</b></span><strong>Preço do combo ${money(Math.max(0,c.price))}</strong>`;byId('combo-feedback').textContent=''; };
+  document.querySelectorAll('[data-combo-product],[data-combo-qty],#combo-discount,#combo-discount-type').forEach(input=>input.addEventListener('input',update));
+  byId('combo-filter').addEventListener('input',event=>{const normalize=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const query=normalize(event.target.value.trim());let count=0;document.querySelectorAll('[data-combo-row]').forEach(row=>{row.hidden=!normalize(row.dataset.search).includes(query);if(!row.hidden)count++;});byId('combo-filter-empty').hidden=count>0;});
+  byId('new-combo').addEventListener('click',()=>{newProductRecord('Mercadoria para revenda');currentTab='composicao';setInternalRoute({module:'products',tab:currentTab});renderShell();});
+  byId('apply-combo').addEventListener('click',()=>{
+    const c=read(),name=byId('combo-name').value.trim();
+    const fail=message=>{byId('combo-feedback').textContent=message;};
+    if(!name)return fail('Informe o nome do combo.');
+    if(c.components.length<2)return fail('Selecione pelo menos dois produtos diferentes.');
+    if(c.components.some(row=>!Number.isFinite(row.qty)||row.qty<=0))return fail('Informe quantidades maiores que zero.');
+    if(!Number.isFinite(c.discount)||c.discount<0||c.price<=0||(c.type==='percent'&&c.discount>=100))return fail('O desconto deve ser positivo ou zero e menor que o valor dos itens.');
+    const contains=(id,seen=new Set())=>{if(Number(id)===Number(editingProductId)&&editingProductId)return true;if(seen.has(id))return true;const next=new Set(seen);next.add(id);return (state.products.find(p=>Number(p.id)===Number(id))?.composition || []).some(row=>contains(row.productId,next));};
+    if(c.components.some(row=>contains(row.productId)))return fail('Esta seleção cria uma composição circular. Escolha outros produtos.');
+    captureProductDraft();pendingComposition=c.components;
+    pendingProductDraft.comboPricing={enabled:true,type:c.type,discount:c.discount,basePrice:c.base,finalPrice:c.price};
+    pendingProductDraft.description=name;pendingProductDraft.price=c.price;
+    byId('product-description').value=name;byId('product-price').value=c.price;byId('product-is-bundle').checked=true;
+    renderShell();byId('combo-feedback').textContent='Combo aplicado. Confira o cadastro e salve para liberar no PDV.';
+  });
+  update();
+}
+
 function addCompositionRecord() {
   captureProductDraft();
   const componentId = Number(byId("composition-product")?.value || 0);
@@ -4967,6 +5008,7 @@ function captureProductDraft() {
   if (!byId("product-form")) return;
   const previous = pendingProductDraft;
   pendingProductDraft = {
+    comboPricing: previous.comboPricing || null,
     description: byId("product-description")?.value || "",
     barcode: byId("product-barcode")?.value || "",
     type: byId("product-type")?.value || "Mercadoria para revenda",
