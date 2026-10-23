@@ -17,6 +17,9 @@ Copy-Item -LiteralPath (Join-Path $ProjectPath "fiscal-agent.js") -Destination $
 Copy-Item -LiteralPath (Join-Path $ProjectPath "runtime\fiscal") -Destination $backup -Recurse
 
 Copy-Item -LiteralPath (Join-Path $SourcePath "fiscal-agent.js") -Destination $ProjectPath -Force
+$helperDirectory = Join-Path $ProjectPath "src\server"
+New-Item -ItemType Directory -Force -Path $helperDirectory | Out-Null
+Copy-Item -LiteralPath (Join-Path $SourcePath "src\server\a1-certificate.js") -Destination $helperDirectory -Force
 if (Test-Path (Join-Path $SourcePath "runtime\fiscal")) {
   Copy-Item -LiteralPath (Join-Path $SourcePath "runtime\fiscal\*") -Destination (Join-Path $ProjectPath "runtime\fiscal") -Recurse -Force
 }

@@ -1,3 +1,4 @@
+const a1Certificate = require("./src/server/a1-certificate");
 const fiscalSettingsPanel = require("./src/fiscal-settings-panel");
 const companyProfile = require("./src/company-profile");
 const itemPreparation = require("./src/item-preparation");
@@ -821,6 +822,7 @@ function configureAcbrForTenant(tenantCode, tenantState) {
   const tenantXml = tenantStorageDir(tenantCode, "xml");
   const tenantPdf = tenantStorageDir(tenantCode, "pdf");
   ini = replaceIniValue(ini, "DFe", "UF", settings.sefazUf || settings.uf || "");
+  if(String(settings.certificateName||"").startsWith("vault-a1:"))throw Error("Configure o agente fiscal Windows atualizado para usar o certificado selecionado.");
   ini = replaceIniValue(ini, "DFe", "ArquivoPFX", settings.certificateName || "");
   ini = replaceIniValue(ini, "DFe", "Senha", secrets.certificatePassword || "");
   ini = replaceIniValue(ini, "NFe", "Ambiente", settings.fiscalEnvironment === "Producao" ? "1" : "2");
@@ -847,6 +849,7 @@ function configureAcbrNfseForTenant(tenantCode, tenantState) {
   const tenantXml = tenantStorageDir(tenantCode, "xml");
   const tenantPdf = tenantStorageDir(tenantCode, "pdf");
   ini = replaceIniValue(ini, "DFe", "UF", settings.sefazUf || settings.uf || "");
+  if(String(settings.certificateName||"").startsWith("vault-a1:"))throw Error("Configure o agente fiscal Windows atualizado para usar o certificado selecionado.");
   ini = replaceIniValue(ini, "DFe", "ArquivoPFX", settings.certificateName || "");
   ini = replaceIniValue(ini, "DFe", "Senha", secrets.certificatePassword || "");
   ini = replaceIniValue(ini, "NFSe", "Ambiente", settings.fiscalEnvironment === "Producao" ? "1" : "2");
@@ -867,6 +870,7 @@ function fiscalAgentConfig(tenantCode, tenantState, secrets = loadFiscalSecrets(
     uf: settings.sefazUf || settings.uf || "",
     certificateName: settings.certificateName || "",
     certificatePassword: secrets.certificatePassword || "",
+    ...(String(settings.certificateName||"").startsWith("vault-a1:")&&secrets.certificateA1?.sha256===String(settings.certificateName).slice(9)?{certificateA1:secrets.certificateA1}:{}),
     cscId: settings.cscId || "",
     csc: secrets.csc || "",
     nfseCityCode: settings.nfseCityCode || settings.cityCode || "",
@@ -1941,6 +1945,7 @@ async function acbrStatus(tenantState) {
       }).finally(() => clearTimeout(timer));
       if (!response.ok) throw new Error(`Agente fiscal respondeu HTTP ${response.status}.`);
       const result = await response.json();
+      if(String(settings.certificateName||" ").startsWith("vault-a1:")&&!result.capabilities?.certificateUpload)throw Error("Atualize o agente fiscal Windows para usar o certificado selecionado.");
       return { connected: true, engine: "Agente fiscal Windows + ACBr", isolated: true, secure: true, url: settings.acbrApiUrl, response: result };
     } catch (error) {
       return { connected: false, engine: "Agente fiscal Windows + ACBr", isolated: true, secure: true, url: settings.acbrApiUrl, message: error.message };
@@ -4034,13 +4039,15 @@ async function handleApi(req, res, urlPath) {
     if(access.error)return deny(res,access);
     let state=readTenantState(code);const flags=()=>Object.fromEntries(fiscalSettingsPanel.secrets.map(key=>[key,Boolean(state.settings[key+'Configured'])]));
     const revision=()=>crypto.createHash('sha256').update(JSON.stringify([fiscalSettingsPanel.profile(state.settings),flags()])).digest('hex');
-    const payload=()=>{const missing=[...fiscalProviderStatus({...state,fiscalRules:(state.fiscalRules||[]).filter(r=>['NF-e','NFC-e'].includes(r.model))}).missing];if(!state.settings.stateRegistration&&!missing.includes('inscricao estadual'))missing.push('inscricao estadual');if((!state.settings.cscConfigured||!state.settings.cscId)&&!missing.some(value=>value.includes('CSC')))missing.push('CSC e ID CSC da NFC-e');if(!state.settings.acbrApiUrl)missing.push('URL HTTPS do agente fiscal Windows');if(!state.settings.acbrApiTokenConfigured)missing.push('token do agente fiscal');if(state.settings.certificateExpiresAt&&state.settings.certificateExpiresAt<today())missing.push('certificado expirado');if(state.settings.sefazUf&&state.settings.uf&&state.settings.sefazUf!==state.settings.uf)missing.push('UF SEFAZ diferente da UF da empresa');return {ok:true,tenantCode:code,unit:access.tenant.tradeName||code,document:state.settings.document||access.tenant.document||'',config:fiscalSettingsPanel.profile(state.settings),configured:flags(),revision:revision(),missing:[...new Set(missing)],lastNumbers:{nfe:Math.max(0,...(state.fiscalQueue||[]).filter(r=>r.model==='NF-e').map(r=>Number(r.number||r.id)||0)),nfce:Math.max(0,...(state.fiscalQueue||[]).filter(r=>r.model==='NFC-e').map(r=>Number(r.number||r.id)||0))}};};
-    if(fiscalSettingsMatch[2]){if(req.method!=='POST')return sendJson(res,405,{ok:false,error:'Use POST.'});try{const result=await acbrStatus(state);return sendJson(res,200,{ok:true,connected:!!result.connected,message:result.connected?'Conexão confirmada':'Confira URL, token e serviço do agente.'});}catch{return sendJson(res,200,{ok:true,connected:false,message:'Não foi possível conectar ao agente fiscal.'});}}
+    const payload=()=>{const missing=[...fiscalProviderStatus({...state,fiscalRules:(state.fiscalRules||[]).filter(r=>['NF-e','NFC-e'].includes(r.model))}).missing];if(!state.settings.stateRegistration&&!missing.includes('inscricao estadual'))missing.push('inscricao estadual');if((!state.settings.cscConfigured||!state.settings.cscId)&&!missing.some(value=>value.includes('CSC')))missing.push('CSC e ID CSC da NFC-e');if(!state.settings.acbrApiUrl)missing.push('URL HTTPS do agente fiscal Windows');if(!state.settings.acbrApiTokenConfigured)missing.push('token do agente fiscal');if(state.settings.certificateExpiresAt&&state.settings.certificateExpiresAt<today())missing.push('certificado expirado');if(state.settings.sefazUf&&state.settings.uf&&state.settings.sefazUf!==state.settings.uf)missing.push('UF SEFAZ diferente da UF da empresa');return {ok:true,tenantCode:code,unit:access.tenant.tradeName||code,document:state.settings.document||access.tenant.document||'',config:fiscalSettingsPanel.profile(state.settings),certificateFile:String(state.settings.certificateName||"").startsWith("vault-a1:")?(state.settings.certificateFileName||""):"",configured:flags(),revision:revision(),missing:[...new Set(missing)],lastNumbers:{nfe:Math.max(0,...(state.fiscalQueue||[]).filter(r=>r.model==='NF-e').map(r=>Number(r.number||r.id)||0)),nfce:Math.max(0,...(state.fiscalQueue||[]).filter(r=>r.model==='NFC-e').map(r=>Number(r.number||r.id)||0))}};};
+    if(fiscalSettingsMatch[2]){if(req.method!=='POST')return sendJson(res,405,{ok:false,error:'Use POST.'});try{const result=await acbrStatus(state);return sendJson(res,200,{ok:true,connected:!!result.connected,message:result.connected?'Conexão confirmada':result.message?.startsWith('Atualize o agente fiscal')?result.message:'Confira URL, token e serviço do agente.'});}catch{return sendJson(res,200,{ok:true,connected:false,message:'Não foi possível conectar ao agente fiscal.'});}}
     if(req.method==='GET')return sendJson(res,200,payload());
     const body=await readBody(req);state=readTenantState(code);if(body.revision!==revision())return sendJson(res,409,{ok:false,error:'A configuração foi alterada. Reabra a aba antes de salvar.'});
     let config,secretValues={};try{config=fiscalSettingsPanel.validate(body.config);if(body.secrets!==undefined&&(!body.secrets||typeof body.secrets!=='object'||Array.isArray(body.secrets)))throw Error('Segredos inválidos.');for(const [key,value]of Object.entries(body.secrets||{})){if(!fiscalSettingsPanel.secrets.includes(key)||typeof value!=='string'||value.length>500)throw Error('Segredo fiscal inválido.');if(value)secretValues[key]=value;}}catch(error){return sendJson(res,422,{ok:false,error:error.message});}
+    let uploadedA1;if(body.certificateFile!==undefined){try{uploadedA1=a1Certificate.validateCertificate(body.certificateFile);}catch(error){return sendJson(res,422,{ok:false,error:error.message});}secretValues.certificateA1=uploadedA1;config.certificateName='vault-a1:'+uploadedA1.sha256;}
+    if(!uploadedA1&&String(config.certificateName).startsWith('vault-a1:')&&config.certificateName!==state.settings.certificateName)return sendJson(res,422,{ok:false,error:'Selecione o arquivo A1 antes de salvar.'});
     if(Object.keys(secretValues).length){try{saveFiscalSecrets(code,{...loadFiscalSecrets(code),...secretValues});}catch{return sendJson(res,503,{ok:false,error:'Não foi possível proteger os segredos fiscais. Verifique a chave de proteção da hospedagem. Nenhum parâmetro foi alterado.'});}}
-    Object.assign(state.settings,config);for(const key of Object.keys(secretValues))state.settings[key+'Configured']=true;
+    Object.assign(state.settings,config);if(uploadedA1)state.settings.certificateFileName=uploadedA1.fileName;for(const key of fiscalSettingsPanel.secrets.filter(key=>Object.hasOwn(secretValues,key)))state.settings[key+'Configured']=true;
     writeTenantState(code,state);appendTenantAudit(code,'Configuração fiscal alterada','Parâmetros da própria unidade; segredos protegidos',access.session.user);return sendJson(res,200,payload());
   }
 

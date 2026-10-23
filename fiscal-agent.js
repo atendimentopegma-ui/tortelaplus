@@ -1,3 +1,4 @@
+const { installCertificate } = require("./src/server/a1-certificate");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
@@ -114,7 +115,8 @@ async function initialize(engineName, tenantCode, fiscalConfig = {}) {
   const config = path.join(tenantDir, engineName === "nfse" ? "ACBrLibNFSe.ini" : "ACBrLib.ini");
   let ini = fs.existsSync(config) ? fs.readFileSync(config, "utf8") : fs.readFileSync(baseIni, "utf8");
   ini = replaceIniValue(ini, "DFe", "UF", fiscalConfig.uf || "");
-  ini = replaceIniValue(ini, "DFe", "ArquivoPFX", fiscalConfig.certificateName || "");
+  const certificatePath=String(fiscalConfig.certificateName||'').startsWith('vault-a1:')?installCertificate(tenantDir,fiscalConfig.certificateA1):fiscalConfig.certificateName||'';
+  ini = replaceIniValue(ini, "DFe", "ArquivoPFX", certificatePath);
   ini = replaceIniValue(ini, "DFe", "Senha", fiscalConfig.certificatePassword || "");
   ini = replaceIniValue(ini, "NFe", "Ambiente", fiscalConfig.fiscalEnvironment === "Producao" ? "1" : "2");
   ini = replaceIniValue(ini, "NFe", "IdCSC", fiscalConfig.cscId || "");
@@ -217,7 +219,7 @@ async function execute(payload) {
 const server = http.createServer(async (req, res) => {
   if (req.url === "/health" && req.method === "GET") {
     if (!authorized(req)) return json(res, 401, { ok: false, error: "Token invalido." });
-    return json(res, 200, { ok: true, agent: "Pegma Plus Fiscal Agent", acbr: true, runtime, host, port });
+    return json(res, 200, { ok: true, agent: "Tortela Plus Fiscal Agent", version:2, capabilities:{certificateUpload:true}, acbr: true, runtime, host, port });
   }
   if (!authorized(req)) return json(res, 401, { ok: false, error: "Token invalido." });
   try {
