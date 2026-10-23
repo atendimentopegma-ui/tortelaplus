@@ -7177,3 +7177,29 @@ body.tortela-kiosk-page .kiosk-menu-footer {
 .pdv-product-result strong { display:block; font-size:14px; overflow-wrap:anywhere; }
 .pdv-product-result small { display:block; margin-top:4px; font-size:12px; color:#64748b; }
 .pdv-product-result b { white-space:nowrap; color:#075985; font-size:16px; }
+.pdv-preparation-dialog { box-sizing:border-box; width:min(620px,calc(100vw - 24px)); max-width:none; max-height:calc(100dvh - 24px); padding:0; border:1px solid #cbd5e1; border-radius:16px; background:#fff; color:#0f172a; box-shadow:0 24px 70px #0f172a40; overflow:hidden; }
+.pdv-preparation-dialog::backdrop { background:#0f172a65; }
+.pdv-preparation-dialog .pdv-preparation-form { display:flex; flex-direction:column; max-height:calc(100dvh - 26px); margin:0; gap:0; }
+.pdv-preparation-header { padding:20px 24px 16px; border-bottom:1px solid #e2e8f0; background:#f8fafc; }
+.pdv-preparation-header small { font-size:11px; font-weight:700; letter-spacing:1px; color:#036987; }
+.pdv-preparation-header h2 { margin:6px 0; font-size:22px; line-height:1.25; overflow-wrap:anywhere; }
+.pdv-preparation-header p { margin:0; font-size:13px; color:#64748b; }
+.pdv-preparation-body { overflow:auto; min-height:0; padding:20px 24px; display:grid; gap:20px; }
+.pdv-preparation-body .field { display:grid; gap:8px; margin:0; }
+.pdv-preparation-body .field label,.pdv-preparation-extras legend { font-size:14px; font-weight:700; color:#0f172a; }
+.pdv-preparation-body .field label small,.pdv-preparation-extras legend small { display:inline-block; margin-left:8px; font-size:12px; font-weight:400; color:#64748b; }
+.pdv-preparation-body select { box-sizing:border-box; width:100%; height:44px; padding:8px 12px; font-size:14px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; }
+.pdv-preparation-dialog .pdv-preparation-extras { min-width:0; padding:0; margin:0; border:0; }
+.pdv-preparation-extras legend { padding:0; margin-bottom:12px; }
+.pdv-preparation-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.pdv-preparation-dialog .pdv-preparation-option { display:flex; align-items:center; gap:10px; margin:0; padding:10px 12px; min-height:44px; box-sizing:border-box; border:1px solid #e2e8f0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; line-height:1.35; font-weight:500; }
+.pdv-preparation-dialog .pdv-preparation-option input[type="checkbox"] { appearance:auto; flex:0 0 18px; width:18px; height:18px; min-height:0; padding:0; margin:0; accent-color:#036987; box-shadow:none; }
+.pdv-preparation-option span { overflow-wrap:anywhere; }
+.pdv-preparation-option:has(input:checked) { background:#e0f2fe; border-color:#0284c7; }
+.pdv-preparation-option:focus-within { outline:2px solid #0284c7; outline-offset:2px; }
+.pdv-preparation-footer { flex-shrink:0; padding:14px 24px; border-top:1px solid #e2e8f0; background:#f8fafc; }
+.pdv-preparation-footer > span { display:block; margin-bottom:10px; font-size:12px; color:#64748b; }
+.pdv-preparation-footer > div { display:flex; justify-content:flex-end; gap:10px; }
+.pdv-preparation-footer .btn { min-height:42px; padding:10px 18px; font-size:14px; }
+.pdv-preparation-footer .btn.primary { background:#036987; color:#fff; border-color:#036987; }
+@media(max-width:500px) { .pdv-preparation-grid { grid-template-columns:1fr; } .pdv-preparation-header,.pdv-preparation-body,.pdv-preparation-footer { padding:14px 16px; } .pdv-preparation-header h2 { font-size:19px; } }
