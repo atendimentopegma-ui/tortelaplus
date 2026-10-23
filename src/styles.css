@@ -7203,3 +7203,31 @@ body.tortela-kiosk-page .kiosk-menu-footer {
 .pdv-preparation-footer .btn { min-height:42px; padding:10px 18px; font-size:14px; }
 .pdv-preparation-footer .btn.primary { background:#036987; color:#fff; border-color:#036987; }
 @media(max-width:500px) { .pdv-preparation-grid { grid-template-columns:1fr; } .pdv-preparation-header,.pdv-preparation-body,.pdv-preparation-footer { padding:14px 16px; } .pdv-preparation-header h2 { font-size:19px; } }
+
+/* Identidade Tortela Plus: canário, confirmação verde e ações destrutivas vermelhas. */
+:root,.tortela-theme { --canary:#ffef00; --canary-soft:#fff9bf; --bg:#fff9bf; --panel:#fff; --panel-2:#fffde8; --line:#e4dfae; --accent:#ffef00; --ok:#15803d; --danger:#b91c1c; }
+body.tortela-theme,.tortela-theme .content,.network-shell,.public-register-shell,.tortela-login-shell,.tortela-theme .login-shell { background:#fff9bf; }
+.tortela-theme .topbar,.tortela-topbar { background:#fff; border-bottom:3px solid #ffef00; box-shadow:0 3px 14px #17243d0a; }
+.tortela-login-brand,.tortela-theme .login-brand { background:linear-gradient(145deg,#fff9bf,#ffef00); border-color:#e4dfae; }
+.btn { background:#fff; color:#075985; border-color:#b9cfda; border-radius:9px; font-weight:650; box-shadow:0 1px 2px #17243d08; }
+.btn:hover:not(:disabled) { background:#eff6ff; border-color:#0284c7; box-shadow:0 3px 10px #17243d12; }
+.btn:focus-visible,button:focus-visible { outline:3px solid #075985; outline-offset:3px; }
+.btn.primary,.pdv-preparation-footer .btn.primary,.tortela-theme .pdv-operational #finish-sale { background:#15803d; border-color:#15803d; color:#fff; }
+.btn.primary:hover:not(:disabled),.pdv-preparation-footer .btn.primary:hover:not(:disabled),.tortela-theme .pdv-operational #finish-sale:hover:not(:disabled) { background:#166534; border-color:#166534; }
+.btn.danger,.btn[data-cancel],.btn[id^="cancel-"],.tortela-theme .pdv-operational #cancel-sale { background:#b91c1c; border-color:#b91c1c; color:#fff; }
+.btn.danger:hover:not(:disabled),.btn[data-cancel]:hover:not(:disabled),.btn[id^="cancel-"]:hover:not(:disabled),.tortela-theme .pdv-operational #cancel-sale:hover:not(:disabled) { background:#991b1b; border-color:#991b1b; color:#fff; }
+.tortela-theme .pdv.pdv-operational,.pdv-operational .pdv-main { background:#fff9bf; }
+.pdv-operational .pdv-brand { background:#fffde8; border-top:4px solid #ffef00; }
+.tortela-theme .pdv-operational .shortcut-grid .btn { background:#eff6ff; color:#075985; border-color:#c2d9e5; }
+.tortela-theme .pdv-operational #hold-sale,.tortela-theme .pdv-operational #close-cash-register-main { background:#fff7ed; color:#9a3412; border-color:#fdba74; }
+.tortela-theme .pdv-operational .grand-total { background:#172c40; border-color:#172c40; }
+.pdv-operational .grand-total strong { color:#ffef00; }
+.pdv-operational .pdv-finish span { color:#fff; }
+.pdv-operational .pdv-table th { background:#fffde8; border-bottom:2px solid #ffef00; }
+.pdv-preparation-header { background:#fffde8; border-top:5px solid #ffef00; }
+.pdv-preparation-footer { background:#fffde8; }
+.pdv-preparation-header small { color:#52621b; }
+.pdv-preparation-option:has(input:checked) { background:#ecfdf3; border-color:#15803d; }
+.pdv-preparation-dialog .pdv-preparation-option input[type="checkbox"] { accent-color:#15803d; }
+.pdv-preparation-option:focus-within { outline-color:#15803d; }
+input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0284c7; }
