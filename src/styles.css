@@ -7281,3 +7281,13 @@ input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0
 .products-screen .desktop-filter-panel p { color:#64748b; font-weight:400; }
 .products-screen .desktop-record-tabs a { color:#475569; font-weight:600; border-radius:7px 7px 0 0; }
 .products-screen .desktop-record-tabs a.active { background:#fff48a; color:#172c40; border-color:#c5b600; }
+
+/* Painel inicial: fundo canário em degradê, com áreas de leitura brancas. */
+.tortela-theme .dashboard-screen { background:linear-gradient(135deg,#fffde0 0%,#fff59d 50%,#ffef00 100%); border-color:#e3d849; }
+.tortela-theme .dashboard-titlebar { background:linear-gradient(110deg,#fff9bf,#ffef00); color:#172c40; border-bottom:1px solid #e3d849; }
+.tortela-theme .dashboard-titlebar span { color:#334155; }
+.tortela-theme .dashboard-module-ribbon { background:linear-gradient(135deg,#fff9bf,#fff24d); border-color:#e3d849; gap:6px; }
+.tortela-theme .dashboard-context-strip { background:linear-gradient(110deg,#fffde0,#fff59d); border-color:#e3d849; }
+.tortela-theme .dashboard-work-area { background:linear-gradient(145deg,#fffde0 0%,#fff9bf 45%,#fff24d 100%); }
+.tortela-theme .dashboard-section { background:#fff; border-color:#e4dfae; }
+.tortela-theme:has(.dashboard-screen) .mode-switch { background:linear-gradient(110deg,#fff9bf,#fff24d); }
