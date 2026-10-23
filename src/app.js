@@ -7668,6 +7668,24 @@ async function createConfiguredSaleCharges(sale) {
   save();
 }
 
+function renderNonFiscalReceipt(sale) {
+  const e = escapeHtml;
+  const rows = (sale.items || []).map(item => `<tr class="${item.parentLineId ? "complement" : ""}"><td>${item.parentLineId ? "↳ " : ""}${e(item.description)}${ItemPreparation.lines(item).map(line => `<small>${e(line)}</small>`).join("")}<small>${e(item.qty)} ${e(item.unit || "UN")} × ${e(money(item.price))}</small></td><td>${e(money(Number(item.qty) * Number(item.price)))}</td></tr>`).join("");
+  const logo = new URL("./assets/tortela/logo-tortela.gif?v=1", window.location.href).href;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibo Tortela — Venda ${e(sale.id)}</title><style>
+  *{box-sizing:border-box}body{margin:0;background:#eef0f2;color:#111;font:12px Arial,sans-serif}.toolbar{padding:16px;text-align:center}.toolbar button{background:#15803d;color:white;border:0;border-radius:8px;padding:12px 24px;font-weight:bold;cursor:pointer}.ticket{width:80mm;margin:0 auto 24px;padding:5mm;background:white}header{text-align:center}header img{width:40mm;max-height:23mm;object-fit:contain}h1{font-size:15px;margin:8px 0}h2{font-size:13px;margin:12px 0;padding:8px 0;border-top:1px dashed;border-bottom:1px dashed}p{margin:5px 0}.meta{padding:9px 0;border-bottom:1px dashed}.pair{display:flex;justify-content:space-between;gap:10px}table{width:100%;border-collapse:collapse;margin-top:10px}th{text-align:left;font-size:10px;border-bottom:1px solid;padding:6px 0}th:last-child,td:last-child{text-align:right;white-space:nowrap}td{padding:8px 0;vertical-align:top}td:first-child{padding-right:8px}small{display:block;font-size:10px;margin-top:4px}.complement td{padding-top:0;font-size:11px}.totals{border-top:1px dashed;padding:10px 0}.total{font-size:19px;font-weight:bold;margin:10px 0}.footer{text-align:center;border-top:1px dashed;padding-top:12px;font-size:11px}@page{size:80mm auto;margin:0}@media print{body{background:white}.toolbar{display:none}.ticket{margin:0;width:80mm;padding:4mm}tr{break-inside:avoid}}
+  </style></head><body><div class="toolbar"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div><article class="ticket"><header><img src="${e(logo)}" alt="Tortela"><h1>${e(state.settings.company || "Tortela")}</h1><h2>RECIBO NÃO FISCAL</h2></header><div class="meta"><div class="pair"><b>VENDA ${e(sale.id)}</b><span>${e(sale.date)}</span></div><p>Cliente: ${e(sale.customer || "Consumidor Final")}</p><p>Operador: ${e(sale.seller)} · ${e(sale.terminalName || "PDV")}</p></div><table><thead><tr><th>DESCRIÇÃO / QTD. × VALOR</th><th>VALOR</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div class="pair"><span>Desconto</span><span>${e(money(sale.discount || 0))}</span></div><div class="pair"><span>Acréscimo</span><span>${e(money(sale.addition || 0))}</span></div><div class="pair total"><span>TOTAL</span><span>${e(money(sale.total))}</span></div><div class="pair"><span>Pagamento</span><span>${e(sale.payment)}</span></div><div class="pair"><span>Troco</span><span>${e(money(sale.change || 0))}</span></div></div><div class="footer"><b>RECIBO NÃO FISCAL</b><p>Não substitui documento fiscal.</p><p>Obrigado pela preferência!</p></div></article></body></html>`;
+}
+
+function printNonFiscalReceipt(sale) {
+  const receipt = window.open("", "_blank");
+  if (!receipt) { alert("Permita abrir a janela de impressao neste navegador e clique novamente em Reimprimir recibo."); return false; }
+  receipt.opener = null;
+  receipt.document.write(renderNonFiscalReceipt(sale));
+  receipt.document.close();
+  return true;
+}
+
 function printLastPdvSale() {
   const sale = state.sales.find((item) => item.id === lastPdvSaleId) || state.sales.slice().reverse().find((item) => item.type === "PDV" && (!item.terminalId || item.terminalId === pdvTerminalId()));
   if (!sale) {
@@ -7681,6 +7699,10 @@ function printLastPdvSale() {
     return;
   }
   const useFiscal = printMode !== "Recibo simples" && Boolean(fiscal);
+  if (!useFiscal) {
+    if (printNonFiscalReceipt(sale)) { audit("Recibo nao fiscal aberto para impressao", `Venda ${sale.id}`); save(); }
+    return;
+  }
   const content = [
     state.settings.company,
     useFiscal ? "CUPOM FISCAL ELETRONICO - NFC-e" : "SIMPLES RECIBO - NAO E DOCUMENTO FISCAL",

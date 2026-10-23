@@ -61,11 +61,13 @@ const context = {
   Map,
   Set,
   Intl,
+  URL,
   process: { env: { NODE_ENV: "test" } },
   window: {
-    location: { hash: "", pathname: "/", search: "" },
+    location: { href: "https://tortelaplus.com.br/", hash: "", pathname: "/", search: "" },
     addEventListener() {},
     removeEventListener() {},
+    open() { return { document: { write(html) { context.__printedReceipt = html; }, close() {} } }; },
     dispatchEvent() {}
   },
   document: {
@@ -104,7 +106,7 @@ const context = {
     abort() {}
   },
   Blob: class {},
-  URL: { createObjectURL: () => "blob:test", revokeObjectURL() {} },
+  URL: Object.assign(URL, { createObjectURL: () => "blob:test", revokeObjectURL() {} }),
   FileReader: class {},
   structuredClone: (value) => JSON.parse(JSON.stringify(value)),
   btoa: (value) => Buffer.from(String(value), "binary").toString("base64"),
@@ -230,7 +232,8 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   assert(state.fiscalQueue.length === beforeReceiptQueue, "Recibo nao fiscal criou NFC-e indevidamente.");
   state.settings.pdvTerminals[0].emissionMode = "nfce";
   test.printLastPdvSale();
-  assert(test.printed().includes("SIMPLES RECIBO - NAO E DOCUMENTO FISCAL"), "Reimpressao alterou o modo de uma venda anterior.");
+  assert(test.printed().includes("RECIBO N�O FISCAL"), "Reimpressao alterou o modo de uma venda anterior.");
+  assert(test.printed().includes("logo-tortela.gif") && test.printed().includes("80mm") && !test.printed().includes("QR Code"), "Recibo sem identidade ou com QR Code indevido.");
   test.cancelClosedSale(receiptSale.id);
   assert(receiptSale.status === "Cancelado" && state.fiscalQueue.length === beforeReceiptQueue, "Cancelamento do recibo criou documento fiscal.");
 
@@ -254,3 +257,4 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   console.error(error.message);
   process.exit(1);
 });
+
