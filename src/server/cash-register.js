@@ -45,6 +45,7 @@ function assertPdvCashWrite(current,incoming,now=new Date()) {
     if(cashRegisterStale(current.cashRegister,now))throw Error("Feche o caixa do dia anterior antes de registrar vendas de hoje.");
     if(sale.cashRegisterOpenedAt!==current.cashRegister.openedAt)throw Error("A venda nao pertence ao caixa aberto.");
     if(sale.date!==businessDay(now))throw Error("A data da venda deve corresponder ao dia de operacao do caixa.");
+    require("./pdv-customers").identifySale(current,sale);
   }
 }
 module.exports={businessDay,cashRegisterStale,cashBalance,openRegister,closeRegister,assertPdvCashWrite};

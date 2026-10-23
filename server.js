@@ -2976,6 +2976,8 @@ async function handleApi(req, res, urlPath) {
           customer: sale.customer || "Consumidor Final",
           customerDocument: sale.customerDocument || sale.customerData?.document || "",
           customerPhone: sale.customerData?.phone || "",
+          customerCity: sale.customerCity || sale.customerData?.city || "",
+          customerUf: sale.customerUf || sale.customerData?.uf || "",
           seller: sale.seller || sale.operator || sale.user || "",
           source: sale.source || sale.channel || sale.operation || sale.type || "",
           channel: sale.channel || sale.source || sale.operation || sale.type || "",
@@ -3657,6 +3659,15 @@ async function handleApi(req, res, urlPath) {
     appendTenantAudit(code,"Dados de teste removidos","Vendas, produtos e movimentos associados zerados apos backup completo",access.username);
     appendProviderAudit("Dados de teste removidos",code,access.username,requestIp(req));
     return sendJson(res,200,{ok:true,tenantCode:code,dataEpoch:epoch,removed,backupCreated:true});
+  }
+
+  const pdvCustomerMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/pdv-customers\/(lookup|register)$/);
+  if(pdvCustomerMatch&&req.method==='POST'){
+    const code=normalizeTenantCode(pdvCustomerMatch[1]),provider=readProvider(),access=sessionAccess(req,provider,code,'pdv');if(access.error)return deny(res,access);
+    const body=await readBody(req),state=readTenantState(code),customers=require('./src/server/pdv-customers');
+    if(!customers.validCpf(body.document))return sendJson(res,422,{error:'CPF invalido. Confira os digitos.'});
+    if(pdvCustomerMatch[2]==='lookup'){const person=customers.find(state,body.document);return sendJson(res,200,{customer:customers.publicCustomer(person)});}
+    try{const customer=customers.save(state,body);writeTenantState(code,state,true);appendTenantAudit(code,'Cliente identificado no PDV',`Cliente ${customer.id}`,access.session.user);return sendJson(res,200,{customer});}catch(error){return sendJson(res,422,{error:error.message});}
   }
 
   const closureReportMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/cash-closure-reports$/);

@@ -153,6 +153,7 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
 (async () => {
   const test = context.__pdvTest;
   const state = test.state;
+  state.people.push({id:99901,type:"Cliente",name:"Cliente PDV Teste",document:"52998224725",city:"Sao Paulo",uf:"SP",active:true});
   const product = state.products.find((row) => row.id === 5014);
   const flour = state.products.find((row) => row.id === 9001);
   const oil = state.products.find((row) => row.id === 9002);
@@ -231,6 +232,7 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   await test.addSaleItem();
   await test.finishSaleRecord();
   const receiptSale = state.sales.at(-1);
+  assert(receiptSale.customer === "Cliente PDV Teste" && receiptSale.customerCity === "Sao Paulo" && receiptSale.customerDocument === "52998224725", "Venda perdeu identificacao do CPF e cidade.");
   assert(receiptSale.emissionMode === "receipt" && receiptSale.terminalId === terminalId, "Venda nao respeitou o terminal de recibo.");
   assert(state.fiscalQueue.length === beforeReceiptQueue, "Recibo nao fiscal criou NFC-e indevidamente.");
   assert(context.__autoPrints === 1 && context.__autoReceipt.includes("RECIBO N\u00c3O FISCAL"), "Conclusao do recibo nao abriu impressao automaticamente.");

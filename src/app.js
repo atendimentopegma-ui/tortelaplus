@@ -267,6 +267,8 @@ let currentSettingsTab = "geral";
 let reportPeriod = { from: `${today().slice(0, 7)}-01`, to: today() };
 let saleItems = [];
 let saleClubCpf = "";
+let pdvSelectedCustomer = null;
+let pdvCustomerRequest = null;
 let orderItems = [];
 let lastPdvSaleId = 0;
 let purchaseItems = [];
@@ -2461,7 +2463,7 @@ function renderSales() {
           </div>
 
           <div class="table-wrap sales-history-card" id="sales-step-history" tabindex="-1">
-            <table><thead><tr><th>Numero</th><th>Data</th><th>Cliente</th><th>Vendedor</th><th>Total</th><th>Comissao</th><th>Tipo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.sales.map((sale) => `<tr><td>${sale.id}</td><td>${sale.date}</td><td>${sale.customer}</td><td>${sale.seller}</td><td>${money(sale.total)}</td><td>${money(sale.commission || 0)}</td><td>${sale.type}</td><td><span class="badge ${sale.status === "Cancelado" || sale.status === "Devolvido" || sale.status === "Trocado" ? "danger" : sale.status === "Aberto" || sale.status === "Parcialmente devolvido" ? "warn" : "ok"}">${sale.status || "Fechado"}</span></td><td>${sale.type === "Orcamento" && sale.status === "Aberto" ? `<button class="btn primary" data-convert-quote="${sale.id}">Converter em pedido</button>` : ["Fechado", "Parcialmente devolvido"].includes(sale.status) ? `<button class="btn" data-return-sale="${sale.id}">Devolver</button> <button class="btn" data-exchange-sale="${sale.id}">Trocar</button> ${sale.status === "Fechado" ? `<button class="btn danger" data-cancel-sale-record="${sale.id}">Cancelar</button>` : ""}` : "-"}</td></tr>`).join("") || `<tr><td colspan="9">Nenhuma venda registrada.</td></tr>`}</tbody></table>
+            <table><thead><tr><th>Numero</th><th>Data</th><th>Cliente / CPF / cidade</th><th>Vendedor</th><th>Total</th><th>Comissao</th><th>Tipo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.sales.map((sale) => `<tr><td>${sale.id}</td><td>${sale.date}</td><td>${escapeHtml(sale.customer)}<small class="muted">CPF: ${escapeHtml(sale.customerDocument||sale.clubCpf||"Nao registrado")}<br>${escapeHtml(sale.customerCity||"Cidade nao registrada")} ${escapeHtml(sale.customerUf||"")}</small></td><td>${escapeHtml(sale.seller)}</td><td>${money(sale.total)}</td><td>${money(sale.commission || 0)}</td><td>${sale.type}</td><td><span class="badge ${sale.status === "Cancelado" || sale.status === "Devolvido" || sale.status === "Trocado" ? "danger" : sale.status === "Aberto" || sale.status === "Parcialmente devolvido" ? "warn" : "ok"}">${sale.status || "Fechado"}</span></td><td>${sale.type === "Orcamento" && sale.status === "Aberto" ? `<button class="btn primary" data-convert-quote="${sale.id}">Converter em pedido</button>` : ["Fechado", "Parcialmente devolvido"].includes(sale.status) ? `<button class="btn" data-return-sale="${sale.id}">Devolver</button> <button class="btn" data-exchange-sale="${sale.id}">Trocar</button> ${sale.status === "Fechado" ? `<button class="btn danger" data-cancel-sale-record="${sale.id}">Cancelar</button>` : ""}` : "-"}</td></tr>`).join("") || `<tr><td colspan="9">Nenhuma venda registrada.</td></tr>`}</tbody></table>
           </div>
         </div>
       </div>
@@ -3652,7 +3654,7 @@ function renderPdv() {
         <div class="pdv-side-head">
           <div class="pdv-title">CAIXA ABERTO</div>
           <div class="pdv-meta"><strong>Venda ${nextId(state.sales)}</strong><span>${new Date().toLocaleString("pt-BR")}</span></div>
-          <div class="pdv-client"><strong>Cliente:</strong> <span id="pdv-client-label">Consumidor Final</span></div>
+          <div class="pdv-client"><strong>Cliente:</strong> <span id="pdv-client-label">${escapeHtml(pdvSelectedCustomer?.name || "Identifique pelo CPF")}</span></div>
         </div>
         <div class="pdv-brand">
           ${brandMarkup()}
@@ -3697,7 +3699,7 @@ function renderPdv() {
           <div class="pdv-options-head"><h2>Opcoes do caixa</h2><button class="btn" id="close-pdv-options">Fechar</button></div>
           <div class="pdv-options-grid">
             ${staleRegister ? `<div class="alert danger-alert pdv-all-columns"><strong>Operacao bloqueada:</strong> este caixa foi aberto em ${new Date(register.openedAt).toLocaleString("pt-BR")}. Realize a conferencia e o fechamento antes de iniciar as vendas de hoje.</div>` : ""}
-            <div class="field"><label>Cliente</label><select id="sale-customer"><option>Consumidor Final</option>${state.people.filter((person) => person.type === "Cliente" && person.active !== false).map((person) => `<option>${person.name}</option>`).join("")}</select></div>
+            <div class="field"><label>Cliente</label><input id="sale-customer" readonly value="${escapeAttr(pdvSelectedCustomer?.name || "Identifique pelo CPF")}" /></div>
             <div class="field"><label>Vendedor</label><input readonly value="${state.settings.user}" /></div>
             <div class="field"><label>Vendas em espera</label><input readonly value="${(state.heldSales || []).length}" /></div>
             <div class="field"><label>Operacao</label><select id="pdv-operation"><option>Balcao</option><option>Mesa</option><option>Delivery</option><option>Retirada</option></select></div>
@@ -4279,15 +4281,17 @@ function bindCurrentModule() {
   if (focusSaleSearch) focusSaleSearch.addEventListener("click", () => { saleSearch?.focus(); showProductSearch(); });
   const focusSaleCustomer = byId("focus-sale-customer");
   if (focusSaleCustomer) focusSaleCustomer.addEventListener("click", () => {
-    setPdvOptions(true);
-    byId("sale-customer")?.focus();
+    byId("pdv-club-cpf")?.focus();
   });
-  const saleCustomer = byId("sale-customer");
-  if (saleCustomer) saleCustomer.addEventListener("change", () => {
-    const label = byId("pdv-client-label");
-    if (label) label.textContent = saleCustomer.value || "Consumidor Final";
-  });
+  const cpfInput = byId("pdv-club-cpf");
+  if(cpfInput){
+    const resolve=()=>{if(digits(cpfInput.value).length===11)ensurePdvCustomer().catch(error=>alert(error.message));};
+    cpfInput.addEventListener('input',()=>{saleClubCpf=digits(cpfInput.value);if(pdvSelectedCustomer&&digits(pdvSelectedCustomer.document)!==saleClubCpf){pdvSelectedCustomer=null;updatePdvCustomerLabel();}resolve();});
+    cpfInput.addEventListener('blur',resolve);
+    cpfInput.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();resolve();}});
+  }
   document.onkeydown = currentMode === "pdv" ? (event) => {
+    if(document.querySelector("dialog[open]"))return;
     if (event.key === "F1") {
       event.preventDefault();
       setPdvOptions(!pdvOptions?.classList.contains("open"));
@@ -4318,6 +4322,8 @@ function bindCurrentModule() {
   if (cancelSale) cancelSale.addEventListener("click", () => {
     if (saleItems.length) audit("Venda PDV cancelada", `${saleItems.length} itens removidos`);
     saleItems = [];
+    saleClubCpf = "";
+    pdvSelectedCustomer = null;
     authorizedDiscountValue = 0;
     save();
     renderShell();
@@ -4568,9 +4574,12 @@ function holdCurrentSale() {
     id: nextId(state.heldSales),
     date: new Date().toISOString(),
     operator: state.settings.user,
+    clubCpf: saleClubCpf,
     items: structuredClone(saleItems)
   });
   saleItems = [];
+  saleClubCpf = "";
+  pdvSelectedCustomer = null;
   authorizedDiscountValue = 0;
   audit("Venda colocada em espera", `${state.heldSales[0].items.length} itens`);
   save();
@@ -4586,6 +4595,8 @@ function recoverHeldSale() {
   if (saleItems.length && !confirm("Substituir a venda atual pela ultima venda em espera?")) return;
   const held = state.heldSales.shift();
   saleItems = held.items || [];
+  saleClubCpf = held.clubCpf || "";
+  pdvSelectedCustomer = state.people.find(p=>p.type==="Cliente"&&digits(p.document)===saleClubCpf&&p.active!==false)||null;
   audit("Venda recuperada", `Espera ${held.id}`);
   save();
   renderShell();
@@ -4673,7 +4684,8 @@ function bindCepAutocomplete(inputId, callback) {
 }
 
 async function fetchCepData(cep) {
-  const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+  const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`, {signal:AbortSignal.timeout(12000)});
+  if(!response.ok)throw new Error("Consulta de CEP indisponivel");
   const data = await response.json();
   if (data.erro) throw new Error("CEP nao encontrado");
   return data;
@@ -7420,6 +7432,46 @@ function normalizeTenantCode(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function validPdvCpf(value) {
+ const cpf=digits(value);if(cpf.length!==11||/^(\d)\1{10}$/.test(cpf))return false;
+ const digit=base=>{const n=[...base].reduce((sum,c,i)=>sum+Number(c)*(base.length+1-i),0)*10%11;return n===10?0:n;};
+ return digit(cpf.slice(0,9))===Number(cpf[9])&&digit(cpf.slice(0,10))===Number(cpf[10]);
+}
+function updatePdvCustomerLabel(){
+ const name=pdvSelectedCustomer?.name||'Identifique pelo CPF';
+ if(byId('pdv-client-label'))byId('pdv-client-label').textContent=name;
+ if(byId('sale-customer'))byId('sale-customer').value=name;
+}
+function registerPdvCustomer(cpf, existing = null) {
+ return new Promise(resolve=>{
+  const dialog=document.createElement('dialog');dialog.className='pdv-customer-dialog';dialog.setAttribute('aria-labelledby','pdv-customer-title');
+  const field=(key,label,required=false)=>`<label>${label}<input name="${key}" value="${escapeAttr(existing?.[key]||'')}" maxlength="160" ${required?'required':''}></label>`;
+  dialog.innerHTML=`<form><header><small>CLIENTE DA VENDA</small><h2 id="pdv-customer-title">${existing?'Completar cadastro do cliente':'Cadastrar novo cliente'}</h2><p>CPF ${escapeHtml(cpf)} · Informe nome, cidade e UF para continuar.</p></header><div class="pdv-customer-fields">${field('name','Nome completo',true)}${field('phone','Telefone (opcional)')}<label>CEP<input name="cep" inputmode="numeric" maxlength="9" value="${escapeAttr(existing?.cep||'')}" placeholder="Digite os 8 numeros"></label><button class="btn" type="button" data-cep>Buscar CEP</button>${field('address','Rua / logradouro')}${field('number','Numero')}${field('district','Bairro')}${field('complement','Complemento')}${field('city','Cidade',true)}<label>UF<select name="uf" required><option value="">Selecione</option>${'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ').map(uf=>`<option ${existing?.uf===uf?'selected':''}>${uf}</option>`).join('')}</select></label></div><p role="status" data-status></p><footer><button class="btn danger" data-cancel type="button">Cancelar</button><button class="btn primary" type="submit">Salvar cliente e continuar</button></footer></form>`;
+  const form=dialog.querySelector('form'),status=dialog.querySelector('[data-status]');let busy=false,cepSequence=0;
+  const finish=value=>{dialog.close();dialog.remove();resolve(value);};
+  const lookup=async()=>{const cep=digits(form.elements.cep.value),sequence=++cepSequence;if(cep.length!==8){status.textContent='Informe um CEP com 8 numeros.';return;}const keys=['address','district','city','uf'],original=Object.fromEntries(keys.map(k=>[k,form.elements[k].value]));status.textContent='Buscando endereco pelo CEP...';try{const data=await fetchCepData(cep);if(sequence!==cepSequence||digits(form.elements.cep.value)!==cep||!dialog.isConnected)return;const values={address:data.logradouro||'',district:data.bairro||'',city:data.localidade||'',uf:data.uf||''};for(const key of keys)if(form.elements[key].value===original[key])form.elements[key].value=values[key];status.textContent='Endereco preenchido. Confira numero e complemento.';}catch{if(sequence===cepSequence)status.textContent='CEP nao encontrado ou consulta indisponivel. Preencha o endereco manualmente.';}};
+  let lastCep='';form.elements.cep.addEventListener('input',()=>{const cep=digits(form.elements.cep.value);if(cep.length===8&&cep!==lastCep){lastCep=cep;lookup();}});form.querySelector('[data-cep]').addEventListener('click',lookup);
+  form.querySelector('[data-cancel]').addEventListener('click',()=>{if(!busy)finish(null);});dialog.addEventListener('cancel',event=>{event.preventDefault();if(!busy)finish(null);});
+  form.addEventListener('submit',async event=>{event.preventDefault();if(busy)return;busy=true;form.querySelector('button[type="submit"]').disabled=true;try{if(!apiOnline||!sessionId||!navigator.onLine)throw Error('Conecte-se para cadastrar um novo cliente.');await syncChain;const body={document:cpf,...Object.fromEntries(new FormData(form))};const result=await api(`/api/tenant/${state.settings.tenantCode}/pdv-customers/register`,{method:'POST',body:JSON.stringify(body)});const index=state.people.findIndex(p=>digits(p.document)===cpf&&p.type==='Cliente');if(index>=0)state.people[index]=result.customer;else state.people.push(result.customer);finish(result.customer);}catch(error){status.textContent=error.message;}finally{busy=false;form.querySelector('button[type="submit"]').disabled=false;}});
+  document.body.appendChild(dialog);dialog.showModal();form.elements.name.focus();
+ });
+}
+async function ensurePdvCustomer() {
+ const cpf=digits(byId('pdv-club-cpf')?.value||saleClubCpf);saleClubCpf=cpf;
+ if(!validPdvCpf(cpf)){alert('CPF invalido. Confira os 11 numeros antes de continuar.');byId('pdv-club-cpf')?.focus();return null;}
+ if(pdvSelectedCustomer&&digits(pdvSelectedCustomer.document)===cpf)return pdvSelectedCustomer;
+ if(pdvCustomerRequest){await pdvCustomerRequest;return digits(pdvSelectedCustomer?.document)===cpf?pdvSelectedCustomer:null;}
+ pdvCustomerRequest=(async()=>{
+  let customer=state.people.find(p=>p.type==='Cliente'&&digits(p.document)===cpf)||null;
+  if(apiOnline&&sessionId&&navigator.onLine){const result=await api(`/api/tenant/${state.settings.tenantCode}/pdv-customers/lookup`,{method:'POST',body:JSON.stringify({document:cpf})});customer=result.customer;if(customer){const index=state.people.findIndex(p=>p.type==='Cliente'&&digits(p.document)===cpf);if(index>=0)state.people[index]=customer;else state.people.push(customer);}}
+  if(digits(byId('pdv-club-cpf')?.value||saleClubCpf)!==cpf)return null;
+  if(customer?.active===false){alert('Cliente inativo. Solicite a revisao do cadastro ao responsavel.');return null;}
+  if(!customer||!customer.name||!customer.city||!customer.uf)customer=await registerPdvCustomer(cpf,customer);
+  if(customer&&digits(byId('pdv-club-cpf')?.value||saleClubCpf)===cpf){pdvSelectedCustomer=customer;updatePdvCustomerLabel();return customer;}return null;
+ })();
+ try{return await pdvCustomerRequest;}finally{pdvCustomerRequest=null;}
+}
+
 let preparationDialogOpen=false;
 function chooseSalePreparation(product) {
   if(preparationDialogOpen)return Promise.resolve(null);
@@ -7448,6 +7500,7 @@ async function addSaleItem(productId) {
     byId("pdv-club-cpf")?.focus();
     return;
   }
+  if(!await ensurePdvCustomer())return;
   const query = byId("sale-search").value.trim().toLowerCase();
   const product = state.products.find((item) => item.active !== false && (productId !== undefined ? String(item.id) === String(productId) :
     String(item.id) === query || item.barcode === query || (query && item.description.toLowerCase().includes(query)))
@@ -7525,6 +7578,8 @@ async function finalizePdvSaleRecord() {
     alert("Feche o caixa do dia anterior antes de registrar novas vendas.");
     return;
   }
+  const identifiedCustomer=await ensurePdvCustomer();
+  if(!identifiedCustomer)return;
   const shortage = stockShortages(saleStockRequirements(saleItems), true);
   if (shortage.length) {
     alert(`Venda nao finalizada. Estoque insuficiente:\n${shortage.join("\n")}`);
@@ -7550,7 +7605,10 @@ async function finalizePdvSaleRecord() {
     id: nextId(state.sales),
     date: cashBusinessDay(),
     soldAt: new Date().toISOString(),
-    customer: byId("sale-customer")?.value || "Consumidor Final",
+    customer: identifiedCustomer.name,
+    customerId: identifiedCustomer.id,
+    customerCity: identifiedCustomer.city,
+    customerUf: identifiedCustomer.uf,
     customerDocument: saleClubCpf,
     clubCpf: saleClubCpf,
     seller: state.settings.user,
@@ -7634,6 +7692,7 @@ async function finalizePdvSaleRecord() {
   }
   saleItems = [];
   saleClubCpf = "";
+  pdvSelectedCustomer = null;
   authorizedDiscountValue = 0;
   const persisted=await save();
   if(persisted===false){alert("A venda ainda nao foi confirmada no servidor. Os dados locais ficaram pendentes de sincronizacao. Nao refaca a venda antes de conferir Vendas na retaguarda.");renderShell();return;}
