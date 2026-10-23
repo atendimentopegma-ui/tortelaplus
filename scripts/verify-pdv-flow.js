@@ -134,6 +134,15 @@ globalThis.__pdvTest = {
   finishSaleRecord,
   cancelClosedSale
 };
+globalThis.__pdvTest.verifyConflictRetry = async () => {
+  const previousApi=api,previousOnline=apiOnline,previousSession=sessionId,previousRender=renderShell;
+  let calls=0,renders=0;
+  const remote=structuredClone(state);remote._meta={...(remote._meta||{}),revision:50};
+  apiOnline=true;sessionId='isolated-sync-test';renderShell=()=>{renders++;};
+  api=async(path,options)=>{calls++;if(calls===1){const error=new Error('Conflito de teste');error.status=409;error.payload={state:remote};throw error;}const body=JSON.parse(options.body);if(body.baseRevision!==50)throw Error('Retry nao usou revisao conciliada');return {revision:51};};
+  try{return {saved:await save(),calls,renders,revision:state._meta.revision};}
+  finally{api=previousApi;apiOnline=previousOnline;sessionId=previousSession;renderShell=previousRender;}
+};
 downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, context, { filename: "src/app.js" });
 
 (async () => {
@@ -237,7 +246,10 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   assert(drink.stock===18,"Combo nao baixou a bebida separadamente.");
   test.cancelClosedSale(comboSale.id);
   assert(Math.abs(flour.stock-comboBefore.flour)<0.00001&&Math.abs(oil.stock-comboBefore.oil)<0.00001&&drink.stock===20,"Cancelamento do combo nao restituiu componentes.");
-  console.log("OK - fluxo PDV validado: venda, caixa, estoque composto, NFC-e pendente, recibo, combo com desconto e cancelamento com estorno.");
+  const retry=await test.verifyConflictRetry();
+  assert(retry.saved===true&&retry.calls===2&&retry.revision===51,"Conflito nao aguardou a gravacao confirmada.");
+  assert(retry.renders===0,"Conciliacao refez a tela e interrompeu o formulario em uso.");
+  console.log("OK - PDV: venda, estoque, combo, cancelamento e conflito conciliado com gravacao aguardada sem refazer o formulario.");
 })().catch((error) => {
   console.error(error.message);
   process.exit(1);

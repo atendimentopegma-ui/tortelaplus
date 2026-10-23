@@ -459,7 +459,8 @@ function save() {
   if (apiOnline) {
     const tenantCode = normalizeTenantCode(state.settings.tenantCode || "cliente-exemplo");
     const permission = currentMode === "pdv" ? "pdv" : currentModule;
-    syncChain = syncChain.then(async () => {
+    syncChain = syncChain.catch(() => false).then(async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
       const localPending = structuredClone(state);
       try {
         const { provider, users, ...tenantState } = state;
@@ -483,14 +484,15 @@ function save() {
           state = withDefaults({ ...mergeConcurrentState(remote, localPending), provider: state.provider });
           localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
           localStorage.setItem("tortelaplus-pending-sync", "1");
-          alert("Alteracoes de outro terminal foram conciliadas. A sincronizacao sera repetida sem perder o trabalho local.");
-          renderShell();
-          setTimeout(save, 0);
-          return;
+          // Aguarde a nova gravacao na mesma fila, sem refazer o formulario em uso.
+          if (attempt < 2) continue;
+          alert("Nao foi possivel sincronizar apos tres tentativas. Os dados ficaram salvos neste computador. Aguarde e tente sincronizar novamente; nao repita a venda.");
+          return false;
         }
         if(error.status){await loadTenantState(tenantCode).catch(()=>{});alert(`Operacao nao gravada. ${error.message}`);renderShell();}
         else apiOnline=false;
         return false;
+      }
       }
     });
     return syncChain;
@@ -3669,7 +3671,7 @@ function renderPdv() {
         </div>
       </aside>
       <section class="pdv-main">
-        <div class="pdv-main-title"><div><small>ATENDIMENTO</small><strong>Nova venda</strong></div><button class="btn" id="leave-pdv">Voltar à retaguarda</button></div>
+        <div class="pdv-main-title"><div><small>ATENDIMENTO</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div><button class="btn" id="leave-pdv">Voltar à retaguarda</button></div>
         <div class="sale-inputs">
           <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" /></div>
           <div class="field pdv-product-search"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Digite para buscar ou leia o código de barras" autocomplete="off" aria-controls="pdv-product-results" aria-expanded="false" /><div id="pdv-product-results" class="pdv-product-results" hidden></div></div>
@@ -7483,15 +7485,20 @@ async function addSaleItem(productId) {
     return;
   }
   byId("sale-search").value = "";
+  pdvCompletionMessage = "";
   renderShell();
 }
 
 let pdvSaleFinalizing = false;
+let pdvCompletionMessage = "";
 async function finishSaleRecord() {
   if (pdvSaleFinalizing) return;
   pdvSaleFinalizing = true;
-  try { await finalizePdvSaleRecord(); }
-  finally { pdvSaleFinalizing = false; }
+  const button = byId("finish-sale"), original = button?.innerHTML;
+  if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.innerHTML='<strong>Concluindo venda...</strong><span>Aguarde a gravação</span>';}
+  try { await syncChain; await finalizePdvSaleRecord(); }
+  catch(error){alert(`Nao foi possivel concluir a venda. ${error.message || 'Tente novamente.'}`);}
+  finally { pdvSaleFinalizing = false;if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');button.innerHTML=original;} }
 }
 
 async function finalizePdvSaleRecord() {
@@ -7627,8 +7634,9 @@ async function finalizePdvSaleRecord() {
   saleClubCpf = "";
   authorizedDiscountValue = 0;
   const persisted=await save();
-  if(persisted===false)return;
+  if(persisted===false){alert("A venda ainda nao foi confirmada no servidor. Os dados locais ficaram pendentes de sincronizacao. Nao refaca a venda antes de conferir Vendas na retaguarda.");renderShell();return;}
   await createConfiguredSaleCharges(sale);
+  pdvCompletionMessage = `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
   renderShell();
   if (fiscalRow && navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);
 }
