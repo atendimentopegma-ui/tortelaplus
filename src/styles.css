@@ -7251,3 +7251,33 @@ input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0
 .combo-totals strong { font-size:19px; color:#166534; }
 #combo-feedback { color:#075985; font-weight:650; }
 @media(max-width:700px) { .combo-pricing { grid-template-columns:1fr 1fr; } .combo-totals { grid-column:1/-1; } .combo-heading { flex-direction:column; } }
+
+/* Retaguarda de produtos no mesmo padrão visual da operação do PDV. */
+.tortela-theme .content,.tortela-theme .pdv.pdv-operational,.pdv-operational .pdv-main { background:linear-gradient(145deg,#fffde8 0%,#fff9bf 55%,#fff48a 100%); }
+.tortela-theme .products-screen { background:#fffde8; border:1px solid #e4dfae; border-radius:12px; box-shadow:0 6px 22px #172c4010; }
+.products-screen .desktop-module-titlebar { background:linear-gradient(110deg,#172c40,#24445f); padding:12px 18px; min-height:44px; }
+.products-screen .desktop-module-titlebar strong { font-size:16px; }
+.products-screen .desktop-module-ribbon { background:linear-gradient(135deg,#fffde8,#fff9bf); border-bottom:1px solid #e4dfae; padding:12px; gap:8px; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); }
+.products-screen .desktop-ribbon-button { min-height:92px; background:linear-gradient(160deg,#fff,#eff6ff); border-color:#c7dce8; border-radius:10px; color:#075985; box-shadow:0 2px 5px #172c4008; }
+.products-screen .desktop-ribbon-button:hover { background:#e0f2fe; border-color:#0284c7; }
+.products-screen .desktop-ribbon-button small { color:#536b7a; font-weight:500; }
+.products-screen .desktop-ribbon-button .dashboard-module-icon { transform:scale(.85); }
+.products-screen .product-workflow,.products-screen .erp-search-strip,.products-screen .product-search-strip { background:#fffde8; }
+.products-screen .product-body { background:#fffde8; padding:16px; }
+.products-screen .product-edit-panel,.products-screen .product-list-panel,.products-screen .form-card { border-color:#e2e8f0; border-radius:10px; background:#fff; }
+.products-screen .desktop-action-bar { background:linear-gradient(135deg,#fffde8,#fff9bf); border-top:1px solid #e4dfae; padding:12px; display:flex; flex-wrap:wrap; gap:8px; }
+.products-screen .desktop-command { background:linear-gradient(150deg,#fff,#eff6ff); color:#075985; border:1px solid #b9cfda; border-radius:9px; min-height:44px; min-width:110px; padding:10px 14px; font-size:14px; box-shadow:0 1px 3px #172c4010; font-weight:700; }
+.products-screen .desktop-command span { width:22px; height:22px; font-size:11px; background:#075985; }
+.products-screen #save-product,.products-screen #new-product,.products-screen #apply-combo,.btn.primary,.pdv-preparation-footer .btn.primary,.tortela-theme .pdv-operational #finish-sale { background:linear-gradient(135deg,#15803d,#166534); color:#fff; border-color:#166534; }
+.products-screen #save-product:hover,.products-screen #new-product:hover,.products-screen #apply-combo:hover { background:#14532d; }
+.products-screen #save-product span,.products-screen #new-product span { background:#ffffff24; }
+.products-screen .desktop-command.danger,.products-screen #close-products,.btn.danger,.btn[data-cancel],.btn[id^="cancel-"],.tortela-theme .pdv-operational #cancel-sale { background:linear-gradient(135deg,#b91c1c,#991b1b); color:#fff; border-color:#991b1b; }
+.products-screen .desktop-command.danger span { background:#ffffff24; }
+.products-screen .tabs button.active { background:#fff48a; color:#172c40; border-color:#d6c500; }
+.products-screen .desktop-work-area { background:linear-gradient(145deg,#fffde8,#fff9bf); }
+.products-screen .desktop-context-strip { background:#fffde8; border-bottom:1px solid #e4dfae; }
+.products-screen .desktop-context-strip span { color:#475569; }
+.products-screen .desktop-filter-panel { background:#fff; border:1px solid #e2e8f0; border-radius:10px; }
+.products-screen .desktop-filter-panel p { color:#64748b; font-weight:400; }
+.products-screen .desktop-record-tabs a { color:#475569; font-weight:600; border-radius:7px 7px 0 0; }
+.products-screen .desktop-record-tabs a.active { background:#fff48a; color:#172c40; border-color:#c5b600; }
