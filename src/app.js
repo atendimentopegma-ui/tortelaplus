@@ -3643,7 +3643,7 @@ function renderPdv() {
     `;
   }
   return `
-    <div class="pdv">
+    <div class="pdv pdv-operational">
       <aside class="pdv-side">
         <div class="pdv-side-head">
           <div class="pdv-title">CAIXA ABERTO</div>
@@ -3652,42 +3652,43 @@ function renderPdv() {
         </div>
         <div class="pdv-brand">
           ${brandMarkup()}
-          <strong>${state.settings.company}</strong>
-          <span>${escapeHtml(terminal.name)} | ${escapeHtml(state.settings.user)} | ${terminal.emissionMode === "receipt" ? "RECIBO NAO FISCAL" : "NFC-e FISCAL"}</span>
-          <small>ID do terminal: ${escapeHtml(terminal.id)}</small>
+          <strong>${escapeHtml(state.settings.company)}</strong>
+          <span>Operador: ${escapeHtml(state.settings.user)}</span>
+          <small>${escapeHtml(terminal.name)} · ${terminal.emissionMode === "receipt" ? "Recibo não fiscal" : "NFC-e fiscal"}</small>
         </div>
         <div class="shortcut-grid">
-          <button class="btn" id="focus-sale-search">F2 Produto</button>
-          <button class="btn" id="focus-sale-customer">F9 Cliente</button>
-          <button class="btn" id="hold-sale">F12 Espera</button>
-          <button class="btn" id="recover-sale">Recuperar</button>
-          <button class="btn" id="toggle-pdv-options">F1 Opcoes</button>
-          <button class="btn" id="print-last-sale">Imprimir</button>
-          <button class="btn danger" id="cancel-sale">Cancelar</button>
-          <button class="btn primary" id="finish-sale">Finalizar</button><button class="btn danger" id="close-cash-register-main">Fechar caixa do dia</button>
+          <p class="pdv-actions-label">Ações da venda</p><button class="btn" id="focus-sale-search">Buscar produto <kbd>F2</kbd></button>
+          <button class="btn" id="focus-sale-customer">Cliente <kbd>F9</kbd></button>
+          <button class="btn" id="hold-sale">Colocar em espera <kbd>F12</kbd></button>
+          <button class="btn" id="recover-sale">Recuperar venda</button>
+          <button class="btn" id="toggle-pdv-options">Opções do caixa <kbd>F1</kbd></button>
+          <button class="btn" id="print-last-sale">Reimprimir recibo</button>
+          <button class="btn danger" id="cancel-sale">Cancelar venda</button>
+          <button class="btn danger" id="close-cash-register-main">Fechar caixa do dia</button>
         </div>
       </aside>
       <section class="pdv-main">
-        <div class="pdv-main-title"><strong>${staleRegister ? "CAIXA ANTERIOR PENDENTE DE FECHAMENTO" : "CAIXA ABERTO"}</strong><button class="btn" id="leave-pdv">Retaguarda</button></div>
+        <div class="pdv-main-title"><div><small>ATENDIMENTO</small><strong>Nova venda</strong></div><button class="btn" id="leave-pdv">Voltar à retaguarda</button></div>
         <div class="sale-inputs">
-          <div class="field"><label>CPF Clube Tortela</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Obrigatorio antes da venda" /></div>
-          <div class="field"><label>F12 Codigo | Codigo de barras | Descricao</label><input id="sale-search" placeholder="Digite e pressione Enter" /></div>
-          <div class="field"><label>Qtd.</label><input id="sale-qty" type="number" value="1" /></div>
-          <div class="field"><label>Preco</label><input id="sale-price" type="number" step="0.01" value="0" /></div>
-          <div class="field"><label>Total item</label><input id="sale-item-total" readonly value="0,00" /></div>
+          <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" /></div>
+          <div class="field"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Leia o código ou digite e pressione Enter" /></div>
+          <div class="field"><label for="sale-qty">Quantidade</label><input id="sale-qty" type="number" value="1" /></div>
+          <div class="field"><label for="sale-price">Preço unitário</label><input id="sale-price" type="number" step="0.01" value="0" /></div>
+          <div class="field"><label for="sale-item-total">Total do item</label><input id="sale-item-total" readonly value="0,00" /></div>
         </div>
         <div class="table-wrap pdv-table">
           <table>
             <thead><tr><th>Item</th><th>Codigo</th><th>Descricao</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead>
-            <tbody>${saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole)+': ':''}${escapeHtml(item.description)}${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">Remover</button></td></tr>`).join("")}</tbody>
+            <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole)+': ':''}${escapeHtml(item.description)}${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">Remover</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Informe o CPF do cliente e adicione um produto pelo código, leitor de barras ou botão Buscar produto.</span></td></tr>'}</tbody>
           </table>
         </div>
-        <div class="totals">
+        <div class="pdv-checkout"><div class="totals">
           <div class="total-box"><span>Desconto</span><strong>${money(discount)}</strong></div>
           <div class="total-box"><span>Acrescimo</span><strong>${money(addition)}</strong></div>
           <div class="total-box"><span>Subtotal</span><strong>${money(subtotal)}</strong></div>
           <div class="total-box grand-total"><span>Total</span><strong>${money(total)}</strong></div>
         </div>
+        <button class="btn primary pdv-finish" id="finish-sale"><strong>Finalizar venda</strong><span>Pagamento · F7</span></button></div>
         <div class="pdv-options" id="pdv-options" aria-hidden="true">
           <div class="pdv-options-head"><h2>Opcoes do caixa</h2><button class="btn" id="close-pdv-options">Fechar</button></div>
           <div class="pdv-options-grid">
