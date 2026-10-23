@@ -4368,7 +4368,7 @@ function bindCurrentModule() {
   if (recoverSale) recoverSale.addEventListener("click", recoverHeldSale);
 
   const printLastSale = byId("print-last-sale");
-  if (printLastSale) printLastSale.addEventListener("click", printLastPdvSale);
+  if (printLastSale) printLastSale.addEventListener("click", openPdvReceiptPicker);
   const connectPdvDevice = byId("connect-pdv-device");
   if (connectPdvDevice) connectPdvDevice.addEventListener("click", connectPdvPeripheral);
   const pdvTefAdmin = byId("pdv-tef-admin");
@@ -7706,8 +7706,42 @@ function printNonFiscalReceipt(sale) {
   return true;
 }
 
-function printLastPdvSale() {
-  const sale = state.sales.find((item) => item.id === lastPdvSaleId) || state.sales.slice().reverse().find((item) => item.type === "PDV" && (!item.terminalId || item.terminalId === pdvTerminalId()));
+function pdvReceiptSales(query = "", date = "") {
+  const normalize = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const term = normalize(query).trim();
+  return state.sales.filter(sale => sale.type === "PDV" && ["Fechado", "Parcialmente devolvido"].includes(sale.status)
+    && (!date || String(sale.date).slice(0, 10) === date)
+    && (!term || normalize([sale.id, sale.date, sale.customer, sale.seller, sale.terminalName].join(" ")).includes(term)))
+    .sort((a, b) => Number(b.id) - Number(a.id));
+}
+
+function openPdvReceiptPicker() {
+  if (document.getElementById("pdv-receipt-picker")) return;
+  const dialog = document.createElement("dialog");
+  dialog.id = "pdv-receipt-picker";
+  dialog.className = "pdv-receipt-picker";
+  dialog.setAttribute("aria-labelledby", "pdv-receipt-title");
+  dialog.innerHTML = `<header><div><small>COMPROVANTES DA UNIDADE</small><h2 id="pdv-receipt-title">Qual venda deseja reimprimir?</h2><p>Escolha uma venda concluida. A reimpressao nao registra outra venda.</p></div><button class="btn danger" type="button" data-close>Fechar</button></header><div class="receipt-filters"><label>Buscar venda, cliente ou operador<input type="search" data-search placeholder="Ex.: 3, Consumidor Final ou bruno" /></label><label>Data da venda<input type="date" data-date /></label><button class="btn" type="button" data-clear>Limpar filtros</button></div><p role="status" data-count></p><div class="receipt-sale-list" data-list></div>`;
+  const close = () => { dialog.close(); dialog.remove(); };
+  const paint = () => {
+    const rows = pdvReceiptSales(dialog.querySelector('[data-search]').value, dialog.querySelector('[data-date]').value);
+    dialog.querySelector('[data-count]').textContent = `${rows.length} venda(s) encontrada(s), da mais recente para a mais antiga.`;
+    dialog.querySelector('[data-list]').innerHTML = rows.length ? rows.map(sale => `<article><div><strong>Venda ${escapeHtml(sale.id)} <span>${escapeHtml(money(sale.total))}</span></strong><p>${escapeHtml(sale.date)} · ${escapeHtml(sale.customer || "Consumidor Final")}</p><small>${escapeHtml(sale.terminalName || "PDV")} · ${escapeHtml(sale.seller || "")} · ${sale.emissionMode === "receipt" ? "Recibo nao fiscal" : "Fiscal"}</small></div><button class="btn primary" type="button" data-print-sale="${escapeAttr(sale.id)}">Reimprimir venda ${escapeHtml(sale.id)}</button></article>`).join("") : '<p>Nenhuma venda concluida corresponde aos filtros.</p>';
+  };
+  dialog.querySelector('[data-close]').addEventListener('click', close);
+  dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
+  dialog.querySelector('[data-search]').addEventListener('input', paint);
+  dialog.querySelector('[data-date]').addEventListener('change', paint);
+  dialog.querySelector('[data-clear]').addEventListener('click', () => { dialog.querySelector('[data-search]').value = ''; dialog.querySelector('[data-date]').value = ''; paint(); });
+  dialog.querySelector('[data-list]').addEventListener('click', event => {
+    const button = event.target.closest('[data-print-sale]');
+    if (button) printLastPdvSale(Number(button.dataset.printSale));
+  });
+  paint(); document.body.appendChild(dialog); dialog.showModal(); dialog.querySelector('[data-search]').focus();
+}
+
+function printLastPdvSale(saleId = null) {
+  const sale = saleId !== null ? state.sales.find(item => item.type === "PDV" && Number(item.id) === Number(saleId) && ["Fechado", "Parcialmente devolvido"].includes(item.status)) : state.sales.find((item) => item.id === lastPdvSaleId) || state.sales.slice().reverse().find((item) => item.type === "PDV" && (!item.terminalId || item.terminalId === pdvTerminalId()));
   if (!sale) {
     alert("Ainda nao ha venda PDV para imprimir.");
     return;

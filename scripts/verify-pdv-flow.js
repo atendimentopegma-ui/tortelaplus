@@ -131,6 +131,7 @@ globalThis.__pdvTest = {
   state,
   terminalId: pdvTerminalId,
   printLastPdvSale,
+  pdvReceiptSales,
   printed: () => globalThis.__printedReceipt || "",
   setField: (id, value) => { document.getElementById(id).value = String(value); },
   setCashRegister: (register) => { state.cashRegister = { ...state.cashRegister, ...register }; },
@@ -237,6 +238,13 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   test.printLastPdvSale();
   assert(test.printed().includes("RECIBO N\u00c3O FISCAL"), "Reimpressao alterou o modo de uma venda anterior.");
   assert(test.printed().includes("logo-tortela.gif") && test.printed().includes("80mm") && !test.printed().includes("QR Code"), "Recibo sem identidade ou com QR Code indevido.");
+  const olderSale = { ...structuredClone(receiptSale), id: 98701, customer: "Cliente antigo", date: "2026-10-20", status: "Fechado" };
+  const newerSale = { ...structuredClone(receiptSale), id: 98702, customer: "Outro cliente", date: "2026-10-21", status: "Fechado" };
+  state.sales.push(olderSale, newerSale, { ...olderSale, id:98703, status:"Cancelado" });
+  assert(test.pdvReceiptSales("antigo", "2026-10-20").length === 1, "Busca incluiu data ou status incorreto.");
+  test.printLastPdvSale(olderSale.id);
+  assert(test.printed().includes("VENDA 98701") && test.printed().includes("Cliente antigo"), "Reimpressao nao respeitou venda escolhida.");
+  state.sales = state.sales.filter(sale => ![98701,98702,98703].includes(sale.id));
   test.cancelClosedSale(receiptSale.id);
   assert(receiptSale.status === "Cancelado" && state.fiscalQueue.length === beforeReceiptQueue, "Cancelamento do recibo criou documento fiscal.");
 
