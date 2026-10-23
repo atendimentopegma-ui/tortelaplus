@@ -3622,7 +3622,7 @@ function renderPdv() {
   const terminal = currentPdvTerminal();
   const balance = currentCashBalance();
   const staleRegister = isCashRegisterStale();
-  if(staleRegister)return `<div class="pdv closed"><aside class="pdv-side"><div class="pdv-title">CAIXA BLOQUEADO</div><p>${escapeHtml(terminal.name)}</p></aside><section class="pdv-main"><div class="form-card cash-open-card"><h2>Caixa anterior pendente de fechamento</h2><p>Aberto em ${new Date(register.openedAt).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})} por ${escapeHtml(register.openedBy||"")}.</p><p>Confira e feche este caixa. Depois abra o caixa de hoje para iniciar as vendas.</p><button class="btn danger" id="close-cash-register">Conferir e fechar caixa anterior</button><button class="btn" id="print-cash-summary">Resumo do caixa anterior</button><button class="btn" id="leave-pdv">Retaguarda</button></div></section></div>`;
+  if(staleRegister)return `<div class="pdv closed"><aside class="pdv-side"><div class="pdv-title">CAIXA BLOQUEADO</div><p>${escapeHtml(terminal.name)}</p></aside><section class="pdv-main"><div class="form-card cash-open-card"><h2>Caixa anterior pendente de fechamento</h2><p>Aberto em ${new Date(register.openedAt).toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})} por ${escapeHtml(register.openedBy||"")}.</p><p>Confira e feche este caixa. Depois abra o caixa de hoje para iniciar as vendas.</p><button class="btn danger" id="close-cash-register">Conferir e fechar caixa anterior</button><button class="btn" id="print-cash-summary">Resumo do caixa anterior</button></div></section></div>`;
   if (!register.open) {
     return `
       <div class="pdv closed">
@@ -3640,7 +3640,7 @@ function renderPdv() {
               <div class="field"><label>Operador</label><input readonly value="${state.settings.user}" /></div>
               <div class="field"><label>Senha do operador</label><input id="cash-open-password" type="password" autocomplete="current-password" /></div>
             </div>
-            <button class="btn primary" id="open-cash-register">Abrir caixa do dia</button><button class="btn" id="leave-pdv">Retaguarda</button>
+            <button class="btn primary" id="open-cash-register">Abrir caixa do dia</button>
           </div>
         </section>
       </div>
@@ -3672,7 +3672,7 @@ function renderPdv() {
         </div>
       </aside>
       <section class="pdv-main">
-        <div class="pdv-main-title"><div><small>ATENDIMENTO</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div><button class="btn" id="leave-pdv">Voltar à retaguarda</button></div>
+        <div class="pdv-main-title"><div><small>ATENDIMENTO</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div></div>
         <div class="sale-inputs">
           <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" /></div>
           <div class="field pdv-product-search"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Digite para buscar ou leia o código de barras" autocomplete="off" aria-controls="pdv-product-results" aria-expanded="false" /><div id="pdv-product-results" class="pdv-product-results" hidden></div></div>
@@ -4275,10 +4275,6 @@ function bindCurrentModule() {
   if (togglePdvOptions) togglePdvOptions.addEventListener("click", () => setPdvOptions(!pdvOptions?.classList.contains("open")));
   const closePdvOptions = byId("close-pdv-options");
   if (closePdvOptions) closePdvOptions.addEventListener("click", () => setPdvOptions(false));
-  const leavePdv = byId("leave-pdv");
-  if (leavePdv) leavePdv.addEventListener("click", () => {
-    navigateBackofficeModule("dashboard");
-  });
   const focusSaleSearch = byId("focus-sale-search");
   if (focusSaleSearch) focusSaleSearch.addEventListener("click", () => { saleSearch?.focus(); showProductSearch(); });
   const focusSaleCustomer = byId("focus-sale-customer");
