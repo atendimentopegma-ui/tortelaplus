@@ -7638,6 +7638,7 @@ async function finalizePdvSaleRecord() {
   await createConfiguredSaleCharges(sale);
   pdvCompletionMessage = `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
   renderShell();
+  if (sale.emissionMode === "receipt") autoPrintNonFiscalReceipt(sale);
   if (fiscalRow && navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);
 }
 
@@ -7675,6 +7676,25 @@ function renderNonFiscalReceipt(sale) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibo Tortela — Venda ${e(sale.id)}</title><style>
   *{box-sizing:border-box}body{margin:0;background:#eef0f2;color:#111;font:12px Arial,sans-serif}.toolbar{padding:16px;text-align:center}.toolbar button{background:#15803d;color:white;border:0;border-radius:8px;padding:12px 24px;font-weight:bold;cursor:pointer}.ticket{width:80mm;margin:0 auto 24px;padding:5mm;background:white}header{text-align:center}header img{width:40mm;max-height:23mm;object-fit:contain}h1{font-size:15px;margin:8px 0}h2{font-size:13px;margin:12px 0;padding:8px 0;border-top:1px dashed;border-bottom:1px dashed}p{margin:5px 0}.meta{padding:9px 0;border-bottom:1px dashed}.pair{display:flex;justify-content:space-between;gap:10px}table{width:100%;border-collapse:collapse;margin-top:10px}th{text-align:left;font-size:10px;border-bottom:1px solid;padding:6px 0}th:last-child,td:last-child{text-align:right;white-space:nowrap}td{padding:8px 0;vertical-align:top}td:first-child{padding-right:8px}small{display:block;font-size:10px;margin-top:4px}.complement td{padding-top:0;font-size:11px}.totals{border-top:1px dashed;padding:10px 0}.total{font-size:19px;font-weight:bold;margin:10px 0}.footer{text-align:center;border-top:1px dashed;padding-top:12px;font-size:11px}@page{size:80mm auto;margin:0}@media print{body{background:white}.toolbar{display:none}.ticket{margin:0;width:80mm;padding:4mm}tr{break-inside:avoid}}
   </style></head><body><div class="toolbar"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div><article class="ticket"><header><img src="${e(logo)}" alt="Tortela"><h1>${e(state.settings.company || "Tortela")}</h1><h2>RECIBO NÃO FISCAL</h2></header><div class="meta"><div class="pair"><b>VENDA ${e(sale.id)}</b><span>${e(sale.date)}</span></div><p>Cliente: ${e(sale.customer || "Consumidor Final")}</p><p>Operador: ${e(sale.seller)} · ${e(sale.terminalName || "PDV")}</p></div><table><thead><tr><th>DESCRIÇÃO / QTD. × VALOR</th><th>VALOR</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div class="pair"><span>Desconto</span><span>${e(money(sale.discount || 0))}</span></div><div class="pair"><span>Acréscimo</span><span>${e(money(sale.addition || 0))}</span></div><div class="pair total"><span>TOTAL</span><span>${e(money(sale.total))}</span></div><div class="pair"><span>Pagamento</span><span>${e(sale.payment)}</span></div><div class="pair"><span>Troco</span><span>${e(money(sale.change || 0))}</span></div></div><div class="footer"><b>RECIBO NÃO FISCAL</b><p>Não substitui documento fiscal.</p><p>Obrigado pela preferência!</p></div></article></body></html>`;
+}
+
+// A same-origin print frame works after asynchronous persistence without popup permissions.
+function autoPrintNonFiscalReceipt(sale) {
+  try {
+    document.getElementById("pdv-receipt-print-frame")?.remove();
+    const frame = document.createElement("iframe");
+    frame.id = "pdv-receipt-print-frame";
+    frame.title = `Recibo nao fiscal da venda ${sale.id}`;
+    frame.style.cssText = "position:fixed;left:-10000px;top:0;width:80mm;height:1px;border:0";
+    frame.onload = () => {
+      try { frame.contentWindow.focus(); frame.contentWindow.print(); }
+      catch (error) { alert(`Venda ${sale.id} gravada. Nao foi possivel abrir a impressao. Use Reimprimir recibo; nao refaca a venda.`); }
+    };
+    frame.srcdoc = renderNonFiscalReceipt(sale);
+    document.body.appendChild(frame);
+  } catch (error) {
+    alert(`Venda ${sale.id} gravada. Use Reimprimir recibo para imprimir; nao refaca a venda.`);
+  }
 }
 
 function printNonFiscalReceipt(sale) {

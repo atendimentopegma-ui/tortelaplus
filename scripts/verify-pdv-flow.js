@@ -27,6 +27,8 @@ function createElement(id = "") {
     querySelector() { return null; },
     querySelectorAll() { return []; },
     closest() { return null; },
+    remove() {},
+    contentWindow: { focus() {}, print() { context.__autoPrints = (context.__autoPrints || 0) + 1; } },
     focus() {}
   };
 }
@@ -71,7 +73,7 @@ const context = {
     dispatchEvent() {}
   },
   document: {
-    body: { appendChild() {} },
+    body: { appendChild(element) { if (element.id === "pdv-receipt-print-frame") { context.__autoReceipt = element.srcdoc; element.onload(); } } },
     getElementById(id) {
       if (!elements.has(id)) elements.set(id, createElement(id));
       return elements.get(id);
@@ -230,6 +232,7 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   const receiptSale = state.sales.at(-1);
   assert(receiptSale.emissionMode === "receipt" && receiptSale.terminalId === terminalId, "Venda nao respeitou o terminal de recibo.");
   assert(state.fiscalQueue.length === beforeReceiptQueue, "Recibo nao fiscal criou NFC-e indevidamente.");
+  assert(context.__autoPrints === 1 && context.__autoReceipt.includes("RECIBO N\u00c3O FISCAL"), "Conclusao do recibo nao abriu impressao automaticamente.");
   state.settings.pdvTerminals[0].emissionMode = "nfce";
   test.printLastPdvSale();
   assert(test.printed().includes("RECIBO N\u00c3O FISCAL"), "Reimpressao alterou o modo de uma venda anterior.");
