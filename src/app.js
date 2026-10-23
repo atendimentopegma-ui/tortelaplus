@@ -3671,7 +3671,7 @@ function renderPdv() {
         <div class="pdv-main-title"><div><small>ATENDIMENTO</small><strong>Nova venda</strong></div><button class="btn" id="leave-pdv">Voltar à retaguarda</button></div>
         <div class="sale-inputs">
           <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" /></div>
-          <div class="field"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Leia o código ou digite e pressione Enter" /></div>
+          <div class="field pdv-product-search"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Digite para buscar ou leia o código de barras" autocomplete="off" aria-controls="pdv-product-results" aria-expanded="false" /><div id="pdv-product-results" class="pdv-product-results" hidden></div></div>
           <div class="field"><label for="sale-qty">Quantidade</label><input id="sale-qty" type="number" value="1" /></div>
           <div class="field"><label for="sale-price">Preço unitário</label><input id="sale-price" type="number" step="0.01" value="0" /></div>
           <div class="field"><label for="sale-item-total">Total do item</label><input id="sale-item-total" readonly value="0,00" /></div>
@@ -4210,12 +4210,50 @@ function bindCurrentModule() {
   });
 
   const saleSearch = byId("sale-search");
+  const productResults = byId("pdv-product-results");
+  let searchMatches = [];
+  let searchIndex = -1;
+  const hideProductSearch = () => {
+    if (productResults) productResults.hidden = true;
+    saleSearch?.setAttribute("aria-expanded", "false");
+  };
+  const showProductSearch = () => {
+    if (!saleSearch || !productResults) return;
+    const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const query = normalize(saleSearch.value.trim());
+    searchMatches = state.products.filter(p => p.active !== false && (!query || [p.id,p.barcode,p.reference,p.sku,p.description].some(value => normalize(value).includes(query)))).slice(0,50);
+    searchIndex = -1;
+    productResults.innerHTML = `<div class="pdv-search-hint">Selecione para adicionar à venda · ↑ ↓ e Enter</div>` + (searchMatches.length ? searchMatches.map((p,index) => `<button type="button" class="pdv-product-result" data-search-index="${index}"><span><strong>${escapeHtml(p.description)}</strong><small>Código ${escapeHtml(String(p.id))} · Estoque ${escapeHtml(String(p.stock ?? 0))}</small></span><b>${money(effectiveProductPrice(p,Number(byId("sale-qty")?.value || 1)))}</b></button>`).join("") : `<p class="pdv-search-empty">${state.products.length ? "Nenhum produto encontrado nesta unidade. Tente outro nome ou código." : "Esta unidade ainda não tem produtos cadastrados. Cadastre os produtos na retaguarda desta loja."}</p>`);
+    productResults.hidden = false;
+    saleSearch.setAttribute("aria-expanded", "true");
+    productResults.querySelectorAll("[data-search-index]").forEach(button => button.addEventListener("click", () => {
+      const product = searchMatches[Number(button.dataset.searchIndex)];
+      if (product) { saleSearch.value = String(product.id); hideProductSearch(); addSaleItem(product.id); }
+    }));
+  };
   if (saleSearch) {
     saleSearch.focus();
+    saleSearch.addEventListener("input", showProductSearch);
     saleSearch.addEventListener("keydown", (event) => {
+      if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+        event.preventDefault();
+        if (productResults.hidden) showProductSearch();
+        if (!searchMatches.length) return;
+        searchIndex = (searchIndex + (event.key === "ArrowDown" ? 1 : -1) + searchMatches.length) % searchMatches.length;
+        productResults.querySelectorAll("[data-search-index]").forEach((button,index) => {
+          button.classList.toggle("selected",index === searchIndex);
+          if(index === searchIndex) button.scrollIntoView({block:"nearest"});
+        });
+        return;
+      }
+      if (event.key === "Escape") { hideProductSearch(); return; }
       if (event.key === "Enter") {
         event.preventDefault();
-        addSaleItem();
+        const query = saleSearch.value.trim();
+        const exact = state.products.find(p => p.active !== false && (String(p.id) === query || p.barcode === query));
+        if (searchIndex >= 0 && !productResults.hidden) { const product = searchMatches[searchIndex]; hideProductSearch(); addSaleItem(product.id); }
+        else if (exact) { hideProductSearch(); addSaleItem(exact.id); }
+        else { showProductSearch(); if (searchMatches.length === 1) { const product = searchMatches[0]; hideProductSearch(); addSaleItem(product.id); } }
       }
     });
   }
@@ -4235,7 +4273,7 @@ function bindCurrentModule() {
     navigateBackofficeModule("dashboard");
   });
   const focusSaleSearch = byId("focus-sale-search");
-  if (focusSaleSearch) focusSaleSearch.addEventListener("click", () => saleSearch?.focus());
+  if (focusSaleSearch) focusSaleSearch.addEventListener("click", () => { saleSearch?.focus(); showProductSearch(); });
   const focusSaleCustomer = byId("focus-sale-customer");
   if (focusSaleCustomer) focusSaleCustomer.addEventListener("click", () => {
     setPdvOptions(true);
@@ -4252,7 +4290,7 @@ function bindCurrentModule() {
       setPdvOptions(!pdvOptions?.classList.contains("open"));
     } else if (event.key === "F2") {
       event.preventDefault();
-      saleSearch?.focus();
+      focusSaleSearch?.click();
     } else if (event.key === "F7") {
       event.preventDefault();
       byId("finish-sale")?.click();
@@ -7353,7 +7391,7 @@ function chooseSalePreparation(product) {
   });
 }
 
-async function addSaleItem() {
+async function addSaleItem(productId) {
   if (isCashRegisterStale()) {
     alert("Feche o caixa do dia anterior antes de registrar novas vendas.");
     return;
@@ -7365,8 +7403,8 @@ async function addSaleItem() {
     return;
   }
   const query = byId("sale-search").value.trim().toLowerCase();
-  const product = state.products.find((item) =>
-    String(item.id) === query || item.barcode === query || item.description.toLowerCase().includes(query)
+  const product = state.products.find((item) => item.active !== false && (productId !== undefined ? String(item.id) === String(productId) :
+    String(item.id) === query || item.barcode === query || (query && item.description.toLowerCase().includes(query)))
   );
   if (!product) {
     alert("Produto nao encontrado.");
