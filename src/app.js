@@ -2664,6 +2664,7 @@ function renderFinance() {
       </div>
 
       <div class="desktop-work-area finance-work-area">
+        ${currentTab === "caixa" ? '<section class="form-card" id="unit-cash-closures"></section>' : ""}
         <div class="desktop-summary-strip">
           <div><span>A receber aberto</span><strong>${money(receivableOpen)}</strong></div>
           <div><span>A pagar aberto</span><strong>${money(payableOpen)}</strong></div>
@@ -3745,6 +3746,8 @@ function currentCashBalance() {
 }
 
 function bindCurrentModule() {
+  const closuresPanel=byId("unit-cash-closures");
+  if(closuresPanel&&window.CashReportsPanel)window.CashReportsPanel.mount(closuresPanel,{api,tenantCode:state.settings.tenantCode});
   document.querySelectorAll("[data-product-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       captureProductDraft();
@@ -4457,6 +4460,8 @@ async function authorizePdvOperationWithPassword(action, user, password) {
 async function closeCashRegister() {
   if(!apiOnline||!sessionId)return alert("Conecte-se ao sistema para conferir e fechar o caixa.");
   if(saleItems.length && !confirm("Existe venda em andamento. Fechar o caixa mesmo assim?"))return;
+  await syncChain;
+  if(localStorage.getItem("tortelaplus-pending-sync") && await save()===false)return alert("Sincronize as vendas pendentes antes de fechar o caixa.");
   const user=prompt("Usuario gerente ou administrador responsavel pelo fechamento:",state.settings.user);if(!user)return;
   const password=prompt("Senha do responsavel pelo fechamento:","");if(!password)return;
   const countedText=prompt(`Valor em dinheiro contado no caixa. Esperado: ${money(currentCashBalance())}`,currentCashBalance().toFixed(2).replace(".",","));if(countedText===null)return;
@@ -4465,7 +4470,7 @@ async function closeCashRegister() {
   try{
     const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/close`,{method:"POST",body:JSON.stringify({user,password,countedAmount,responsible,closingNote})});
     state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});saleItems=[];
-    localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));printCashClosure(result.closure);renderShell();
+    localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));printCashClosure(result.closure);renderShell();alert("Caixa fechado. Relatorio detalhado disponivel em Financeiro > Caixa e na Central > Vendas.");
   }catch(error){alert(error.message);await refreshCashRegister().catch(()=>{});renderShell();}
 }
 
@@ -7548,6 +7553,7 @@ async function finalizePdvSaleRecord() {
   const sale = {
     id: nextId(state.sales),
     date: cashBusinessDay(),
+    soldAt: new Date().toISOString(),
     customer: byId("sale-customer")?.value || "Consumidor Final",
     customerDocument: saleClubCpf,
     clubCpf: saleClubCpf,

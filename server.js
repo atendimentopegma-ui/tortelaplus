@@ -3659,6 +3659,21 @@ async function handleApi(req, res, urlPath) {
     return sendJson(res,200,{ok:true,tenantCode:code,dataEpoch:epoch,removed,backupCreated:true});
   }
 
+  const closureReportMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/cash-closure-reports$/);
+  if(req.method==='GET' && (urlPath==='/api/network/sales-reports'||closureReportMatch)){
+    const provider=readProvider(),network=!closureReportMatch;
+    let clients;
+    if(network){const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessao da Central obrigatoria.'});if(!permissionsFor(access).includes('sales'))return sendJson(res,403,{error:'Sem permissao para vendas da rede.'});clients=provider.clients||[];}
+    else{const code=normalizeTenantCode(closureReportMatch[1]),access=tenantAccessOrProvider(req,provider,code,'finance');if(access.error)return deny(res,access);clients=[access.tenant];}
+    const params=new URL(req.url,'http://localhost').searchParams,from=params.get('from')||'',to=params.get('to')||'',unit=params.get('unit')||'';
+    if((from&&!/^\d{4}-\d{2}-\d{2}$/.test(from))||(to&&!/^\d{4}-\d{2}-\d{2}$/.test(to))||(from&&to&&from>to))return sendJson(res,400,{error:'Periodo invalido.'});
+    const units=clients.filter(c=>!network||!unit||normalizeTenantCode(c.tenantCode)===unit).map(c=>({code:normalizeTenantCode(c.tenantCode),name:c.tradeName||c.tenantCode,state:readTenantState(c.tenantCode)}));
+    const report=require('./src/server/closure-reports').buildReport(units,{from,to});
+    if(!network)return sendJson(res,200,{generatedAt:report.generatedAt,closures:report.closures,units:report.units});
+    report.units=clients.map(c=>({code:normalizeTenantCode(c.tenantCode),name:c.tradeName||c.tenantCode}));
+    return sendJson(res,200,report);
+  }
+
   const cashRegisterMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/cash-register(?:\/(open|close))?$/);
   if(cashRegisterMatch && ["GET","POST"].includes(req.method)){
     const code=normalizeTenantCode(cashRegisterMatch[1]),provider=readProvider(),access=sessionAccess(req,provider,code,"pdv");

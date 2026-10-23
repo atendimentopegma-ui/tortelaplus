@@ -298,32 +298,7 @@ function renderOverview() {
 }
 
 function renderSales() {
-  const periods = summary.periods || {};
-  const rows = (summary.salesDetails || []).map((sale) => [
-    escapeHtml(sale.unit || sale.tradeName || sale.tenantCode || "-"),
-    escapeHtml(sale.date || sale.createdAt || "-"),
-    escapeHtml(saleChannelLabel(sale)),
-    escapeHtml(sale.product || sale.description || "Venda"),
-    amount(sale.qty || sale.quantity || sale.items || 0),
-    money(sale.total || sale.value || 0),
-    `${escapeHtml(sale.customer || sale.client || "Consumidor Final")}<br><small>${escapeHtml(sale.customerDocument || sale.customerPhone || "")}</small>`,
-    escapeHtml(sale.seller || sale.operator || "-"),
-    escapeHtml(sale.status || "Finalizada")
-  ]);
-  return `<div class="network-module">
-    ${moduleTitle("Vendas da rede", "Movimento por hora, dia, semana, quinzena e mes.")}
-    <div class="network-grid five">
-      ${kpi("Hora atual", money(periods.hour))}
-      ${kpi("Hoje", money(periods.day))}
-      ${kpi("Semana", money(periods.week))}
-      ${kpi("Quinzena", money(periods.fortnight))}
-      ${kpi("Mes", money(periods.month))}
-    </div>
-    <section class="network-card">
-      <h2>Detalhe de vendas</h2>
-      ${table(["Unidade", "Data", "Canal", "Produto", "Qtd.", "Total", "Cliente", "Vendedor", "Status"], rows)}
-    </section>
-  </div>`;
+ return `<div class="network-module">${moduleTitle("Vendas e fechamentos da rede", "Relatorios por franqueado, periodo, produto e caixa.")}<section class="network-card" id="network-sales-reports"></section></div>`;
 }
 
 function renderProducts() {
@@ -828,6 +803,7 @@ function renderReports() {
 }
 
 function bindRender() {
+  if(byId("network-sales-reports")&&window.CashReportsPanel)window.CashReportsPanel.mount(byId("network-sales-reports"),{api,network:true});
   if(window.CentralAdministration)window.CentralAdministration.bind({api,onFranchiseSaved:async()=>{summary=normalizeSummary(await api("/api/network/summary"));}});
   if(byId("central-company-profile")&&window.CompanyProfile)window.CompanyProfile.mount(byId("central-company-profile"),{api,endpoint:"/api/provider/company-profile"});
   const fiscalUnit=byId('fiscal-cancel-unit');

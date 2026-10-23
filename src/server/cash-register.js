@@ -1,3 +1,4 @@
+const {snapshot}=require("./closure-reports");
 const money = value => Math.round(Number(value || 0) * 100) / 100;
 function businessDay(value = new Date(), timeZone = "America/Sao_Paulo") {
   const date=new Date(value);if(!Number.isFinite(date.getTime()))return "";
@@ -24,11 +25,12 @@ function openRegister(state,{user,terminal,terminalId,initialAmount},now=new Dat
 function closeRegister(state,{user,authorizedBy,countedAmount,responsible,closingNote},now=new Date()) {
   const register=state.cashRegister;if(!register?.open)throw Error("Nao existe caixa aberto para fechar.");
   const counted=Number(countedAmount);if(!Number.isFinite(counted)||counted<0)throw Error("Informe um valor contado valido.");
-  const sales=(state.sales||[]).filter(sale=>sale.type==="PDV" && sale.status==="Fechado" && sale.cashRegisterOpenedAt===register.openedAt);
+  const sales=(state.sales||[]).filter(sale=>sale.type==="PDV" && ["Fechado","Parcialmente devolvido"].includes(sale.status) && sale.cashRegisterOpenedAt===register.openedAt);
   const movements=(state.cash||[]).filter(row=>row.cashRegisterOpenedAt===register.openedAt),paymentTotals={};
-  sales.forEach(sale=>(sale.payments||[]).forEach(payment=>paymentTotals[payment.method]=money((paymentTotals[payment.method]||0)+Number(payment.value||0))));
+  sales.forEach(sale=>(sale.payments||[]).forEach(payment=>paymentTotals[payment.method]=money((paymentTotals[payment.method]||0)+Number(payment.value||0)-(payment.method==="Dinheiro"?Number(sale.change||0):0))));
   const expectedAmount=cashBalance(state);
-  const closure={id:Math.max(0,...(state.cashClosures||[]).map(row=>Number(row.id)||0))+1,terminal:register.terminal,terminalId:register.terminalId,openedAt:register.openedAt,closedAt:now.toISOString(),businessDate:register.businessDate||businessDay(register.openedAt),openedBy:register.openedBy,closedBy:user,authorizedBy,responsible:String(responsible||authorizedBy).slice(0,120),closingNote:String(closingNote||"").slice(0,1000),initialAmount:register.initialAmount,salesCount:sales.length,salesTotal:money(sales.reduce((sum,sale)=>sum+Number(sale.total||0),0)),paymentTotals,expectedAmount,closedAmount:money(counted),difference:money(counted-expectedAmount),supplies:money(movements.filter(row=>String(row.history).toLowerCase().includes("suprimento")).reduce((sum,row)=>sum+Number(row.in||0),0)),withdrawals:money(movements.filter(row=>String(row.history).toLowerCase().includes("sangria")).reduce((sum,row)=>sum+Number(row.out||0),0))};
+  const closure={id:Math.max(0,...(state.cashClosures||[]).map(row=>Number(row.id)||0))+1,terminal:register.terminal,terminalId:register.terminalId,openedAt:register.openedAt,closedAt:now.toISOString(),businessDate:register.businessDate||businessDay(register.openedAt),openedBy:register.openedBy,closedBy:user,authorizedBy,responsible:String(responsible||authorizedBy).slice(0,120),closingNote:String(closingNote||"").slice(0,1000),initialAmount:register.initialAmount,salesCount:sales.length,salesTotal:money(sales.reduce((sum,sale)=>sum+Math.max(0,Number(sale.total||0)-(sale.returns||[]).reduce((n,r)=>n+Number(r.value||0),0)),0)),paymentTotals,expectedAmount,closedAmount:money(counted),difference:money(counted-expectedAmount),supplies:money(movements.filter(row=>String(row.history).toLowerCase().includes("suprimento")).reduce((sum,row)=>sum+Number(row.in||0),0)),withdrawals:money(movements.filter(row=>String(row.history).toLowerCase().includes("sangria")).reduce((sum,row)=>sum+Number(row.out||0),0))};
+  closure.report=snapshot(state,register);
   state.cashClosures=state.cashClosures||[];state.cashClosures.push(closure);
   state.cashRegister={...register,open:false,closedAt:closure.closedAt,closedBy:user,closedAmount:closure.closedAmount,difference:closure.difference};
   return closure;

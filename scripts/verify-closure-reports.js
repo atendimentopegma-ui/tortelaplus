@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const {buildReport,snapshot}=require('../src/server/closure-reports');
+const {closeRegister}=require('../src/server/cash-register');
+const stamp='2026-10-23T12:00:00Z';const state={settings:{tenantCode:'loja-a',company:'Loja A'},cashRegister:{open:true,openedAt:stamp,businessDate:'2026-10-23',terminal:'Caixa 1',terminalId:'terminal-1',openedBy:'Ana',initialAmount:0},cash:[],products:[{id:1,description:'Tortela',active:true},{id:2,description:'Agua',active:true}],sales:[{id:1,type:'PDV',date:'2026-10-23',soldAt:stamp,cashRegisterOpenedAt:stamp,status:'Fechado',total:18,discount:2,change:2,payments:[{method:'Dinheiro',value:20}],items:[{id:1,description:'Tortela',qty:2,price:10}]},{id:2,type:'PDV',date:'2026-10-23',cashRegisterOpenedAt:stamp,status:'Cancelado',total:100,items:[{id:1,qty:10,price:10}]}]};
+const closure=closeRegister(state,{user:'Ana',authorizedBy:'Gerente',countedAmount:0,responsible:'Gerente'},new Date('2026-10-23T22:00:00Z'));
+assert.equal(closure.report.sales.length,2);state.sales[0].items[0].description='Alterado depois';assert.equal(closure.report.sales[0].items[0].description,'Tortela');
+const other={settings:{},products:[{id:1,description:'Mesmo codigo em outra loja',active:true}],sales:[{...state.sales[0],total:10,items:[{id:1,description:'Outro',qty:1,price:10}]}],cashClosures:[]};
+let report=buildReport([{code:'loja-a',name:'Loja A',state},{code:'loja-b',name:'Loja B',state:other}],{from:'2026-10-23',to:'2026-10-23'});
+assert.equal(report.totals.total,28);assert.equal(report.totals.count,2);assert.equal(report.totals.cancelled,1);assert.equal(report.totals.average,14);assert.equal(report.best[0].qty,2);assert.equal(report.worst[0].qty,0);assert.equal(report.payments[0].value,36);assert.equal(report.closures[0].terminalId,'terminal-1');assert.equal(report.closures[0].reconstructed,false);
+assert.equal(buildReport([{code:'a',name:'A',state}],{from:'2026-10-24'}).sales.length,0);
+state.sales[0].status='Parcialmente devolvido';state.sales[0].returns=[{value:9,items:[{id:1,qty:1,referencedItem:1}]}];report=buildReport([{code:'a',name:'A',state}]);assert.equal(report.totals.total,9);assert.equal(report.best[0].qty,1);
+assert.equal(snapshot(state,state.cashRegister).sales.length,2);
+console.log('OK - snapshot imutavel, franquias separadas, filtros, cancelamentos, devolucoes, produtos sem venda e pagamentos.');
