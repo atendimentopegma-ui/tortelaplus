@@ -2493,12 +2493,14 @@ async function handleApi(req, res, urlPath) {
     const tenantState = readTenantState(tenant.tenantCode);
     const items = Array.isArray(body.items) ? body.items : [];
     const normalizedItems = [];
+    const preparationParents=new Map();
     for (const item of items) {
       const product = (tenantState.products || []).find((row) => Number(row.id) === Number(item.productId) && row.active !== false);
       const qty = Number(item.qty || 0);
       if (!product || qty <= 0) continue;
       const price = effectiveProductPrice(product, qty);
-      itemPreparation.attach(normalizedItems,{
+      if(item.parentLineId&&!preparationParents.has(String(item.parentLineId))){sendJson(res,400,{ok:false,error:"Tortela do complemento nao encontrada. Monte o pedido novamente."});return;}
+      const prepared=itemPreparation.attach(normalizedItems,{
         productId: product.id,
         id: product.id,
         description: product.description,
@@ -2510,8 +2512,10 @@ async function handleApi(req, res, urlPath) {
         extras: Array.isArray(item.extras) ? item.extras.map(value=>String(value).trim()).filter(Boolean) : [],
         note: String(item.note || "").trim(),
         total: moneyRound(qty * price)
-      });
+      },item.parentLineId?preparationParents.get(String(item.parentLineId)):undefined);
+      if(item.lineId&&itemPreparation.isTortela(prepared))preparationParents.set(String(item.lineId),prepared.lineId);
     }
+    try{itemPreparation.validateSale(normalizedItems);}catch(error){sendJson(res,400,{ok:false,error:error.message});return;}
     if (!normalizedItems.length) {
       sendJson(res, 400, { ok: false, error: "Inclua ao menos um produto vendido por esta loja." });
       return;
