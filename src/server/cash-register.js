@@ -46,6 +46,8 @@ function assertPdvCashWrite(current,incoming,now=new Date()) {
     if(sale.cashRegisterOpenedAt!==current.cashRegister.openedAt)throw Error("A venda nao pertence ao caixa aberto.");
     if(sale.date!==businessDay(now))throw Error("A data da venda deve corresponder ao dia de operacao do caixa.");
     require("./pdv-customers").identifySale(current,sale);
+    require("../item-preparation").validateSale(sale.items||[]);
+    sale.items=require("../item-preparation").ordered(sale.items||[]);
     require("../pdv-payments").validateSale(sale);
     require("../combo-sales").validateSale(sale.items||[],current.products||[]);
   }

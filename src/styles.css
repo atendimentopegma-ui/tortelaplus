@@ -7193,7 +7193,7 @@ body.tortela-kiosk-page .kiosk-menu-footer {
 .pdv-preparation-extras legend { padding:0; margin-bottom:12px; }
 .pdv-preparation-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
 .pdv-preparation-dialog .pdv-preparation-option { display:flex; align-items:center; gap:10px; margin:0; padding:10px 12px; min-height:44px; box-sizing:border-box; border:1px solid #e2e8f0; border-radius:8px; background:#fff; cursor:pointer; font-size:13px; line-height:1.35; font-weight:500; }
-.pdv-preparation-dialog .pdv-preparation-option input[type="checkbox"] { appearance:auto; flex:0 0 18px; width:18px; height:18px; min-height:0; padding:0; margin:0; accent-color:#036987; box-shadow:none; }
+.pdv-preparation-dialog .pdv-preparation-option input:is([type="checkbox"], [type="radio"]) { appearance:auto; flex:0 0 18px; width:18px; height:18px; min-height:0; padding:0; margin:0; accent-color:#036987; box-shadow:none; }
 .pdv-preparation-option span { overflow-wrap:anywhere; }
 .pdv-preparation-option:has(input:checked) { background:#e0f2fe; border-color:#0284c7; }
 .pdv-preparation-option:focus-within { outline:2px solid #0284c7; outline-offset:2px; }
@@ -7228,7 +7228,7 @@ body.tortela-theme,.tortela-theme .content,.network-shell,.public-register-shell
 .pdv-preparation-footer { background:#fffde8; }
 .pdv-preparation-header small { color:#52621b; }
 .pdv-preparation-option:has(input:checked) { background:#ecfdf3; border-color:#15803d; }
-.pdv-preparation-dialog .pdv-preparation-option input[type="checkbox"] { accent-color:#15803d; }
+.pdv-preparation-dialog .pdv-preparation-option input:is([type="checkbox"], [type="radio"]) { accent-color:#15803d; }
 .pdv-preparation-option:focus-within { outline-color:#15803d; }
 input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0284c7; }
 .combo-builder { border-top:4px solid #ffef00; }

@@ -4570,7 +4570,7 @@ function holdCurrentSale() {
     date: new Date().toISOString(),
     operator: state.settings.user,
     clubCpf: saleClubCpf,
-    items: structuredClone(saleItems)
+    items: structuredClone(ItemPreparation.ordered(saleItems))
   });
   saleItems = [];
   saleClubCpf = "";
@@ -7467,7 +7467,7 @@ async function preparedTortela(target, product, price, metadata={}, position='')
 }
 function commitPreparedPdvItems(items){
  const shortage=stockShortages(saleStockRequirements([...saleItems,...items]),true);if(shortage.length){alert('Estoque insuficiente: '+shortage.join('; '));return;}
- saleItems.push(...items);byId('sale-search').value='';pdvCompletionMessage='';renderShell();
+ ItemPreparation.validateSale([...saleItems,...items]);saleItems.push(...items);saleItems=ItemPreparation.ordered(saleItems);byId('sale-search').value='';pdvCompletionMessage='';renderShell();
 }
 async function addDynamicCombo(template, qty){
  if(!Number.isInteger(qty)||qty<1||qty>10)return alert('Informe de 1 a 10 combos por vez.');
@@ -7489,10 +7489,10 @@ function chooseSalePreparation(product, position = "") {
   preparationDialogOpen=true;
   return new Promise(resolve=>{
     const dialog=document.createElement('dialog');dialog.className='pdv-preparation-dialog';dialog.setAttribute('aria-labelledby','preparation-title');
-    dialog.innerHTML=`<form class="pdv-preparation-form"><header class="pdv-preparation-header"><small>PERSONALIZAR ITEM ${escapeHtml(position)}</small><h2 id="preparation-title">${escapeHtml(product.description)}</h2><p>Escolha a cobertura e os acompanhamentos desta Tortela.</p></header><div class="pdv-preparation-body">${parents.length?`<div class="field"><label for="preparation-parent">Adicionar a qual Tortela?</label><select id="preparation-parent" name="parentLineId" required>${parents.map((parent,index)=>`<option value="${escapeAttr(parent.lineId)}" ${index===parents.length-1?'selected':''}>${index+1} - ${escapeHtml(parent.description)}</option>`).join('')}</select></div>`:''}${coverage.length?`<div class="field"><label for="preparation-coverage">Cobertura <small>Obrigatório</small></label><select id="preparation-coverage" name="coverage" required><option value="">Selecione uma opção</option>${coverage.map(value=>`<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join('')}</select></div>`:''}${extras.length?`<fieldset class="pdv-preparation-extras"><legend>Acompanhamentos <small>Opcional · escolha os desejados</small></legend><div class="pdv-preparation-grid">${extras.map((value,i)=>`<label class="pdv-preparation-option"><input type="checkbox" name="extra" value="${i}" /><span>${escapeHtml(value)}</span></label>`).join('')}</div></fieldset>`:''}</div><footer class="pdv-preparation-footer"><span data-selection-count>Nenhum acompanhamento selecionado</span><div><button class="btn" type="button" data-cancel>Cancelar</button><button class="btn primary" type="submit">Adicionar à venda</button></div></footer></form>`;
-    dialog.querySelectorAll('[name="extra"]').forEach(input=>input.addEventListener('change',()=>{const count=dialog.querySelectorAll('[name="extra"]:checked').length;dialog.querySelector('[data-selection-count]').textContent=count?`${count} acompanhamento${count===1?'':'s'} selecionado${count===1?'':'s'}`:'Nenhum acompanhamento selecionado';}));
+    dialog.innerHTML=`<form class="pdv-preparation-form"><header class="pdv-preparation-header"><small>PERSONALIZAR ITEM ${escapeHtml(position)}</small><h2 id="preparation-title">${escapeHtml(product.description)}</h2><p>Escolha uma cobertura e, se desejar, um acompanhamento para esta Tortela.</p></header><div class="pdv-preparation-body">${parents.length?`<div class="field"><label for="preparation-parent">Adicionar a qual Tortela?</label><select id="preparation-parent" name="parentLineId" required>${parents.map((parent,index)=>`<option value="${escapeAttr(parent.lineId)}" ${index===parents.length-1?'selected':''}>${index+1} - ${escapeHtml(parent.description)}</option>`).join('')}</select></div>`:''}${coverage.length?`<div class="field"><label for="preparation-coverage">Cobertura <small>Obrigatório</small></label><select id="preparation-coverage" name="coverage" required><option value="">Selecione uma opção</option>${coverage.map(value=>`<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join('')}</select></div>`:''}${extras.length?`<fieldset class="pdv-preparation-extras"><legend>Acompanhamentos <small>Opcional · escolha apenas 1</small></legend><div class="pdv-preparation-grid"><label class="pdv-preparation-option"><input type="radio" name="extra" value="" checked /><span>Sem acompanhamento</span></label>${extras.map((value,i)=>`<label class="pdv-preparation-option"><input type="radio" name="extra" value="${i}" /><span>${escapeHtml(value)}</span></label>`).join('')}</div></fieldset>`:''}</div><footer class="pdv-preparation-footer"><span data-selection-count>Nenhum acompanhamento selecionado</span><div><button class="btn" type="button" data-cancel>Cancelar</button><button class="btn primary" type="submit">Adicionar à venda</button></div></footer></form>`;
+    dialog.querySelectorAll('[name="extra"]').forEach(input=>input.addEventListener('change',()=>{const count=[...dialog.querySelectorAll('[name="extra"]:checked')].filter(input=>input.value!=='').length;dialog.querySelector('[data-selection-count]').textContent=count?`${count} acompanhamento${count===1?'':'s'} selecionado${count===1?'':'s'}`:'Nenhum acompanhamento selecionado';}));
     let finished=false;const finish=value=>{if(finished)return;finished=true;preparationDialogOpen=false;dialog.close();dialog.remove();resolve(value);};
-    dialog.querySelector('form').addEventListener('submit',event=>{event.preventDefault();finish({parentLineId:dialog.querySelector('[name="parentLineId"]')?.value||'',coverage:dialog.querySelector('[name="coverage"]')?.value||'',extras:[...dialog.querySelectorAll('[name="extra"]:checked')].map(input=>extras[Number(input.value)])});});
+    dialog.querySelector('form').addEventListener('submit',event=>{event.preventDefault();finish({parentLineId:dialog.querySelector('[name="parentLineId"]')?.value||'',coverage:dialog.querySelector('[name="coverage"]')?.value||'',extras:[...dialog.querySelectorAll('[name="extra"]:checked')].filter(input=>input.value!=='').map(input=>extras[Number(input.value)])});});
     dialog.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();
   });
 }
@@ -7540,6 +7540,7 @@ async function addSaleItem(productId) {
   const preparation = await chooseSalePreparation(product);
   if (!preparation) return;
   const beforeItems=structuredClone(saleItems);
+  try {
   const existing = !ItemPreparation.isTortela(product)&&!ItemPreparation.role(product)&&saleItems.find((item) => item.id === product.id && item.price === effectivePrice && ItemPreparation.same(item,preparation));
   if (existing) existing.qty += qty;
   else {
@@ -7547,6 +7548,9 @@ async function addSaleItem(productId) {
     const parent=ItemPreparation.attach(saleItems,{id:product.id,description:product.description,qty,unit:product.unit,price:effectivePrice,...split.preparation},preparation.parentLineId);
     for(const component of split.components)ItemPreparation.attach(saleItems,{id:component.id,description:component.description,qty,unit:component.unit,price:effectiveProductPrice(component,qty)},parent.lineId);
   }
+  ItemPreparation.validateSale(saleItems);
+  saleItems=ItemPreparation.ordered(saleItems);
+  } catch(error){saleItems=beforeItems;alert(error.message);return;}
   const shortage = stockShortages(saleStockRequirements(saleItems), true);
   if (shortage.length) {
     saleItems=beforeItems;
@@ -7595,6 +7599,9 @@ async function finalizePdvSaleRecord() {
   }
   const identifiedCustomer=await ensurePdvCustomer();
   if(!identifiedCustomer)return;
+  ItemPreparation.validateSale(saleItems);
+  saleItems=ItemPreparation.ordered(saleItems);
+
   const shortage = stockShortages(saleStockRequirements(saleItems), true);
   if (shortage.length) {
     alert(`Venda nao finalizada. Estoque insuficiente:\n${shortage.join("\n")}`);
@@ -7651,7 +7658,7 @@ async function finalizePdvSaleRecord() {
     exchangeCredit,
     total,
     commission: saleCommission(saleItems),
-    items: structuredClone(saleItems)
+    items: structuredClone(ItemPreparation.ordered(saleItems))
   };
   state.sales.push(sale);
   updatePdvTableFromSale(sale);
@@ -7752,7 +7759,7 @@ async function createConfiguredSaleCharges(sale) {
 
 function renderNonFiscalReceipt(sale) {
   const e = escapeHtml;
-  const rows = (sale.items || []).map(item => `<tr class="${item.parentLineId ? "complement" : ""}"><td>${item.parentLineId ? "↳ " : ""}${e(item.description)}${ItemPreparation.lines(item).map(line => `<small>${e(line)}</small>`).join("")}<small>${e(item.qty)} ${e(item.unit || "UN")} × ${e(money(item.price))}</small></td><td>${e(money(Number(item.qty) * Number(item.price)))}</td></tr>`).join("");
+  const rows = ItemPreparation.ordered(sale.items || []).map(item => `<tr class="${item.parentLineId ? "complement" : ""}"><td>${item.parentLineId ? "↳ " : ""}${e(item.description)}${ItemPreparation.lines(item).map(line => `<small>${e(line)}</small>`).join("")}<small>${e(item.qty)} ${e(item.unit || "UN")} × ${e(money(item.price))}</small></td><td>${e(money(Number(item.qty) * Number(item.price)))}</td></tr>`).join("");
   const logo = new URL("./assets/tortela/logo-tortela.gif?v=1", window.location.href).href;
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibo Tortela — Venda ${e(sale.id)}</title><style>
   *{box-sizing:border-box}body{margin:0;background:#eef0f2;color:#111;font:12px Arial,sans-serif}.toolbar{padding:16px;text-align:center}.toolbar button{background:#15803d;color:white;border:0;border-radius:8px;padding:12px 24px;font-weight:bold;cursor:pointer}.ticket{width:80mm;margin:0 auto 24px;padding:5mm;background:white}header{text-align:center}header img{width:40mm;max-height:23mm;object-fit:contain}h1{font-size:15px;margin:8px 0}h2{font-size:13px;margin:12px 0;padding:8px 0;border-top:1px dashed;border-bottom:1px dashed}p{margin:5px 0}.meta{padding:9px 0;border-bottom:1px dashed}.pair{display:flex;justify-content:space-between;gap:10px}table{width:100%;border-collapse:collapse;margin-top:10px}th{text-align:left;font-size:10px;border-bottom:1px solid;padding:6px 0}th:last-child,td:last-child{text-align:right;white-space:nowrap}td{padding:8px 0;vertical-align:top}td:first-child{padding-right:8px}small{display:block;font-size:10px;margin-top:4px}.complement td{padding-top:0;font-size:11px}.totals{border-top:1px dashed;padding:10px 0}.total{font-size:19px;font-weight:bold;margin:10px 0}.footer{text-align:center;border-top:1px dashed;padding-top:12px;font-size:11px}@page{size:80mm auto;margin:0}@media print{body{background:white}.toolbar{display:none}.ticket{margin:0;width:80mm;padding:4mm}tr{break-inside:avoid}}
@@ -7848,7 +7855,7 @@ function printLastPdvSale(saleId = null) {
     `Terminal: ${sale.terminalName || "PDV"}`,
     useFiscal ? `Chave NFC-e: ${fiscal.key || "-"}` : "NFC-e nao autorizada para este comprovante",
     "",
-    ...sale.items.flatMap((item) => [`${item.parentLineId?'  ':''}${item.qty} ${item.unit} ${item.description} ${money(item.qty * item.price)}`, ...ItemPreparation.lines(item).map(line=>`  ${line}`)]),
+    ...ItemPreparation.ordered(sale.items).flatMap((item) => [`${item.parentLineId?'  ':''}${item.qty} ${item.unit} ${item.description} ${money(item.qty * item.price)}`, ...ItemPreparation.lines(item).map(line=>`  ${line}`)]),
     "",
     `Desconto: ${money(sale.discount || 0)}`,
     `Acrescimo: ${money(sale.addition || 0)}`,
