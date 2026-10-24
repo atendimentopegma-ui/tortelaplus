@@ -1,0 +1,5 @@
+Imagem ilustrativa de campanha, gerada com a ferramenta integrada image_gen em 23/10/2026. Nao representa fotografia de um SKU cadastrado.
+Prompt: Premium ecommerce food photograph of two triangular frozen cheesecake slices on wooden sticks, dark and white chocolate coatings, hazelnuts, warm butter-yellow and ivory studio backdrop, cream podium, realistic texture, no text, no logos, no cartoon faces.
+
+Arquivo no projeto: assets/tortela/store-campaign-v1.png
+Ferramenta: image_gen integrada (sem CLI).

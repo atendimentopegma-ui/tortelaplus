@@ -6,6 +6,8 @@ let catalogWarning = "";
 let orderInFlight = false;
 let activeCategory = "Tortelas";
 let checkoutOpen = false;
+let locationOpen = false;
+let storeNotice = "";
 
 const byId = (id) => document.getElementById(id);
 const money = (value) => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -46,6 +48,20 @@ function productCategory(product) {
 function menuProducts(){return catalog.products.filter(p=>!ItemPreparation.role(p));}
 function categories(){return ["Tortelas","Bebidas","Combos","Outros produtos","Todos"].filter(c=>c==='Todos'||menuProducts().some(p=>productCategory(p)===c));}
 
+function storeIcon(name, cls='') {
+ const paths={bag:'<path d="M6 7h12l1 14H5L6 7Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',pin:'<path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/>',search:'<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',spark:'<path d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4L12 3Z"/>',check:'<path d="m5 12 4 4L19 6"/>',plus:'<path d="M12 5v14M5 12h14"/>',cup:'<path d="M7 7h10l-1 14H8L7 7ZM5 7h14M13 7l2-5h4"/>'};
+ return `<svg class="store-icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]||paths.spark}</svg>`;
+}
+function productArt(product){
+ const category=productCategory(product),name=String(product.description).toLowerCase();
+ if(product.photo)return `<img loading="lazy" src="${escapeHtml(product.photo)}" alt="${escapeHtml(product.description)}">`;
+ if(category==='Bebidas')return `<div class="store-drink-art">${storeIcon('cup')}<span>BEBIDAS</span></div>`;
+ const color=/pistache|lima|limã/.test(name)?'#b0bd78':/morango/.test(name)?'#e8a1a0':/ninho|branco/.test(name)?'#f2ddb4':'#77513f';
+ return `<svg class="store-dessert-art" viewBox="0 0 180 160" fill="none" aria-hidden="true"><ellipse cx="90" cy="141" rx="52" ry="8" fill="#4a2d2414"/><rect x="82" y="109" width="16" height="39" rx="8" fill="#d9b48a" transform="rotate(-12 90 120)"/><path d="M78 24c4-7 12-7 17 0l48 83c5 9 1 16-9 16H47c-10 0-14-7-9-16L78 24Z" fill="${color}"/><path d="M80 29c3-5 8-5 11 0l45 79c3 5 0 8-5 8H49c-5 0-8-3-5-8L80 29Z" fill="white" opacity=".12"/><path d="m58 83 57-8m-66 24 77-11" stroke="#fff1d1" stroke-width="5" stroke-linecap="round" opacity=".7"/><circle cx="88" cy="50" r="3" fill="#fff1d1"/><circle cx="70" cy="69" r="3" fill="#fff1d1"/><circle cx="110" cy="101" r="3" fill="#fff1d1"/></svg>`;
+}
+function searchText(value){return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function displayProductName(value){return String(value||'').toLocaleLowerCase('pt-BR').replace(/(^|\s)\S/g,c=>c.toLocaleUpperCase('pt-BR'));}
+
 function render() {
   const total = cart.reduce((sum, item) => sum + item.qty * item.price, 0);
   const itemCount = cart.filter(item=>!item.parentLineId).reduce((sum, item) => sum + item.qty, 0);
@@ -68,80 +84,44 @@ function render() {
   };
 
   byId("store-app").innerHTML = `
-    <header class="store-header">
-      <div class="store-topbar">
-        <div class="store-brand">
-          <img src="./assets/tortela/logo-tortela.gif" alt="Tortela" />
-          <div>
-            <strong>Tortela Online</strong>
-            <span>Pedidos para entrega e retirada</span>
-          </div>
-        </div>
-        <button class="store-location" id="store-focus-cep">
-          <span>Entregar em</span>
-          <strong>${currentCep ? escapeHtml(currentCep) : "Informe seu CEP"}</strong>
-        </button>
-        <div class="store-searchbar">
-          <span>Produto</span>
-          <input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="O que voce quer comer hoje?" />
-        </div>
-        <button class="store-chip" id="store-jump-cart">
-          <span>Sacola</span>
-          <strong>${itemCount} item(ns) - ${money(total)}</strong>
-        </button>
-      </div>
-    </header>
-
+    <div class="store-announcement">A sua Tortela. O seu momento. <span>Peça online, escolha do seu jeito.</span></div>
+    <header class="store-header"><div class="store-topbar">
+      <a class="store-brand" href="./loja.html" aria-label="Tortela início"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela"><span>LOJA ONLINE</span></a>
+      <nav class="store-header-nav" aria-label="Navegação principal"><a href="#store-products-area">Cardápio</a><a href="#store-how">Como pedir</a></nav>
+      <div class="store-header-actions"><button class="store-location" id="store-focus-cep">${storeIcon('pin')}<span><small>Sua unidade</small><strong>${currentCep?escapeHtml(currentCep):'Informe seu CEP'}</strong></span></button>
+      <button class="store-chip" id="store-jump-cart" aria-label="Ver sacola">${storeIcon('bag')}<span>Sacola <b>${itemCount}</b></span><strong>${money(total)}</strong></button></div>
+    </div></header>
     <main class="store-main">
-      <section class="store-delivery-panel">
-        <div>
-          <span class="store-kicker">Loja Tortela</span>
-          <h1>Monte seu pedido, uma escolha de cada vez.</h1>
-          <p>${catalog.nearest ? `${escapeHtml(publicUnitName(catalog.nearest))} prepara seu pedido para entrega ou retirada.` : "Informe o CEP para localizar a loja Tortela mais proxima."}</p>
-          <div class="store-service-strip" aria-label="Informacoes do pedido">
-            <span>1 · Escolha a Tortela</span><span>2 · Acompanhamento</span><span>3 · Cobertura</span><span>4 · Bebidas e sacola</span>
-          </div>
-          <div class="store-delivery-status ${deliveryBlocked ? "blocked" : deliveryKnown ? "ok" : ""}">
-            ${escapeHtml(catalog.deliveryMessage || "Informe o CEP para localizar sua loja Tortela.")}
-          </div>
-          ${catalogWarning ? `<div class="store-delivery-status blocked" role="status">${escapeHtml(catalogWarning)}</div>` : ""}
-        </div>
-        <div class="store-delivery-actions">
-          <strong>Encontre a unidade de atendimento</strong>
-          <div class="field"><label>CEP de entrega</label><input id="store-cep" inputmode="numeric" value="${escapeHtml(currentCep)}" placeholder="Digite seu CEP" /></div>
-          <button class="btn primary" id="store-refresh" ${catalogLoadInFlight ? "disabled" : ""}>${catalogLoadInFlight ? "Atualizando..." : "Encontrar loja"}</button>
-        </div>
-      </section>
-
-      <nav class="store-categories" aria-label="Categorias do cardapio">
-        ${categories().map((category, index) => `<button class="${category === activeCategory ? "active" : ""}" data-store-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join("")}
-      </nav>
-
+      <section class="store-hero" aria-labelledby="store-hero-title"><div class="store-hero-copy"><span class="store-eyebrow"><i></i> MUITO MAIS QUE UMA SOBREMESA</span><h1 id="store-hero-title">Seu momento<br>pede uma <em>Tortela.</em></h1><p>Escolha seu sabor, combine o acompanhamento e finalize com a cobertura que você ama.</p><div class="store-hero-actions"><a class="store-cta" href="#store-products-area">Quero a minha ${storeIcon('arrow')}</a><span>Do seu jeito.<br>Em poucos cliques.</span></div><div class="store-hero-footnote">${storeIcon('spark')} Pequenas escolhas. Um grande momento.</div></div><div class="store-hero-media"><img fetchpriority="high" decoding="async" width="1536" height="1024" src="./assets/tortela/store-campaign-v1.png" alt="Tortelas com cobertura de chocolate e chocolate branco sobre uma base clara"><div class="store-hero-stamp">ESCOLHA.<br>COMBINE.<br><strong>APAIXONE-SE.</strong></div><small>Imagem ilustrativa</small></div></section>
+      <section class="store-how" id="store-how" aria-label="Como fazer seu pedido"><div><b>01</b><span><strong>Encontre seu sabor</strong><small>Uma Tortela para cada vontade.</small></span></div><div><b>02</b><span><strong>Deixe com a sua cara</strong><small>Um acompanhamento e sua cobertura.</small></span></div><div><b>03</b><span><strong>Escolha como receber</strong><small>Entrega ou retirada na unidade.</small></span></div></section>
+      <details class="store-unit-panel" id="store-unit-panel" ${locationOpen?'open':''}><summary>${storeIcon('pin')}<span><strong>${catalog.nearest?escapeHtml(publicUnitName(catalog.nearest)):'Onde você vai aproveitar sua Tortela?'}</strong><small>${currentCep?'CEP '+escapeHtml(currentCep):'Informe seu CEP para encontrar a unidade que atende você.'}</small></span><b>Alterar unidade ${storeIcon('arrow')}</b></summary><div class="store-unit-content"><div><label for="store-cep">CEP de entrega</label><div class="store-cep-row"><input id="store-cep" inputmode="numeric" maxlength="9" autocomplete="postal-code" value="${escapeHtml(currentCep)}" placeholder="00000-000"><button class="btn primary" id="store-refresh" ${catalogLoadInFlight?'disabled':''}>${catalogLoadInFlight?'Buscando…':'Encontrar unidade'}</button></div></div><p class="store-unit-message ${deliveryBlocked?'blocked':''}" role="status">${escapeHtml(catalog.deliveryMessage||'Consulte a disponibilidade de entrega pelo seu CEP.')}</p></div></details>
+      ${catalogWarning?`<p class="store-warning" role="status">${escapeHtml(catalogWarning)}</p>`:''}
+      <section class="store-catalog-intro"><div><span class="store-eyebrow">ESCOLHA O SEU MOMENTO</span><h2>Qual vai ser a sua?</h2><p>Sabores, combinações e aquele toque que é só seu.</p></div><label class="store-searchbar" for="store-search">${storeIcon('search')}<input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="Buscar no cardápio" type="search"></label></section>
+      <nav class="store-categories" aria-label="Categorias do cardápio">${categories().map(category=>`<button class="${category===activeCategory?'active':''}" data-store-category="${escapeHtml(category)}" aria-pressed="${category===activeCategory}">${escapeHtml(category)}<small>${category==='Todos'?menuProducts().length:menuProducts().filter(p=>productCategory(p)===category).length}</small></button>`).join('')}</nav>
       <section class="store-layout">
         <section class="store-menu" id="store-products-area">
           <div class="store-section-title">
             <div>
-              <span>Cardapio</span>
-              <h2>Produtos disponiveis</h2>
+              <h2 id="store-category-title">${escapeHtml(activeCategory)}</h2>
             </div>
-            <small>${menuProducts().length} produtos</small>
+            <small id="store-results-count"></small>
           </div>
           <div class="store-products">
-            ${menuProducts().map(productCard).join("") || `<div class="store-empty">Nenhum produto disponivel para venda online.</div>`}
+            ${menuProducts().map(productCard).join("")}<div class="store-empty" id="store-no-results" ${menuProducts().length?'hidden':''}>${catalogLoadInFlight?'Carregando nosso cardápio…':'Nenhum produto encontrado. Experimente outro nome ou categoria.'}</div>
           </div>
         </section>
 
         <aside class="store-cart" id="store-cart">
           <div class="store-cart-title">
             <div>
-              <span>Sacola</span>
+              <span>${storeIcon('bag')} Sua sacola</span>
               <small>${itemCount} item(ns) selecionado(s)</small>
             </div>
             <strong>${money(total)}</strong>
           </div>
-          ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<p class="muted">Sua sacola esta vazia.</p>`}
+          ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<div class="store-bag-empty">${storeIcon('bag')}<strong>Seu próximo momento<br>começa aqui.</strong><p>Escolha uma Tortela e monte<br>do seu jeito.</p></div>`}
           <div class="store-total"><span>Total</span><strong>${money(total)}</strong></div>
-          <button class="btn primary full" id="store-checkout-toggle" ${cart.length?"":"disabled"}>${checkoutOpen?"Continuar escolhendo produtos":"Continuar para entrega e pagamento"}</button><section class="store-checkout-form" ${checkoutOpen?"":"hidden"}><h3>Entrega e pagamento</h3><div class="store-checkout-steps">
+          <button class="btn primary full" id="store-checkout-toggle" ${cart.length?"":"disabled"}>${checkoutOpen?"Continuar escolhendo produtos":"Continuar pedido"}</button><section class="store-checkout-form" ${checkoutOpen?"":"hidden"}><h3>Entrega e pagamento</h3><div class="store-checkout-steps">
             <span class="active">Sacola</span>
             <span>Entrega</span>
             <span>Pagamento</span>
@@ -158,12 +138,14 @@ function render() {
           </div>
           <div class="store-payment">
             ${paymentOption("PIX", "PIX", "Escolha a forma", formValues.payment)}
-            ${paymentOption("Debito", "Debito", "Escolha a forma", formValues.payment)}
-            ${paymentOption("Credito", "Credito", "Escolha a forma", formValues.payment)}
+            ${paymentOption("Debito", "Débito", "Escolha a forma", formValues.payment)}
+            ${paymentOption("Credito", "Crédito", "Escolha a forma", formValues.payment)}
           </div>
-          <button class="btn primary full" id="send-online-order" ${cart.length && !deliveryBlocked && !orderInFlight ? "" : "disabled"}>${orderInFlight ? "Enviando pedido..." : deliveryBlocked ? "Entrega indisponivel" : "Finalizar pedido"}</button>
+          <button class="btn primary full" id="send-online-order" ${cart.length && !deliveryBlocked && !orderInFlight ? "" : "disabled"}>${orderInFlight ? "Enviando pedido..." : deliveryBlocked ? "Entrega indisponivel" : "Enviar pedido"}</button>
         </section></aside>
       </section>
+      <footer class="store-footer"><a href="./loja.html" aria-label="Tortela início"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela"></a><p>Seu sabor. Sua combinação. Seu momento.</p><span>Pedidos para entrega ou retirada · Tortela Online</span><a href="#store-products-area">Voltar ao cardápio ↑</a></footer>
+      <div class="store-added-notice" role="status" aria-live="polite">${escapeHtml(storeNotice)}</div>
     </main>`;
   bind();
   filterCategory(activeCategory);
@@ -190,15 +172,14 @@ function paymentOption(value, title, detail, selected) {
 }
 
 function productCard(product) {
-  const category=productCategory(product),tortela=ItemPreparation.isTortela(product);
-  const img=product.photo?`<img loading="lazy" src="${escapeHtml(product.photo)}" alt="${escapeHtml(product.description)}">`:`<img class="store-card-logo" src="./assets/tortela/logo-tortela.gif" alt="Tortela">`;
-  return `<article class="store-product" data-category="${escapeHtml(category)}" data-name="${escapeHtml(product.description.toLowerCase())}"><div class="store-product-media">${img}</div><div class="store-product-body"><small>${category}</small><h2>${escapeHtml(product.description)}</h2><p>${tortela?'Escolha o acompanhamento e a cobertura no próximo passo.':'Adicione ao seu pedido com um clique.'}</p><div class="store-price"><strong>${money(product.price)}</strong><button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}">${tortela?'Escolher Tortela':'Adicionar'}</button></div></div></article>`;
+ const category=productCategory(product),tortela=ItemPreparation.isTortela(product),title=displayProductName(product.description);
+ return `<article class="store-product" data-category="${escapeHtml(category)}" data-name="${escapeHtml(searchText(product.description))}"><div class="store-product-media">${productArt(product)}${!product.photo?'<small>Ilustração</small>':''}</div><div class="store-product-body"><small>${escapeHtml(category)}</small><h3>${escapeHtml(title)}</h3><p>${tortela?'O sabor é seu. A combinação também.':'Complete seu momento Tortela.'}</p><div class="store-price"><strong>${money(product.price)}</strong><button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}" aria-label="${tortela?'Personalizar':'Adicionar'} ${escapeHtml(title)}">${tortela?'Personalizar':'Adicionar'} ${storeIcon('plus')}</button></div></div></article>`;
 }
 function addConfiguredProduct(product,preparation={}){
   const split=ItemPreparation.split(product,preparation,1,catalog.products);
   const parent=ItemPreparation.attach(cart,{productId:product.id,tenantCode:product.tenantCode,description:product.description,unit:product.unitMeasure,price:product.price,qty:1,...split.preparation});
   for(const component of split.components)ItemPreparation.attach(cart,{productId:component.id,tenantCode:component.tenantCode,description:component.description,unit:component.unitMeasure,price:component.price,qty:1},parent.lineId);
-  ItemPreparation.validateSale(cart);render();
+  ItemPreparation.validateSale(cart);storeNotice=displayProductName(product.description)+" adicionado à sacola.";render();
 }
 function configureProduct(product){
   if(!ItemPreparation.isTortela(product)){addConfiguredProduct(product);return;}
@@ -221,7 +202,10 @@ function configureProduct(product){
 }
 
 function bind() {
-  byId("store-checkout-toggle")?.addEventListener("click",()=>{checkoutOpen=!checkoutOpen;render();if(checkoutOpen)document.querySelector(".store-checkout-form")?.scrollIntoView({behavior:"smooth",block:"start"});});
+  byId("store-checkout-toggle")?.addEventListener("click",()=>{
+    if(!checkoutOpen&&String(fieldValue('store-cep')).replace(/\D/g,'').length!==8){locationOpen=true;byId('store-unit-panel').open=true;byId('store-unit-panel').scrollIntoView({behavior:'smooth',block:'center'});byId('store-cep').focus({preventScroll:true});return;}
+    checkoutOpen=!checkoutOpen;render();if(checkoutOpen)document.querySelector(".store-checkout-form")?.scrollIntoView({behavior:"smooth",block:"start"});
+  });
   byId("store-refresh")?.addEventListener("click", loadCatalog);
   byId("store-cep")?.addEventListener("input", (event) => {
     const cep = String(event.target.value || "").replace(/\D/g, "");
@@ -232,8 +216,9 @@ function bind() {
     if (event.key === "Enter") filterCategory(activeCategory);
   });
   byId("store-search")?.addEventListener("input",()=>filterCategory(activeCategory));
-  byId("store-focus-cep")?.addEventListener("click", () => byId("store-cep")?.focus());
-  document.querySelectorAll("[data-store-category]").forEach((button) => button.addEventListener("click", () => filterCategory(button.dataset.storeCategory)));
+  byId("store-unit-panel")?.addEventListener("toggle",event=>{locationOpen=event.target.open;});
+  byId("store-focus-cep")?.addEventListener("click", () => {byId("store-unit-panel").open=true;byId("store-unit-panel").scrollIntoView({behavior:"smooth",block:"center"});byId("store-cep")?.focus({preventScroll:true});});
+  document.querySelectorAll("[data-store-category]").forEach((button) => button.addEventListener("click", () => {byId("store-search").value="";filterCategory(button.dataset.storeCategory);}));
   document.querySelectorAll("[data-add-product]").forEach((button) => button.addEventListener("click", () => {
     const product = catalog.products.find((item) => Number(item.id) === Number(button.dataset.addProduct) && item.tenantCode === button.dataset.tenant);
     if (!product) return;
@@ -263,11 +248,16 @@ function bind() {
 
 function filterCategory(category) {
   activeCategory=category;
-  const search=fieldValue("store-search").toLowerCase().trim();
-  document.querySelectorAll("[data-store-category]").forEach((button) => button.classList.toggle("active", button.dataset.storeCategory === category));
+  const search=searchText(fieldValue("store-search"));
+  document.querySelectorAll("[data-store-category]").forEach((button) => (button.classList.toggle("active", button.dataset.storeCategory === category),button.setAttribute("aria-pressed",String(button.dataset.storeCategory===category))));
+  let visible=0;
   document.querySelectorAll(".store-product").forEach((card) => {
     card.hidden = (category !== "Todos" && card.dataset.category !== category)||!card.dataset.name.includes(search);
+    if(!card.hidden)visible++;
   });
+  if(byId("store-category-title"))byId("store-category-title").textContent=category;
+  if(byId("store-results-count"))byId("store-results-count").textContent=visible+(visible===1?" opção":" opções");
+  if(byId("store-no-results"))byId("store-no-results").hidden=visible>0;
 }
 
 async function loadCatalog() {
@@ -350,5 +340,6 @@ async function sendOrder() {
 }
 
 loadCatalog().catch((error) => {
-  byId("store-app").innerHTML = `<main class="store-main"><div class="store-empty">${escapeHtml(error.message)}</div></main>`;
+  catalogWarning="Não foi possível carregar o cardápio agora. Tente novamente em Encontrar unidade. "+error.message;
+  render();
 });
