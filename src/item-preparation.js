@@ -4,7 +4,7 @@
  function lines(item={}){
   const result=[];
   if(clean(item.size))result.push('Tamanho: '+clean(item.size));
-  if(clean(item.coverage))result.push('Calda / cobertura: '+clean(item.coverage));
+  if(clean(item.coverage))result.push('Cobertura: '+clean(item.coverage));
   const extras=options(item.extras);if(extras.length)result.push('Acompanhamentos: '+extras.join(', '));
   if(clean(item.note))result.push('Obs.: '+clean(item.note));
   return result;

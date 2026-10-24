@@ -3680,7 +3680,7 @@ async function handleApi(req, res, urlPath) {
     if((from&&!/^\d{4}-\d{2}-\d{2}$/.test(from))||(to&&!/^\d{4}-\d{2}-\d{2}$/.test(to))||(from&&to&&from>to))return sendJson(res,400,{error:'Periodo invalido.'});
     const units=clients.filter(c=>!network||!unit||normalizeTenantCode(c.tenantCode)===unit).map(c=>({code:normalizeTenantCode(c.tenantCode),name:c.tradeName||c.tenantCode,state:readTenantState(c.tenantCode)}));
     const report=require('./src/server/closure-reports').buildReport(units,{from,to});
-    if(!network)return sendJson(res,200,{generatedAt:report.generatedAt,closures:report.closures,units:report.units});
+    if(!network)return sendJson(res,200,{generatedAt:report.generatedAt,closures:report.closures,units:report.units,sales:report.sales});
     report.units=clients.map(c=>({code:normalizeTenantCode(c.tenantCode),name:c.tradeName||c.tenantCode}));
     return sendJson(res,200,report);
   }
@@ -3793,6 +3793,8 @@ async function handleApi(req, res, urlPath) {
     if (incoming.users && JSON.stringify(incoming.users.map(publicUser)) !== JSON.stringify(currentUsers)) return sendJson(res,403,{ok:false,error:"Sem permissao para alterar usuarios"});
     try { assertTenantWriteScope(currentState, incoming, access.session.permissions, allPermissions); }
     catch(error) { return sendJson(res,403,{ok:false,error:error.message}); }
+    try { for(const product of incoming.products||[]){const previous=(currentState.products||[]).find(p=>String(p.id)===String(product.id));if(product.comboPricing?.enabled&&JSON.stringify(product.comboPricing)!==JSON.stringify(previous?.comboPricing))require('./src/combo-sales').validate(product.comboPricing,incoming.products);} }
+    catch(error){return sendJson(res,422,{error:error.message});}
     try { assertPdvCashWrite(currentState,incoming); }
     catch(error){return sendJson(res,423,{ok:false,error:error.message});}
     incoming.users = currentState.users;

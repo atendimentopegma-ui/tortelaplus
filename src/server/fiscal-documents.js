@@ -556,7 +556,7 @@ function generateNfeXml(state, row, options = {}) {
   const destination = document ? `<dest><${document.length === 11 ? "CPF" : "CNPJ"}>${document}</${document.length === 11 ? "CPF" : "CNPJ"}><xNome>${xml(customer.name || row.customer)}</xNome><enderDest><xLgr>${xml(customer.address || "Nao informado")}</xLgr><nro>${xml(customer.number || "SN")}</nro><xBairro>${xml(customer.district || "Nao informado")}</xBairro><cMun>${digits(customer.cityCode || settings.cityCode)}</cMun><xMun>${xml(customer.city || settings.city)}</xMun><UF>${xml(customer.uf || settings.uf)}</UF><CEP>${digits(customer.cep || settings.cep)}</CEP><cPais>1058</cPais><xPais>BRASIL</xPais></enderDest><indIEDest>${recipientType}</indIEDest>${recipientType===1?`<IE>${digits(row.customerIE||customer.stateRegistration)}</IE>`:""}</dest>` : "";
   const isReturn = Number(row.purpose)===4 || row.operationType === "return" || row.operationType === "exchange-return";
   const paymentsSource = isReturn ? [{method:"Sem pagamento",value:0}] : row.payments?.length ? row.payments : [{ method: row.payment || "Outros", value: totals.net }];
-  const payments = paymentsSource.map((pay) => `<detPag><tPag>${paymentCode(pay.method)}</tPag><vPag>${decimal(pay.value ?? totals.net)}</vPag></detPag>`).join("");
+  const payments = paymentsSource.map((pay) => `<detPag><tPag>${paymentCode(pay.method)}</tPag>${paymentCode(pay.method)==="99"?`<xPag>${xml(pay.method||"Outros")}</xPag>`:""}<vPag>${decimal(pay.value ?? totals.net)}</vPag></detPag>`).join("");
   const paidTotal = paymentsSource.reduce((sum, payment) => sum + number(payment.value), 0);
   const change = Math.max(number(row.change), paidTotal - totals.net, 0);
   const contingency = Number(row.emissionType || 1) === 9

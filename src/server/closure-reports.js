@@ -1,7 +1,7 @@
 const clone = value => JSON.parse(JSON.stringify(value));
 const round = value => Math.round(Number(value || 0) * 100) / 100;
 function saleDetail(sale) {
-  const fields = ['id','date','soldAt','createdAt','terminalId','terminalName','seller','customer','customerId','customerDocument','customerCity','customerUf','status','emissionMode','cashRegisterOpenedAt','total','discount','addition','exchangeCredit','payment','change','items','payments','returns'];
+  const fields = ['id','date','soldAt','createdAt','terminalId','terminalName','seller','customer','customerId','customerDocument','customerCity','customerUf','customerDistrict','customerCep','customerRegion','status','emissionMode','cashRegisterOpenedAt','total','discount','addition','exchangeCredit','payment','change','items','payments','returns'];
   return clone(Object.fromEntries(fields.filter(key=>sale[key]!==undefined).map(key=>[key,sale[key]])));
 }
 function snapshot(state, register) {
@@ -9,9 +9,9 @@ function snapshot(state, register) {
 }
 function buildReport(units, {from='',to=''}={}) {
   const inRange = date => (!from||String(date).slice(0,10)>=from)&&(!to||String(date).slice(0,10)<=to);
-  const sales=[],closures=[],products=new Map(),payments=new Map(),days=new Map(),unitTotals=new Map();
+  const sales=[],closures=[],products=new Map(),payments=new Map(),days=new Map(),unitTotals=new Map(),regions=new Map();
   for(const {code,name,state} of units){
-    for(const product of state.products||[])if(product.active!==false)products.set(code+':'+product.id,{tenantCode:code,unit:name,id:product.id,description:product.description,qty:0,gross:0});
+    for(const product of state.products||[])if(product.active!==false&&!product.comboPricing?.enabled)products.set(code+':'+product.id,{tenantCode:code,unit:name,id:product.id,description:product.description,qty:0,gross:0});
     for(const closure of state.cashClosures||[]){if(!inRange(closure.businessDate||closure.closedAt))continue;const detail=closure.report||snapshot(state,closure);closures.push({...clone(closure),tenantCode:code,unit:detail.unit||name,report:detail,reconstructed:!closure.report});}
     for(const sale of state.sales||[]){
       if(!inRange(sale.date))continue;
@@ -21,6 +21,7 @@ function buildReport(units, {from='',to=''}={}) {
       sales.push({...saleDetail(sale),tenantCode:code,unit:name,returned,net});
       if(!included)continue;
       const u=unitTotals.get(code)||{tenantCode:code,unit:name,count:0,total:0};u.count++;u.total=round(u.total+net);unitTotals.set(code,u);
+      const region=sale.customerRegion||[sale.customerDistrict,sale.customerCity,sale.customerUf].filter(Boolean).join(' / ')||'Regiao nao registrada';const rk=code+':'+region;const rv=regions.get(rk)||{tenantCode:code,unit:name,region,count:0,total:0};rv.count++;rv.total=round(rv.total+net);regions.set(rk,rv);
       const day=String(sale.date).slice(0,10);days.set(day,round((days.get(day)||0)+net));
       for(const payment of sale.payments||[])payments.set(payment.method,round((payments.get(payment.method)||0)+Number(payment.value||0)-(payment.method==='Dinheiro'?Number(sale.change||0):0)));
       (sale.items||[]).forEach((item,index)=>{
@@ -32,6 +33,6 @@ function buildReport(units, {from='',to=''}={}) {
   }
   const total=round(sales.reduce((sum,s)=>sum+s.net,0)),count=sales.filter(s=>['Fechado','Parcialmente devolvido'].includes(s.status)).length;
   const ranked=[...products.values()].sort((a,b)=>b.qty-a.qty||a.description.localeCompare(b.description));
-  return {generatedAt:new Date().toISOString(),from,to,units:units.map(u=>({code:u.code,name:u.name})),sales:sales.sort((a,b)=>String(b.soldAt||b.date).localeCompare(String(a.soldAt||a.date))||Number(b.id)-Number(a.id)),closures:closures.sort((a,b)=>String(b.closedAt).localeCompare(String(a.closedAt))),totals:{total,count,average:count?round(total/count):0,cancelled:sales.filter(s=>s.status==='Cancelado').length,returns:round(sales.reduce((sum,s)=>sum+(s.returned||0),0))},best:ranked.filter(p=>p.qty>0).slice(0,20),worst:[...ranked].sort((a,b)=>a.qty-b.qty||a.description.localeCompare(b.description)).slice(0,20),payments:[...payments].map(([method,value])=>({method,value})),days:[...days].sort().map(([date,total])=>({date,total})),unitTotals:[...unitTotals.values()]};
+  return {generatedAt:new Date().toISOString(),from,to,units:units.map(u=>({code:u.code,name:u.name})),sales:sales.sort((a,b)=>String(b.soldAt||b.date).localeCompare(String(a.soldAt||a.date))||Number(b.id)-Number(a.id)),closures:closures.sort((a,b)=>String(b.closedAt).localeCompare(String(a.closedAt))),totals:{total,count,average:count?round(total/count):0,cancelled:sales.filter(s=>s.status==='Cancelado').length,returns:round(sales.reduce((sum,s)=>sum+(s.returned||0),0))},best:ranked.filter(p=>p.qty>0).slice(0,20),worst:[...ranked].sort((a,b)=>a.qty-b.qty||a.description.localeCompare(b.description)).slice(0,20),payments:[...payments].map(([method,value])=>({method,value})),days:[...days].sort().map(([date,total])=>({date,total})),unitTotals:[...unitTotals.values()],regions:[...regions.values()]};
 }
 module.exports={snapshot,buildReport,saleDetail};

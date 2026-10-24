@@ -44,7 +44,7 @@ require("./fixtures/seed-operational-state")(dataDir);
     state=(await call('/api/tenant/cliente-exemplo/state',{session:a.sessionId})).state;
     state.settings.pdvTerminals=[];
     const operationDay=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-    state.sales.push({id:9999,type:"PDV",customerDocument:"52998224725",emissionMode:"receipt",cashRegisterOpenedAt:state.cashRegister.openedAt,date:operationDay,items:[],total:0});
+    state.sales.push({id:9999,type:"PDV",customerDocument:"52998224725",emissionMode:"receipt",cashRegisterOpenedAt:state.cashRegister.openedAt,date:operationDay,items:[],total:0,payments:[{method:"Dinheiro",value:0}],change:0});
     await call("/api/tenant/cliente-exemplo/state",{session:a.sessionId,method:"POST",permission:"settings",body:{state,baseRevision:state._meta.revision}});
     assert((await call(route,{provider:true})).terminals.length===2,"Salvamento geral apagou configuracao de terminais.");
     const blocked=await call("/api/tenant/cliente-exemplo/fiscal/transmit",{session:a.sessionId,method:"POST",body:{document:{model:"NFC-e",saleId:9999}},expected:503});

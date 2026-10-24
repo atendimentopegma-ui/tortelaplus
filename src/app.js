@@ -2463,7 +2463,7 @@ function renderSales() {
           </div>
 
           <div class="table-wrap sales-history-card" id="sales-step-history" tabindex="-1">
-            <table><thead><tr><th>Numero</th><th>Data</th><th>Cliente / CPF / cidade</th><th>Vendedor</th><th>Total</th><th>Comissao</th><th>Tipo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.sales.map((sale) => `<tr><td>${sale.id}</td><td>${sale.date}</td><td>${escapeHtml(sale.customer)}<small class="muted">CPF: ${escapeHtml(sale.customerDocument||sale.clubCpf||"Nao registrado")}<br>${escapeHtml(sale.customerCity||"Cidade nao registrada")} ${escapeHtml(sale.customerUf||"")}</small></td><td>${escapeHtml(sale.seller)}</td><td>${money(sale.total)}</td><td>${money(sale.commission || 0)}</td><td>${sale.type}</td><td><span class="badge ${sale.status === "Cancelado" || sale.status === "Devolvido" || sale.status === "Trocado" ? "danger" : sale.status === "Aberto" || sale.status === "Parcialmente devolvido" ? "warn" : "ok"}">${sale.status || "Fechado"}</span></td><td>${sale.type === "Orcamento" && sale.status === "Aberto" ? `<button class="btn primary" data-convert-quote="${sale.id}">Converter em pedido</button>` : ["Fechado", "Parcialmente devolvido"].includes(sale.status) ? `<button class="btn" data-return-sale="${sale.id}">Devolver</button> <button class="btn" data-exchange-sale="${sale.id}">Trocar</button> ${sale.status === "Fechado" ? `<button class="btn danger" data-cancel-sale-record="${sale.id}">Cancelar</button>` : ""}` : "-"}</td></tr>`).join("") || `<tr><td colspan="9">Nenhuma venda registrada.</td></tr>`}</tbody></table>
+            <table><thead><tr><th>Numero</th><th>Data</th><th>Cliente / CPF / regiao</th><th>Vendedor</th><th>Total</th><th>Comissao</th><th>Tipo</th><th>Status</th><th>Acao</th></tr></thead><tbody>${state.sales.map((sale) => `<tr><td>${sale.id}</td><td>${sale.date}</td><td>${escapeHtml(sale.customer)}<small class="muted">CPF: ${escapeHtml(sale.customerDocument||sale.clubCpf||"Nao registrado")}<br>${escapeHtml(sale.customerRegion||[sale.customerDistrict,sale.customerCity,sale.customerUf].filter(Boolean).join(" / ")||"Regiao nao registrada")}</small></td><td>${escapeHtml(sale.seller)}</td><td>${money(sale.total)}</td><td>${money(sale.commission || 0)}</td><td>${sale.type}</td><td><span class="badge ${sale.status === "Cancelado" || sale.status === "Devolvido" || sale.status === "Trocado" ? "danger" : sale.status === "Aberto" || sale.status === "Parcialmente devolvido" ? "warn" : "ok"}">${sale.status || "Fechado"}</span></td><td>${sale.type === "Orcamento" && sale.status === "Aberto" ? `<button class="btn primary" data-convert-quote="${sale.id}">Converter em pedido</button>` : ["Fechado", "Parcialmente devolvido"].includes(sale.status) ? `<button class="btn" data-return-sale="${sale.id}">Devolver</button> <button class="btn" data-exchange-sale="${sale.id}">Trocar</button> ${sale.status === "Fechado" ? `<button class="btn danger" data-cancel-sale-record="${sale.id}">Cancelar</button>` : ""}` : "-"}</td></tr>`).join("") || `<tr><td colspan="9">Nenhuma venda registrada.</td></tr>`}</tbody></table>
           </div>
         </div>
       </div>
@@ -3685,7 +3685,7 @@ function renderPdv() {
         <div class="table-wrap pdv-table">
           <table>
             <thead><tr><th>Item</th><th>Codigo</th><th>Descricao</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead>
-            <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole)+': ':''}${escapeHtml(item.description)}${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">Remover</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Informe o CPF do cliente e adicione um produto pelo código, leitor de barras ou botão Buscar produto.</span></td></tr>'}</tbody>
+            <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole==='Calda / cobertura'?'Cobertura':item.preparationRole)+': ':''}${escapeHtml(item.description)}${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">${item.comboGroupId?"Remover combo":"Remover"}</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Informe o CPF do cliente e adicione um produto pelo código, leitor de barras ou botão Buscar produto.</span></td></tr>'}</tbody>
           </table>
         </div>
         <div class="pdv-checkout"><div class="totals">
@@ -3710,12 +3710,7 @@ function renderPdv() {
             <div class="field"><label>Desconto</label><input id="pdv-discount" type="number" step="0.01" value="0" /></div>
             <div class="field"><label>Acrescimo</label><input id="pdv-addition" type="number" step="0.01" value="0" /></div>
             <div class="field"><label>Credito de troca</label><input readonly value="${money(pendingExchangeCredit)}" /></div>
-            <div class="field"><label>Dinheiro</label><input id="pay-money" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>PIX</label><input id="pay-pix" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Debito</label><input id="pay-debit" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Credito</label><input id="pay-credit" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Crediario</label><input id="pay-store-credit" type="number" step="0.01" value="0" /></div>
-            <div class="pdv-options-balance"><span>Saldo atual do caixa</span><strong>${money(balance)}</strong></div>
+            <p class="helper pdv-wide">A forma de pagamento sera escolhida ao finalizar a venda.</p><div class="pdv-options-balance"><span>Saldo atual do caixa</span><strong>${money(balance)}</strong></div>
             <div class="field"><label>Valor do movimento</label><input id="cash-move-value" type="number" step="0.01" value="0" /></div>
             <div class="field pdv-wide"><label>Historico do movimento</label><input id="cash-move-history" placeholder="Informe o motivo da sangria ou suprimento" /></div>
             <div class="field pdv-wide"><label>Busca de preco</label><input id="price-check-search" placeholder="Codigo, codigo de barras ou descricao" /></div>
@@ -4390,7 +4385,7 @@ function bindCurrentModule() {
       const item = saleItems[Number(button.dataset.removeSaleItem)];
       const authorization = await authorizePdvOperation("remove_item", "Autorizar exclusao de item");
       if (!authorization) return;
-      saleItems=saleItems.filter(row=>row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
+      saleItems=saleItems.filter(row=>item?.comboGroupId?row.comboGroupId!==item.comboGroupId:row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
       audit("Item removido do PDV", `${item?.description || "Item"} autorizado por ${authorization.authorizedBy}`);
       save();
       renderShell();
@@ -4850,6 +4845,7 @@ function saveProductRecord() {
   if (barcode && state.products.some((product) => product.id !== editingProductId && product.barcode === barcode)) return alert("Ja existe um produto com este codigo de barras.");
   if (cost < 0 || price < 0) return alert("Custo e preco nao podem ser negativos.");
   if (type !== "Servico" && ncm.length !== 8) return alert("Informe um NCM valido com 8 digitos.");
+  if(pendingProductDraft.comboPricing?.enabled){try{window.ComboSales.validate(pendingProductDraft.comboPricing,state.products);}catch(error){return alert(error.message);}}
   const previousProduct = editingProductId ? state.products.find((product) => product.id === editingProductId) : null;
   const priceChanged = previousProduct && Math.abs(Number(previousProduct.price || 0) - price) > 0.009;
   if (priceChanged) {
@@ -4959,41 +4955,19 @@ function newProductRecord(type = "") {
 }
 
 function renderComboBuilder() {
-  const pricing = pendingProductDraft.comboPricing || {};
-  const selected = pricing.enabled ? pendingComposition : [];
-  const candidates = state.products.filter(p => p.active !== false && p.allowsSale !== false && p.type !== "Materia-prima" && Number(p.id) !== Number(editingProductId));
-  return `<section class="form-card combo-builder"><div class="combo-heading"><div><h3>Monte seu combo</h3><p>Selecione os produtos, informe as quantidades e defina um desconto exclusivo para este combo.</p></div><button class="btn" id="new-combo" type="button">+ Novo combo</button></div><div class="grid two"><div class="field"><label for="combo-name">Nome do combo</label><input id="combo-name" value="${escapeAttr(pendingProductDraft.description || '')}" placeholder="Ex.: Tortela + bebida" /></div><div class="field"><label for="combo-filter">Buscar produtos para incluir</label><input id="combo-filter" placeholder="Nome, código ou código de barras" /></div></div><div class="combo-product-list">${candidates.map(p=>{const component=selected.find(c=>Number(c.productId)===Number(p.id));return `<div class="combo-product-row" data-combo-row data-search="${escapeAttr([p.description,p.id,p.barcode].join(' ').toLowerCase())}"><label><input type="checkbox" data-combo-product="${p.id}" ${component?'checked':''} /><span><strong>${escapeHtml(p.description)}</strong><small>Cód. ${p.id} · ${money(p.price)} / ${escapeHtml(p.unit || 'UN')}</small></span></label><div><label for="combo-qty-${p.id}">Quantidade</label><input id="combo-qty-${p.id}" data-combo-qty="${p.id}" type="number" min="0.001" step="0.001" value="${Number(component?.qty || 1)}" /></div></div>`;}).join('') || '<p>Nenhum produto disponível. Cadastre os produtos primeiro.</p>'}</div><p id="combo-filter-empty" hidden>Nenhum produto encontrado.</p><div class="combo-pricing"><div class="field"><label for="combo-discount-type">Desconto do combo</label><select id="combo-discount-type"><option value="percent" ${pricing.type!=='amount'?'selected':''}>Percentual (%)</option><option value="amount" ${pricing.type==='amount'?'selected':''}>Valor em reais (R$)</option></select></div><div class="field"><label for="combo-discount">Desconto</label><input id="combo-discount" type="number" min="0" step="0.01" value="${Number(pricing.discount || 0)}" /></div><div class="combo-totals" aria-live="polite" id="combo-price-preview"></div></div><p class="helper">O preço será a soma dos preços de cadastro dos itens menos o desconto. Não altera os preços avulsos. O estoque dos componentes será baixado na venda.</p><p id="combo-feedback" role="status"></p><div class="actions"><button class="btn primary" type="button" id="apply-combo">Aplicar combo ao cadastro</button></div><p class="helper">Depois de aplicar, confira os dados fiscais e clique em Salvar novo ou Salvar alteração no rodapé.</p></section>`;
+ const c=pendingProductDraft.comboPricing||{},flavors=state.products.filter(p=>p.active!==false&&p.allowsSale!==false&&window.ComboSales.isFlavor(p)&&Number(p.id)!==Number(editingProductId)),drinks=state.products.filter(p=>p.active!==false&&p.allowsSale!==false&&window.ComboSales.isDrink(p)&&!p.comboPricing?.enabled);
+ return `<section class="form-card combo-builder"><h3>Combo de Tortelas — sabores escolhidos no PDV</h3><p>Um combo tem pelo menos 2 Tortelas. Cobertura e acompanhamentos sao escolhidos para cada uma na venda.</p><div class="grid two"><label>Nome do combo<input id="combo-name" value="${escapeAttr(pendingProductDraft.description||'')}" placeholder="Combo 2 Tortelas"></label><label>Tortelas por combo<input id="combo-count" type="number" min="2" max="20" step="1" value="${Number(c.tortelaCount||2)}"></label></div><h4>Sabores permitidos</h4><div class="combo-product-list">${flavors.map(p=>`<label class="pdv-preparation-option"><input type="checkbox" data-combo-flavor="${p.id}" ${(c.flavorIds||[]).some(id=>Number(id)===Number(p.id))?'checked':''}><span>${escapeHtml(p.description)} · ${money(p.price)}</span></label>`).join('')||'<p>Cadastre os sabores como produtos Tortela antes de montar o combo.</p>'}</div><div class="grid two"><label>Desconto nas Tortelas do combo<select id="combo-discount-type"><option value="percent" ${c.type!=='amount'?'selected':''}>Percentual (%)</option><option value="amount" ${c.type==='amount'?'selected':''}>Valor por combo (R$)</option></select></label><label>Desconto<input id="combo-discount" type="number" min="0" step="0.01" value="${Number(c.discount||0)}"></label></div><h4>Bebidas opcionais e desconto exclusivo no combo</h4><p>O operador escolhe quais incluir. O desconto de cada bebida so vale quando vendida dentro deste combo.</p><div class="combo-product-list">${drinks.map(p=>{const rule=(c.beverages||[]).find(b=>Number(b.productId)===Number(p.id));return `<div class="combo-beverage-rule"><label><input type="checkbox" data-combo-beverage="${p.id}" ${rule?'checked':''}> ${escapeHtml(p.description)} · ${money(p.price)}</label><label>Tipo<select id="combo-drink-type-${p.id}"><option value="percent" ${rule?.type!=='amount'?'selected':''}>Desconto %</option><option value="amount" ${rule?.type==='amount'?'selected':''}>Desconto R$ por unidade</option></select></label><label>Desconto<input id="combo-drink-discount-${p.id}" type="number" min="0" step="0.01" value="${Number(rule?.discount||0)}"></label></div>`;}).join('')||'<p>Nenhuma agua, refrigerante ou milkshake ativo encontrado.</p>'}</div><p id="combo-feedback" role="status"></p><button class="btn primary" type="button" id="apply-combo">Aplicar combo ao cadastro</button><button class="btn" type="button" id="new-combo">Novo combo</button><p>Depois de aplicar, clique em Salvar novo ou Salvar alteracao. O preco final depende dos sabores e bebidas escolhidos; cada produto mantem sua propria tributacao.</p></section>`;
 }
-
 function bindComboBuilder() {
-  if (!byId("apply-combo")) return;
-  const read = () => {
-    const components = [...document.querySelectorAll('[data-combo-product]:checked')].map(input=>({productId:Number(input.dataset.comboProduct),qty:Number(byId(`combo-qty-${input.dataset.comboProduct}`).value),mode:'sale',useUnit:''}));
-    const base = Math.round(components.reduce((sum,c)=>sum+Number(state.products.find(p=>Number(p.id)===c.productId)?.price || 0)*c.qty,0)*100)/100;
-    const discount = Number(byId('combo-discount').value), type = byId('combo-discount-type').value;
-    const reduction = Math.round((type==='percent'?base*discount/100:discount)*100)/100;
-    return {components,base,discount,type,reduction,price:Math.round((base-reduction)*100)/100};
-  };
-  const update = () => { const c=read();byId('combo-price-preview').innerHTML=`<span>Itens avulsos <b>${money(c.base)}</b></span><span>Desconto <b>${money(c.reduction)}</b></span><strong>Preço do combo ${money(Math.max(0,c.price))}</strong>`;byId('combo-feedback').textContent=''; };
-  document.querySelectorAll('[data-combo-product],[data-combo-qty],#combo-discount,#combo-discount-type').forEach(input=>input.addEventListener('input',update));
-  byId('combo-filter').addEventListener('input',event=>{const normalize=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const query=normalize(event.target.value.trim());let count=0;document.querySelectorAll('[data-combo-row]').forEach(row=>{row.hidden=!normalize(row.dataset.search).includes(query);if(!row.hidden)count++;});byId('combo-filter-empty').hidden=count>0;});
-  byId('new-combo').addEventListener('click',()=>{newProductRecord('Mercadoria para revenda');currentTab='composicao';setInternalRoute({module:'products',tab:currentTab});renderShell();});
-  byId('apply-combo').addEventListener('click',()=>{
-    const c=read(),name=byId('combo-name').value.trim();
-    const fail=message=>{byId('combo-feedback').textContent=message;};
-    if(!name)return fail('Informe o nome do combo.');
-    if(c.components.length<2)return fail('Selecione pelo menos dois produtos diferentes.');
-    if(c.components.some(row=>!Number.isFinite(row.qty)||row.qty<=0))return fail('Informe quantidades maiores que zero.');
-    if(!Number.isFinite(c.discount)||c.discount<0||c.price<=0||(c.type==='percent'&&c.discount>=100))return fail('O desconto deve ser positivo ou zero e menor que o valor dos itens.');
-    const contains=(id,seen=new Set())=>{if(Number(id)===Number(editingProductId)&&editingProductId)return true;if(seen.has(id))return true;const next=new Set(seen);next.add(id);return (state.products.find(p=>Number(p.id)===Number(id))?.composition || []).some(row=>contains(row.productId,next));};
-    if(c.components.some(row=>contains(row.productId)))return fail('Esta seleção cria uma composição circular. Escolha outros produtos.');
-    captureProductDraft();pendingComposition=c.components;
-    pendingProductDraft.comboPricing={enabled:true,type:c.type,discount:c.discount,basePrice:c.base,finalPrice:c.price};
-    pendingProductDraft.description=name;pendingProductDraft.price=c.price;
-    byId('product-description').value=name;byId('product-price').value=c.price;byId('product-is-bundle').checked=true;
-    renderShell();byId('combo-feedback').textContent='Combo aplicado. Confira o cadastro e salve para liberar no PDV.';
-  });
-  update();
+ if(!byId('apply-combo'))return;
+ byId('new-combo').addEventListener('click',()=>{newProductRecord('Mercadoria para revenda');currentTab='composicao';setInternalRoute({module:'products',tab:currentTab});renderShell();});
+ byId('apply-combo').addEventListener('click',()=>{try{
+ const name=byId('combo-name').value.trim();if(!name)throw Error('Informe o nome do combo.');
+ const config={enabled:true,dynamic:true,tortelaCount:Number(byId('combo-count').value),flavorIds:[...document.querySelectorAll('[data-combo-flavor]:checked')].map(i=>Number(i.dataset.comboFlavor)),type:byId('combo-discount-type').value,discount:Number(byId('combo-discount').value),beverages:[...document.querySelectorAll('[data-combo-beverage]:checked')].map(i=>({productId:Number(i.dataset.comboBeverage),type:byId('combo-drink-type-'+i.dataset.comboBeverage).value,discount:Number(byId('combo-drink-discount-'+i.dataset.comboBeverage).value)}))};
+ window.ComboSales.validate(config,state.products);captureProductDraft();pendingComposition=[];pendingProductDraft.comboPricing=config;pendingProductDraft.description=name;
+ const lowest=Math.min(...config.flavorIds.map(id=>Number(state.products.find(p=>Number(p.id)===id).price)));const base=lowest*config.tortelaCount;const price=Math.round((base-(config.type==='percent'?base*config.discount/100:config.discount))*100)/100;
+ pendingProductDraft.price=price;byId('product-description').value=name;byId('product-price').value=price;byId('product-is-bundle').checked=false;renderShell();byId('combo-feedback').textContent='Combo aplicado. Salve o cadastro para liberar a escolha dos sabores no PDV.';
+ }catch(error){byId('combo-feedback').textContent=error.message;}});
 }
 
 function addCompositionRecord() {
@@ -7472,8 +7446,42 @@ async function ensurePdvCustomer() {
  try{return await pdvCustomerRequest;}finally{pdvCustomerRequest=null;}
 }
 
+function chooseComboSale(template, position='') {
+ const config=window.ComboSales.validate(template.comboPricing,state.products);
+ return new Promise(resolve=>{
+ const dialog=document.createElement('dialog');dialog.className='pdv-customer-dialog';dialog.setAttribute('aria-labelledby','combo-sale-title');
+ dialog.innerHTML=`<form><header><small>MONTAR COMBO ${escapeHtml(position)}</small><h2 id="combo-sale-title">${escapeHtml(template.description)}</h2><p>Escolha ${config.tortelaCount} Tortelas. Depois personalize a cobertura e os acompanhamentos de cada uma.</p></header><div class="pdv-customer-fields">${Array.from({length:config.tortelaCount},(_,i)=>`<label>Tortela ${i+1} — sabor<select required name="flavor${i}" data-flavor><option value="">Escolha o sabor</option>${config.flavorIds.map(id=>{const p=state.products.find(p=>Number(p.id)===Number(id));return `<option value="${p.id}">${escapeHtml(p.description)} · ${money(p.price)}</option>`;}).join('')}</select></label>`).join('')}${(config.beverages||[]).map(rule=>{const p=state.products.find(p=>Number(p.id)===Number(rule.productId));return `<label>${escapeHtml(p.description)} — opcional<small>Desconto no combo: ${rule.type==='percent'?rule.discount+'%':money(rule.discount)} por unidade</small><input type="number" data-beverage="${p.id}" value="0" min="0" max="20" step="1"></label>`;}).join('')}</div><p role="status" data-total>Escolha os sabores para calcular o total. Bebidas com quantidade zero nao serao incluidas.</p><footer><button class="btn danger" type="button" data-cancel>Cancelar</button><button class="btn primary" type="submit">Personalizar cada Tortela</button></footer></form>`;
+ const form=dialog.querySelector('form'),read=()=>({flavors:[...form.querySelectorAll('[data-flavor]')].map(i=>Number(i.value)),beverages:[...form.querySelectorAll('[data-beverage]')].filter(i=>Number(i.value)>0).map(i=>({productId:Number(i.dataset.beverage),qty:Number(i.value)}))});
+ const finish=value=>{dialog.close();dialog.remove();resolve(value);};
+ form.addEventListener('input',()=>{try{const quote=window.ComboSales.quote(template,read(),state.products);form.querySelector('[data-total]').textContent='Combo: '+money(quote.total)+' · Economia: '+money(quote.discount)+' · Coberturas e acompanhamentos cobrados conforme cadastro.';}catch(error){form.querySelector('[data-total]').textContent=error.message;}});
+ form.addEventListener('submit',event=>{event.preventDefault();try{finish(window.ComboSales.quote(template,read(),state.products));}catch(error){form.querySelector('[data-total]').textContent=error.message;}});
+ form.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();
+ });
+}
+async function preparedTortela(target, product, price, metadata={}, position='') {
+ const preparation=await chooseSalePreparation(product,position);if(!preparation)return false;
+ const split=ItemPreparation.split(product,preparation,1,state.products);
+ const parent=ItemPreparation.attach(target,{id:product.id,description:product.description,qty:1,unit:product.unit,price,...split.preparation,...metadata,note:[split.preparation.note,metadata.comboName?'Combo: '+metadata.comboName:''].filter(Boolean).join(' · ')});
+ for(const component of split.components)ItemPreparation.attach(target,{id:component.id,description:component.description,qty:1,unit:component.unit,price:effectiveProductPrice(component,1),...(metadata.comboGroupId?{comboGroupId:metadata.comboGroupId,comboTemplateId:metadata.comboTemplateId,comboName:metadata.comboName,comboRole:'preparation'}:{})},parent.lineId);
+ return true;
+}
+function commitPreparedPdvItems(items){
+ const shortage=stockShortages(saleStockRequirements([...saleItems,...items]),true);if(shortage.length){alert('Estoque insuficiente: '+shortage.join('; '));return;}
+ saleItems.push(...items);byId('sale-search').value='';pdvCompletionMessage='';renderShell();
+}
+async function addDynamicCombo(template, qty){
+ if(!Number.isInteger(qty)||qty<1||qty>10)return alert('Informe de 1 a 10 combos por vez.');
+ const staged=[];
+ for(let n=0;n<qty;n++){
+ const quote=await chooseComboSale(template,`${n+1}/${qty}`);if(!quote)return;
+ const group='combo-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+ let index=0;for(const item of quote.items){const metadata={comboGroupId:group,comboTemplateId:template.id,comboName:template.description,comboRole:item.comboRole,comboDiscount:item.comboDiscount,originalPrice:item.originalPrice};const product=state.products.find(p=>Number(p.id)===Number(item.id));if(item.comboRole==='flavor'){index++;if(!await preparedTortela(staged,product,item.price,metadata,`Combo ${n+1} · Tortela ${index}/${template.comboPricing.tortelaCount}`))return;}else staged.push({...item,...metadata,note:'Bebida do combo: '+template.description});}
+ }
+ window.ComboSales.validateSale(staged,state.products);commitPreparedPdvItems(staged);
+}
+
 let preparationDialogOpen=false;
-function chooseSalePreparation(product) {
+function chooseSalePreparation(product, position = "") {
   if(preparationDialogOpen)return Promise.resolve(null);
   const choices=ItemPreparation.choices(product,state.products),coverage=choices.coverage,extras=choices.extras;
   const parents=ItemPreparation.role(product)?saleItems.filter(ItemPreparation.isTortela):[];
@@ -7481,7 +7489,7 @@ function chooseSalePreparation(product) {
   preparationDialogOpen=true;
   return new Promise(resolve=>{
     const dialog=document.createElement('dialog');dialog.className='pdv-preparation-dialog';dialog.setAttribute('aria-labelledby','preparation-title');
-    dialog.innerHTML=`<form class="pdv-preparation-form"><header class="pdv-preparation-header"><small>PERSONALIZAR ITEM</small><h2 id="preparation-title">${escapeHtml(product.description)}</h2><p>Escolha a calda e os acompanhamentos do item.</p></header><div class="pdv-preparation-body">${parents.length?`<div class="field"><label for="preparation-parent">Adicionar a qual Tortela?</label><select id="preparation-parent" name="parentLineId" required>${parents.map((parent,index)=>`<option value="${escapeAttr(parent.lineId)}" ${index===parents.length-1?'selected':''}>${index+1} - ${escapeHtml(parent.description)}</option>`).join('')}</select></div>`:''}${coverage.length?`<div class="field"><label for="preparation-coverage">Calda / cobertura <small>Obrigatório</small></label><select id="preparation-coverage" name="coverage" required><option value="">Selecione uma opção</option>${coverage.map(value=>`<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join('')}</select></div>`:''}${extras.length?`<fieldset class="pdv-preparation-extras"><legend>Acompanhamentos <small>Opcional · escolha os desejados</small></legend><div class="pdv-preparation-grid">${extras.map((value,i)=>`<label class="pdv-preparation-option"><input type="checkbox" name="extra" value="${i}" /><span>${escapeHtml(value)}</span></label>`).join('')}</div></fieldset>`:''}</div><footer class="pdv-preparation-footer"><span data-selection-count>Nenhum acompanhamento selecionado</span><div><button class="btn" type="button" data-cancel>Cancelar</button><button class="btn primary" type="submit">Adicionar à venda</button></div></footer></form>`;
+    dialog.innerHTML=`<form class="pdv-preparation-form"><header class="pdv-preparation-header"><small>PERSONALIZAR ITEM ${escapeHtml(position)}</small><h2 id="preparation-title">${escapeHtml(product.description)}</h2><p>Escolha a cobertura e os acompanhamentos desta Tortela.</p></header><div class="pdv-preparation-body">${parents.length?`<div class="field"><label for="preparation-parent">Adicionar a qual Tortela?</label><select id="preparation-parent" name="parentLineId" required>${parents.map((parent,index)=>`<option value="${escapeAttr(parent.lineId)}" ${index===parents.length-1?'selected':''}>${index+1} - ${escapeHtml(parent.description)}</option>`).join('')}</select></div>`:''}${coverage.length?`<div class="field"><label for="preparation-coverage">Cobertura <small>Obrigatório</small></label><select id="preparation-coverage" name="coverage" required><option value="">Selecione uma opção</option>${coverage.map(value=>`<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join('')}</select></div>`:''}${extras.length?`<fieldset class="pdv-preparation-extras"><legend>Acompanhamentos <small>Opcional · escolha os desejados</small></legend><div class="pdv-preparation-grid">${extras.map((value,i)=>`<label class="pdv-preparation-option"><input type="checkbox" name="extra" value="${i}" /><span>${escapeHtml(value)}</span></label>`).join('')}</div></fieldset>`:''}</div><footer class="pdv-preparation-footer"><span data-selection-count>Nenhum acompanhamento selecionado</span><div><button class="btn" type="button" data-cancel>Cancelar</button><button class="btn primary" type="submit">Adicionar à venda</button></div></footer></form>`;
     dialog.querySelectorAll('[name="extra"]').forEach(input=>input.addEventListener('change',()=>{const count=dialog.querySelectorAll('[name="extra"]:checked').length;dialog.querySelector('[data-selection-count]').textContent=count?`${count} acompanhamento${count===1?'':'s'} selecionado${count===1?'':'s'}`:'Nenhum acompanhamento selecionado';}));
     let finished=false;const finish=value=>{if(finished)return;finished=true;preparationDialogOpen=false;dialog.close();dialog.remove();resolve(value);};
     dialog.querySelector('form').addEventListener('submit',event=>{event.preventDefault();finish({parentLineId:dialog.querySelector('[name="parentLineId"]')?.value||'',coverage:dialog.querySelector('[name="coverage"]')?.value||'',extras:[...dialog.querySelectorAll('[name="extra"]:checked')].map(input=>extras[Number(input.value)])});});
@@ -7514,6 +7522,7 @@ async function addSaleItem(productId) {
     alert("Informe uma quantidade maior que zero.");
     return;
   }
+  if(product.comboPricing?.enabled){try{await addDynamicCombo(product,qty);}catch(error){alert(error.message);}return;}
   const typedPrice = Number(byId("sale-price").value || 0);
   const normalPrice = effectiveProductPrice(product, qty);
   if (typedPrice > 0 && Math.abs(typedPrice - normalPrice) > 0.009) {
@@ -7522,6 +7531,12 @@ async function addSaleItem(productId) {
     audit("Preco alterado no PDV", `${product.description}: ${money(normalPrice)} para ${money(typedPrice)} por ${authorization.authorizedBy}`);
   }
   const effectivePrice = typedPrice > 0 ? typedPrice : effectiveProductPrice(product, qty);
+  if(ItemPreparation.isTortela(product)&&qty>1){
+    if(!Number.isInteger(qty)||qty>20)return alert('Informe uma quantidade inteira de ate 20 Tortelas.');
+    const staged=[];for(let i=0;i<qty;i++)if(!await preparedTortela(staged,product,effectivePrice,{},`Tortela ${i+1}/${qty}`))return;
+    commitPreparedPdvItems(staged);return;
+  }
+
   const preparation = await chooseSalePreparation(product);
   if (!preparation) return;
   const beforeItems=structuredClone(saleItems);
@@ -7596,7 +7611,9 @@ async function finalizePdvSaleRecord() {
   const addition = Number(byId("pdv-addition")?.value || 0);
   const exchangeCredit = Math.min(pendingExchangeCredit, Math.max(0, subtotal - discount + addition));
   const total = Math.max(0, subtotal - discount + addition - exchangeCredit);
-  const paymentInfo = pdvPaymentBreakdown(total);
+  const chosenPayment=await choosePdvPayment(total);
+  if(!chosenPayment)return;
+  const paymentInfo = pdvPaymentBreakdown(total,chosenPayment);
   if (paymentInfo.paid < total) {
     alert("O valor pago nao cobre o total da venda.");
     return;
@@ -7609,6 +7626,9 @@ async function finalizePdvSaleRecord() {
     customerId: identifiedCustomer.id,
     customerCity: identifiedCustomer.city,
     customerUf: identifiedCustomer.uf,
+    customerDistrict: identifiedCustomer.district||"",
+    customerCep: identifiedCustomer.cep||"",
+    customerRegion: [identifiedCustomer.district,identifiedCustomer.city,identifiedCustomer.uf].filter(Boolean).join(" / "),
     customerDocument: saleClubCpf,
     clubCpf: saleClubCpf,
     seller: state.settings.user,
@@ -7969,37 +7989,18 @@ async function startPdvSerialReader() {
   }
 }
 
-function pdvPaymentBreakdown(total) {
-  const raw = {
-    Dinheiro: num("pay-money"),
-    PIX: num("pay-pix"),
-    "Cartao debito": num("pay-debit"),
-    "Cartao credito": num("pay-credit"),
-    Crediario: num("pay-store-credit")
-  };
-  if (Object.values(raw).every((value) => value <= 0)) raw.Dinheiro = total;
-  const immediate = raw.Dinheiro + raw.PIX + raw["Cartao debito"] + raw["Cartao credito"];
-  const storeCredit = Math.round(Math.max(0, Math.min(raw.Crediario, total - immediate)) * 100) / 100;
-  const paid = Math.round((immediate + storeCredit) * 100) / 100;
-  const cashNeeded = Math.max(0, total - raw.PIX - raw["Cartao debito"] - raw["Cartao credito"] - storeCredit);
-  const change = Math.round(Math.max(0, raw.Dinheiro - cashNeeded) * 100) / 100;
-  const cashEntries = [];
-  Object.entries(raw).forEach(([method, value]) => {
-    if (value <= 0 || method === "Crediario") return;
-    const out = method === "Dinheiro" ? change : 0;
-    cashEntries.push({ method, in: value, out });
-  });
-  const payments = Object.entries({ ...raw, Crediario: storeCredit })
-    .filter(([, value]) => value > 0)
-    .map(([method, value]) => ({ method, value }));
-  return {
-    paid,
-    change,
-    storeCredit,
-    payments,
-    cashEntries,
-    label: payments.map(({ method }) => method).join(" + ") || "Dinheiro"
-  };
+function choosePdvPayment(total) {
+ return new Promise(resolve=>{
+ const dialog=document.createElement('dialog');dialog.className='pdv-customer-dialog pdv-payment-dialog';dialog.setAttribute('aria-labelledby','pdv-payment-title');
+ dialog.innerHTML=`<form><header><small>CONCLUIR VENDA</small><h2 id="pdv-payment-title">Como o cliente vai pagar?</h2><p>Total: <strong>${money(total)}</strong></p></header><div class="pdv-customer-fields"><label>Forma de pagamento<select name="method" required><option value="">Selecione uma forma</option><option value="Dinheiro">Dinheiro</option><option value="Cartao credito">Credito</option><option value="Cartao debito">Debito</option><option value="PIX">PIX</option><option value="iFood">iFood</option></select></label><label>Valor recebido<input name="amount" type="number" min="0" step="0.01" value="${total.toFixed(2)}" required></label></div><p role="status" data-payment-status>Escolha uma forma para continuar. A venda ainda nao foi gravada.</p><footer><button class="btn danger" type="button" data-cancel>Voltar a venda</button><button class="btn primary" type="submit">Confirmar pagamento e concluir</button></footer></form>`;
+ const form=dialog.querySelector('form'),status=form.querySelector('[data-payment-status]');const finish=value=>{dialog.close();dialog.remove();resolve(value);};
+ const preview=()=>{if(!form.elements.method.value)return;form.elements.amount.readOnly=form.elements.method.value!=='Dinheiro';if(form.elements.amount.readOnly)form.elements.amount.value=total.toFixed(2);try{const payment=window.PdvPayments.calculate(total,{[form.elements.method.value]:Number(form.elements.amount.value)},true);status.textContent='Troco: '+money(payment.change)+(form.elements.method.value==='iFood'?' · Registra o recebimento pela plataforma; nao faz cobranca no iFood.':'');}catch(error){status.textContent=error.message;}};
+ form.elements.method.addEventListener('change',preview);form.elements.amount.addEventListener('input',preview);form.addEventListener('submit',event=>{event.preventDefault();if(!form.elements.method.value)return;try{const raw={[form.elements.method.value]:Number(form.elements.amount.value)};window.PdvPayments.calculate(total,raw,true);finish(raw);}catch(error){status.textContent=error.message;}});form.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();form.elements.method.focus();
+ });
+}
+function pdvPaymentBreakdown(total, chosen = null) {
+ const raw=chosen||{Dinheiro:num('pay-money'),PIX:num('pay-pix'),'Cartao debito':num('pay-debit'),'Cartao credito':num('pay-credit'),iFood:num('pay-ifood'),Crediario:num('pay-store-credit')};
+ return window.PdvPayments.calculate(total,raw,Boolean(chosen));
 }
 
 function applySaleStock(items, reference = "Venda") {
