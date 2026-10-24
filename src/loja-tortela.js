@@ -95,6 +95,7 @@ function render() {
       <section class="store-hero" aria-labelledby="store-hero-title"><div class="store-hero-copy"><span class="store-eyebrow"><i></i> MUITO MAIS QUE UMA SOBREMESA</span><h1 id="store-hero-title">Seu momento<br>pede uma <em>Tortela.</em></h1><p>Escolha seu sabor, combine o acompanhamento e finalize com a cobertura que você ama.</p><div class="store-hero-actions"><a class="store-cta" href="#store-products-area">Quero a minha ${storeIcon('arrow')}</a><span>Do seu jeito.<br>Em poucos cliques.</span></div><div class="store-hero-footnote">${storeIcon('spark')} Pequenas escolhas. Um grande momento.</div></div><div class="store-hero-media"><img fetchpriority="high" decoding="async" width="1536" height="1024" src="./assets/tortela/store-campaign-v1.png" alt="Tortelas com cobertura de chocolate e chocolate branco sobre uma base clara"><div class="store-hero-stamp">ESCOLHA.<br>COMBINE.<br><strong>APAIXONE-SE.</strong></div><small>Imagem ilustrativa</small></div></section>
       <section class="store-how" id="store-how" aria-label="Como fazer seu pedido"><div><b>01</b><span><strong>Encontre seu sabor</strong><small>Uma Tortela para cada vontade.</small></span></div><div><b>02</b><span><strong>Deixe com a sua cara</strong><small>Um acompanhamento e sua cobertura.</small></span></div><div><b>03</b><span><strong>Escolha como receber</strong><small>Entrega ou retirada na unidade.</small></span></div></section>
       <details class="store-unit-panel" id="store-unit-panel" ${locationOpen?'open':''}><summary>${storeIcon('pin')}<span><strong>${catalog.nearest?escapeHtml(publicUnitName(catalog.nearest)):'Onde você vai aproveitar sua Tortela?'}</strong><small>${currentCep?'CEP '+escapeHtml(currentCep):'Informe seu CEP para encontrar a unidade que atende você.'}</small></span><b>Alterar unidade ${storeIcon('arrow')}</b></summary><div class="store-unit-content"><div><label for="store-cep">CEP de entrega</label><div class="store-cep-row"><input id="store-cep" inputmode="numeric" maxlength="9" autocomplete="postal-code" value="${escapeHtml(currentCep)}" placeholder="00000-000"><button class="btn primary" id="store-refresh" ${catalogLoadInFlight?'disabled':''}>${catalogLoadInFlight?'Buscando…':'Encontrar unidade'}</button></div></div><p class="store-unit-message ${deliveryBlocked?'blocked':''}" role="status">${escapeHtml(catalog.deliveryMessage||'Consulte a disponibilidade de entrega pelo seu CEP.')}</p></div></details>
+      ${currentCep.replace(/\D/g,'').length===8?`<section class="store-coverage-result ${deliveryBlocked?'blocked':deliveryKnown?'available':'checking'}" role="status">${storeIcon(deliveryBlocked?'pin':'check')}<div><strong>${catalogLoadInFlight?'Verificando a unidade mais próxima…':deliveryBlocked?'Ainda não atendemos este endereço':deliveryKnown?'Sua Tortela está por perto!':'Verifique seu endereço'}</strong><p>${escapeHtml(catalogLoadInFlight?'Consultando o atendimento em um raio de até 10 km.':catalog.deliveryMessage||'Consulte seu CEP para continuar.')}</p></div></section>`:''}
       ${catalogWarning?`<p class="store-warning" role="status">${escapeHtml(catalogWarning)}</p>`:''}
       <section class="store-catalog-intro"><div><span class="store-eyebrow">ESCOLHA O SEU MOMENTO</span><h2>Qual vai ser a sua?</h2><p>Sabores, combinações e aquele toque que é só seu.</p></div><label class="store-searchbar" for="store-search">${storeIcon('search')}<input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="Buscar no cardápio" type="search"></label></section>
       <nav class="store-categories" aria-label="Categorias do cardápio">${categories().map(category=>`<button class="${category===activeCategory?'active':''}" data-store-category="${escapeHtml(category)}" aria-pressed="${category===activeCategory}">${escapeHtml(category)}<small>${category==='Todos'?menuProducts().length:menuProducts().filter(p=>productCategory(p)===category).length}</small></button>`).join('')}</nav>
@@ -121,7 +122,7 @@ function render() {
           </div>
           ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<div class="store-bag-empty">${storeIcon('bag')}<strong>Seu próximo momento<br>começa aqui.</strong><p>Escolha uma Tortela e monte<br>do seu jeito.</p></div>`}
           <div class="store-total"><span>Total</span><strong>${money(total)}</strong></div>
-          <button class="btn primary full" id="store-checkout-toggle" ${cart.length?"":"disabled"}>${checkoutOpen?"Continuar escolhendo produtos":"Continuar pedido"}</button><section class="store-checkout-form" ${checkoutOpen?"":"hidden"}><h3>Entrega e pagamento</h3><div class="store-checkout-steps">
+          <button class="btn primary full" id="store-checkout-toggle" ${cart.length&&!deliveryBlocked&&!catalogLoadInFlight?"":"disabled"}>${checkoutOpen?"Continuar escolhendo produtos":"Continuar pedido"}</button><section class="store-checkout-form" ${checkoutOpen?"":"hidden"}><h3>Entrega e pagamento</h3><div class="store-checkout-steps">
             <span class="active">Sacola</span>
             <span>Entrega</span>
             <span>Pagamento</span>
@@ -145,7 +146,7 @@ function render() {
         </section></aside>
       </section>
       <footer class="store-footer"><a href="./loja.html" aria-label="Tortela início"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela"></a><p>Seu sabor. Sua combinação. Seu momento.</p><span>Pedidos para entrega ou retirada · Tortela Online</span><a href="#store-products-area">Voltar ao cardápio ↑</a></footer>
-      <div class="store-added-notice" role="status" aria-live="polite">${escapeHtml(storeNotice)}</div>
+      <div class="store-added-notice" role="status" aria-live="polite">${escapeHtml(storeNotice)}</div><p class="store-map-attribution">Raio geográfico de atendimento: 10 km · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · Photon</p>
     </main>`;
   bind();
   filterCategory(activeCategory);
@@ -173,7 +174,7 @@ function paymentOption(value, title, detail, selected) {
 
 function productCard(product) {
  const category=productCategory(product),tortela=ItemPreparation.isTortela(product),title=displayProductName(product.description);
- return `<article class="store-product" data-category="${escapeHtml(category)}" data-name="${escapeHtml(searchText(product.description))}"><div class="store-product-media">${productArt(product)}${!product.photo?'<small>Ilustração</small>':''}</div><div class="store-product-body"><small>${escapeHtml(category)}</small><h3>${escapeHtml(title)}</h3><p>${tortela?'O sabor é seu. A combinação também.':'Complete seu momento Tortela.'}</p><div class="store-price"><strong>${money(product.price)}</strong><button class="btn primary" data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}" aria-label="${tortela?'Personalizar':'Adicionar'} ${escapeHtml(title)}">${tortela?'Personalizar':'Adicionar'} ${storeIcon('plus')}</button></div></div></article>`;
+ return `<article class="store-product" data-category="${escapeHtml(category)}" data-name="${escapeHtml(searchText(product.description))}"><div class="store-product-media">${productArt(product)}${!product.photo?'<small>Ilustração</small>':''}</div><div class="store-product-body"><small>${escapeHtml(category)}</small><h3>${escapeHtml(title)}</h3><p>${tortela?'O sabor é seu. A combinação também.':'Complete seu momento Tortela.'}</p><div class="store-price"><strong>${money(product.price)}</strong><button class="btn primary" ${catalog.deliveryAvailable===false?'disabled':''} data-add-product="${product.id}" data-tenant="${escapeHtml(product.tenantCode)}" aria-label="${tortela?'Personalizar':'Adicionar'} ${escapeHtml(title)}">${tortela?'Personalizar':'Adicionar'} ${storeIcon('plus')}</button></div></div></article>`;
 }
 function addConfiguredProduct(product,preparation={}){
   const split=ItemPreparation.split(product,preparation,1,catalog.products);
@@ -211,7 +212,7 @@ function bind() {
     const cep = String(event.target.value || "").replace(/\D/g, "");
     if (cep.length === 8) loadCatalog();
   });
-  byId("store-cep")?.addEventListener("blur", loadCatalog);
+
   byId("store-search")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") filterCategory(activeCategory);
   });
@@ -222,6 +223,7 @@ function bind() {
   document.querySelectorAll("[data-add-product]").forEach((button) => button.addEventListener("click", () => {
     const product = catalog.products.find((item) => Number(item.id) === Number(button.dataset.addProduct) && item.tenantCode === button.dataset.tenant);
     if (!product) return;
+    if(catalog.deliveryAvailable===false||catalogLoadInFlight)return;
     configureProduct(product);
   }));
   document.querySelectorAll("[data-cart-minus]").forEach((button) => button.addEventListener("click", () => {
@@ -273,15 +275,20 @@ async function loadCatalog() {
       catalog = nextCatalog;
       if(catalog.nearest?.tenantCode)catalog.products=catalog.products.filter(p=>p.tenantCode===catalog.nearest.tenantCode);
       if(firstLoad)activeCategory="Tortelas";
+      const previousCartCount=cart.length;
       cart = cart.filter(item => catalog.products.some(product => Number(product.id) === Number(item.productId) && product.tenantCode === item.tenantCode));
       if (catalog.nearest) cart = cart.filter((item) => item.tenantCode === catalog.nearest.tenantCode);
+      if(previousCartCount&&cart.length<previousCartCount)storeNotice="A unidade de atendimento mudou. Confira os produtos e monte sua sacola na loja indicada.";
       fillAddressFromCatalog();
     } catch (error) {
+      catalog.deliveryAvailable=false;catalog.deliveryMessage="Não foi possível confirmar o atendimento. Confira o CEP e tente novamente antes de enviar o pedido.";
       if (!catalog.products.length) throw error;
       catalogWarning = `Nao foi possivel atualizar agora. Mantivemos o ultimo cardapio carregado. ${error.message}`;
     } finally {
+      const changedCep=String(fieldValue("store-cep")).replace(/\D/g,"")!==String(cep).replace(/\D/g,"");
       catalogLoadInFlight = null;
       render();
+      if(changedCep)loadCatalog().catch(()=>{});
     }
   })();
   render();
@@ -303,6 +310,7 @@ function fillAddressFromCatalog() {
 
 async function sendOrder() {
   if (orderInFlight) return;
+  if(catalog.deliveryAvailable!==true){locationOpen=true;render();byId("store-unit-panel").scrollIntoView({behavior:"smooth",block:"center"});return;}
   const tenantCode = catalog.nearest?.tenantCode || cart[0]?.tenantCode || "";
   orderInFlight = true;
   render();

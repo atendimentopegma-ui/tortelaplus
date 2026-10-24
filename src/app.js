@@ -286,6 +286,7 @@ let personSearch = "";
 let productSearch = "";
 let sessionId = sessionStorage.getItem("tortelaplus-session-id") || "";
 let heartbeatTimer = 0;
+let onlineNoticeTimer=0,onlineNoticeDismissed="",onlineNoticeInFlight=false;
 let authUser = JSON.parse(sessionStorage.getItem("tortelaplus-auth-user") || "null");
 let pdvPeripheralPort = null;
 let pdvPeripheralReader = null;
@@ -636,6 +637,7 @@ async function startSession(tenantCode, user, password) {
 }
 
 function endSession() {
+  clearInterval(onlineNoticeTimer);onlineNoticeTimer=0;document.getElementById("online-order-notice")?.remove();
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
     heartbeatTimer = 0;
@@ -662,7 +664,25 @@ function endSession() {
   authUser = null;
 }
 
+async function checkOnlineOrderNotifications(){
+  if(onlineNoticeInFlight||!sessionId||!apiOnline||!canAccess('online')||document.hidden)return;
+  onlineNoticeInFlight=true;try{
+    const tenantCode=state.settings.tenantCode,activeSession=sessionId;
+    const result=await api(`/api/tenant/${encodeURIComponent(tenantCode)}/online-order-notifications`);
+    if(sessionId!==activeSession||state.settings.tenantCode!==tenantCode)return;
+    const orders=result.orders||[],signature=orders.map(row=>row.id).join(',');
+    let box=document.getElementById('online-order-notice');
+    if(!orders.length||signature===onlineNoticeDismissed){box?.remove();return;}
+    if(!box){box=document.createElement('aside');box.id='online-order-notice';box.className='online-order-notice';box.setAttribute('role','status');document.body.append(box);}
+    box.innerHTML=`<strong>${orders.length} pedido(s) da loja online aguardando atendimento</strong><span>Unidade: ${escapeHtml(state.settings.company||state.settings.tenantCode)} · Mais recente: #${Math.max(...orders.map(row=>Number(row.id)||0))}</span><div><button class="btn primary" data-open-online>Ver pedidos</button><button class="btn" data-dismiss-online>Dispensar aviso</button></div>`;
+    box.querySelector('[data-dismiss-online]').onclick=()=>{onlineNoticeDismissed=signature;box.remove();};
+    box.querySelector('[data-open-online]').onclick=async()=>{try{await loadTenantState(state.settings.tenantCode);onlineNoticeDismissed=signature;box.remove();navigateBackofficeModule('online');}catch(error){alert(error.message);}};
+  }catch{}finally{onlineNoticeInFlight=false;}
+}
 function startHeartbeat() {
+  clearInterval(onlineNoticeTimer);onlineNoticeDismissed='';
+  if(apiOnline&&sessionId){checkOnlineOrderNotifications();onlineNoticeTimer=setInterval(checkOnlineOrderNotifications,15000);}
+
   if (heartbeatTimer) clearInterval(heartbeatTimer);
   if (!apiOnline || !sessionId) return;
   heartbeatTimer = setInterval(() => {

@@ -1,3 +1,5 @@
+const deliveryArea = require("./src/server/delivery-area");
+const deliveryGeocoder = deliveryArea.createGeocoder();
 const a1Certificate = require("./src/server/a1-certificate");
 const fiscalSettingsPanel = require("./src/fiscal-settings-panel");
 const companyProfile = require("./src/company-profile");
@@ -1228,7 +1230,7 @@ async function lookupCepAddress(cep) {
   const normalized = String(cep || "").replace(/\D/g, "");
   if (normalized.length !== 8) return null;
   try {
-    const response = await fetch(`https://viacep.com.br/ws/${normalized}/json/`, { signal: AbortSignal.timeout(5000) });
+    const response = await fetch(`${process.env.TORTELAPLUS_CEP_LOOKUP_URL||"https://viacep.com.br/ws/"}${normalized}/json/`, { signal: AbortSignal.timeout(5000) });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.erro) return { cep: normalized };
     return {
@@ -1244,50 +1246,8 @@ async function lookupCepAddress(cep) {
   }
 }
 
-function cepDistanceKm(inputCep, tenantCep, inputAddress = {}, tenantAddress = {}) {
-  const input = String(inputCep || "").replace(/\D/g, "");
-  const tenant = String(tenantCep || "").replace(/\D/g, "");
-  if (!input || !tenant) return 999999;
-  const a = Number(input.slice(0, 5) || 0);
-  const b = Number(tenant.slice(0, 5) || 0);
-  let distance = Math.abs(a - b) * 0.12;
-  if (input.slice(0, 3) === tenant.slice(0, 3)) distance = Math.min(distance, Math.abs(a - b) * 0.06);
-  const sameCity = inputAddress.city && tenantAddress.city && normalizeText(inputAddress.city) === normalizeText(tenantAddress.city);
-  const sameUf = inputAddress.uf && tenantAddress.uf && String(inputAddress.uf).toUpperCase() === String(tenantAddress.uf).toUpperCase();
-  if (inputAddress.city && tenantAddress.city && !sameCity) distance = Math.max(distance, 15);
-  if (inputAddress.uf && tenantAddress.uf && !sameUf) distance = Math.max(distance, 80);
-  if (input === tenant) distance = 0;
-  return moneyRound(distance);
-}
-
-function deliveryRadiusKm(tenant, tenantState) {
-  return Number(tenant.deliveryRadiusKm || tenantState.settings?.deliveryRadiusKm || 10) || 10;
-}
-
-function onlineDeliveryDecision(unit, address) {
-  if (!address?.cep || address.cep.length !== 8) {
-    return {
-      available: null,
-      message: "Informe o CEP para localizar a loja Tortela mais proxima.",
-      distanceKm: null
-    };
-  }
-  if (!unit) {
-    return {
-      available: false,
-      message: "Infelizmente neste endereco ainda nao e possivel fazer a entrega.",
-      distanceKm: null
-    };
-  }
-  const available = Number(unit.distanceKm || 999999) <= Number(unit.deliveryRadiusKm || 10);
-  return {
-    available,
-    distanceKm: unit.distanceKm,
-    message: available
-      ? `Entrega disponivel pela ${unit.tradeName} - distancia estimada ${unit.distanceKm} km.`
-      : "Infelizmente neste endereco ainda nao e possivel fazer a entrega."
-  };
-}
+function deliveryRadiusKm(){return deliveryArea.RADIUS_KM;}
+function onlineDeliveryDecision(unit,address){return deliveryArea.decision(unit,address);}
 
 async function createOnlinePaymentCharge(tenantCode, tenantState, saleDraft, paymentMethod) {
   const secrets = loadFiscalSecrets(tenantCode);
@@ -1353,22 +1313,23 @@ async function onlineStoreCatalog(query = {}) {
   const q = String(query.q || "").trim().toLowerCase();
   const forcedTenantCode = normalizeTenantCode(query.tenantCode || "");
   const deliveryAddress = await lookupCepAddress(cep);
+  if(deliveryAddress&&query.customer?.number)deliveryAddress.number=String(query.customer.number).trim();
+  if(deliveryAddress&&!deliveryAddress.address&&query.customer?.address)deliveryAddress.address=String(query.customer.address);
+  const customerAddressMismatch=Boolean(query.customer&&deliveryAddress&&((deliveryAddress.address&&query.customer.address&&!deliveryArea.sameStreet(deliveryAddress.address,query.customer.address))||(deliveryAddress.city&&query.customer.city&&normalizeText(deliveryAddress.city)!==normalizeText(query.customer.city))||(deliveryAddress.uf&&query.customer.uf&&String(deliveryAddress.uf).toUpperCase()!==String(query.customer.uf).toUpperCase())));
+  const customerPoint=cep.length===8?await deliveryGeocoder.resolve(deliveryAddress||{}):null;
   const units = [];
   const products = [];
   for (const tenant of provider.clients || []) {
     if (tenant.status && tenant.status !== "Ativo") continue;
-    if (forcedTenantCode && normalizeTenantCode(tenant.tenantCode) !== forcedTenantCode) continue;
+    if (cep.length!==8&&forcedTenantCode && normalizeTenantCode(tenant.tenantCode) !== forcedTenantCode) continue;
     const tenantState = readTenantState(tenant.tenantCode);
     const unitProducts = (tenantState.products || [])
       .filter((product) => product.active !== false && effectiveProductPrice(product, 1) > 0)
       .map((product) => catalogProduct(product, tenant, tenantState));
-    const tenantAddress = {
-      cep: tenant.cep || tenantState.settings?.cep || "",
-      city: tenant.city || tenantState.settings?.city || "",
-      uf: tenant.uf || tenantState.settings?.uf || ""
-    };
-    const radiusKm = deliveryRadiusKm(tenant, tenantState);
-    const distanceKm = cepDistanceKm(cep, tenantAddress.cep, deliveryAddress || {}, tenantAddress);
+    const tenantAddress=deliveryArea.storeAddress(tenant,tenantState);
+    const radiusKm=deliveryArea.RADIUS_KM;
+    const storePoint=customerPoint?await deliveryGeocoder.resolve(tenantAddress):null;
+    const distanceKm=deliveryArea.distanceKm(customerPoint,storePoint);
     units.push({
       tenantCode: tenant.tenantCode,
       tradeName: tenant.tradeName,
@@ -1377,14 +1338,14 @@ async function onlineStoreCatalog(query = {}) {
       cep: tenantAddress.cep,
       distanceKm,
       deliveryRadiusKm: radiusKm,
-      deliveryAvailable: cep.length === 8 ? distanceKm <= radiusKm : null,
+      deliveryAvailable: cep.length === 8 ? Number.isFinite(distanceKm)&&distanceKm <= radiusKm : null,
       products: unitProducts.length
     });
     products.push(...unitProducts);
   }
   const filtered = products.filter((product) => !q || product.description.toLowerCase().includes(q));
-  const nearest = units.slice().sort((a, b) => a.distanceKm - b.distanceKm || b.products - a.products)[0] || null;
-  const delivery = onlineDeliveryDecision(nearest, deliveryAddress);
+  const nearest = cep.length===8?deliveryArea.chooseNearest(units):units.filter(unit=>unit.products>0)[0]||null;
+  const delivery = onlineDeliveryDecision(customerAddressMismatch||cep.length===8&&units.some(unit=>unit.products>0&&!Number.isFinite(unit.distanceKm))?null:nearest, deliveryAddress);
   const deliveryProducts = cep.length === 8 && nearest
     ? filtered.filter((product) => product.tenantCode === nearest.tenantCode)
     : filtered;
@@ -1393,8 +1354,12 @@ async function onlineStoreCatalog(query = {}) {
     nearest,
     deliveryAddress,
     deliveryAvailable: delivery.available,
-    deliveryMessage: delivery.message,
+    deliveryMessage: customerAddressMismatch?"O endereço informado não corresponde ao CEP. Confira o CEP, o logradouro e a cidade antes de enviar o pedido.":delivery.message,
     deliveryDistanceKm: delivery.distanceKm,
+    deliveryReason: customerAddressMismatch?"address_mismatch":delivery.reason||"",
+    deliveryRadiusKm:10,
+    distanceMethod:"geographic",
+    locationAttribution:"Photon / © OpenStreetMap contributors",
     units: units.sort((a, b) => a.distanceKm - b.distanceKm || String(a.tradeName).localeCompare(String(b.tradeName))),
     products: deliveryProducts.sort((a, b) => {
       if (!nearest) return String(a.description).localeCompare(String(b.description));
@@ -2477,19 +2442,22 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const onlineNoticeMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/online-order-notifications$/);
+  if(req.method==='GET'&&onlineNoticeMatch){
+    const code=normalizeTenantCode(onlineNoticeMatch[1]),access=tenantAccessOrProvider(req,readProvider(),code,'sales');if(access.error)return deny(res,access);
+    const orders=(readTenantState(code).sales||[]).filter(row=>row.source==='Loja online'&&row.onlineOrder&&['Aberto','Conferido'].includes(row.status||'Aberto')).map(row=>({id:row.id,createdAt:row.createdAt,customer:row.customer,total:row.total,status:row.status}));
+    sendJson(res,200,{ok:true,tenantCode:code,orders});return;
+  }
+
   if (req.method === "POST" && urlPath === "/api/public/store/orders") {
     const body = await readBody(req);
-    const catalog = await onlineStoreCatalog({ cep: body.cep || "", tenantCode: body.tenantCode || "" });
-    const tenantCode = normalizeTenantCode(body.tenantCode || catalog.nearest?.tenantCode || "");
+    if(String(body.cep||'').replace(/\D/g,'').length!==8){sendJson(res,422,{ok:false,error:'Informe um CEP válido para verificar o raio de atendimento de 10 km.'});return;}
+    const catalog = await onlineStoreCatalog({ cep: body.cep || "",customer:body.customer||{} });
+    if(catalog.deliveryAvailable!==true){sendJson(res,409,{ok:false,error:catalog.deliveryMessage||deliveryArea.UNKNOWN_MESSAGE,reason:catalog.deliveryReason});return;}
+    const tenantCode = normalizeTenantCode(catalog.nearest?.tenantCode || "");
+    if(body.tenantCode&&normalizeTenantCode(body.tenantCode)!==tenantCode){sendJson(res,409,{ok:false,error:'A loja mais próxima deste endereço mudou. Consulte o CEP novamente e monte o pedido no cardápio da unidade indicada.',reason:'nearest_store_changed',tenantCode});return;}
     const tenant = findTenant(readProvider(), tenantCode);
-    if (!tenant || tenant.status !== "Ativo") {
-      sendJson(res, 404, { ok: false, error: "Loja indisponivel para pedido online." });
-      return;
-    }
-    if (catalog.deliveryAvailable === false) {
-      sendJson(res, 409, { ok: false, error: catalog.deliveryMessage || "Infelizmente neste endereco ainda nao e possivel fazer a entrega." });
-      return;
-    }
+    if (!tenant || tenant.status !== "Ativo") {sendJson(res,404,{ok:false,error:'Loja indisponível para pedido online.'});return;}
     const tenantState = readTenantState(tenant.tenantCode);
     const items = Array.isArray(body.items) ? body.items : [];
     const normalizedItems = [];

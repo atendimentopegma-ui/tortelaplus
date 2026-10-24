@@ -7344,3 +7344,5 @@ input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0
 @media(max-width:580px){.online-store-page .store-products{grid-template-columns:1fr}.store-choice-grid{grid-template-columns:1fr;padding:16px}.store-configurator header{padding:20px}.online-store-page .store-checkout-form .grid.two{grid-template-columns:1fr}.online-store-page .store-delivery-panel{padding:18px}.online-store-page .store-topbar{display:flex}.online-store-page .store-searchbar{width:100%}}
 
 .online-store-page .cart-line-actions .btn.danger{background:#b91c1c;color:#fff;border-color:#991b1b}.online-store-page .cart-line>div:first-child>small{display:block;margin-top:4px;color:#64748b;font-size:12px}
+
+.online-order-notice{position:fixed;right:20px;bottom:20px;z-index:1200;max-width:min(430px,calc(100vw - 30px));padding:20px;border:2px solid #15803d;border-radius:14px;background:#f0fdf4;color:#133d25;box-shadow:0 12px 40px #12263a33;display:grid;gap:10px}.online-order-notice>span{font-size:13px}.online-order-notice>div{display:flex;gap:8px;flex-wrap:wrap}

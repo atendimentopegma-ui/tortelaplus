@@ -16,3 +16,5 @@ body.online-store-page{--shop-ink:#33251f;--shop-muted:#776b62;--shop-yellow:#f4
 @media(prefers-reduced-motion:reduce){.online-store-page *{scroll-behavior:auto!important;animation:none!important;transition:none!important}.store-added-notice{opacity:1}}
 
 .online-store-page .store-header{position:sticky;top:0;background:#fffdf9f5;backdrop-filter:blur(12px)}.online-store-page #store-products-area,.online-store-page #store-how,.online-store-page #store-cart{scroll-margin-top:115px}.online-store-page .store-searchbar input[type="search"]::-webkit-search-cancel-button{cursor:pointer}
+
+.store-coverage-result{display:flex;align-items:center;gap:15px;padding:20px;border-radius:14px;margin-top:16px;border:1px solid #b5d7bf;background:#edf7ef}.store-coverage-result strong{font-size:15px}.store-coverage-result p{font-size:12px;margin:6px 0 0}.store-coverage-result.blocked{border-color:#e6c0aa;background:#fff0e7;color:#743a25}.store-coverage-result.checking{background:#f5f0e4;border-color:#ded2b7}.store-map-attribution{font-size:10px;color:#887c6b;text-align:center;margin:0;padding:0 0 20px}.store-map-attribution a{text-decoration:underline!important}
