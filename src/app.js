@@ -1541,7 +1541,8 @@ function renderProducts() {
         <button class="desktop-command primary" id="new-product" type="button"><span>+</span>F2 | Novo</button>
         <button class="desktop-command" id="edit-selected-product" type="button"><span>=</span>F3 | Alterar</button>
         <button class="desktop-command primary" id="label-selected-product" type="button"><span>B</span>Etiqueta</button>
-        <button class="desktop-command" id="print-products" type="button"><span>P</span>F4 | Imprimir</button>
+        <button class="desktop-command" id="print-products" type="button"><span>P</span>F4 | Imprimir lista</button>
+        <button class="desktop-command" id="export-products" type="button">Exportar Excel / CSV</button>
         <button class="desktop-command" id="refresh-products" type="button"><span>R</span>F5 | Atualizar</button>
         <button class="desktop-command primary" id="save-product" type="button"><span>S</span>${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button>
         <button class="desktop-command danger" id="close-products" type="button"><span>X</span>Fechar</button>
@@ -3832,6 +3833,7 @@ function bindCurrentModule() {
   if (editSelectedProduct) editSelectedProduct.addEventListener("click", () => editProductRecord(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
   const labelSelectedProduct = byId("label-selected-product");
   if (labelSelectedProduct) labelSelectedProduct.addEventListener("click", () => openProductLabelTab(selectedProductId || Number(document.querySelector("[data-select-product]")?.dataset.selectProduct || 0)));
+  byId("export-products")?.addEventListener("click", exportProductsList);
   const printProducts = byId("print-products");
   if (printProducts) printProducts.addEventListener("click", printProductsList);
   const refreshProducts = byId("refresh-products");
@@ -5960,8 +5962,19 @@ function convertQuoteToOrder(id) {
 }
 
 function printProductsList() {
-  const query = productSearch.trim().toLowerCase();
-  const rows = state.products.filter((product) => !query || [product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query)));
+  const query = (byId("product-search")?.value ?? productSearch).trim().toLowerCase();
+  const rows = state.products.filter((product) => (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
+  const report = window.open("", "_blank");
+  if (!report) return alert("Permita a janela de impressão e tente novamente.");
+  report.opener = null;
+  const title = "Produtos — " + ({all:"Todos",active:"Ativos",inactive:"Inativos"}[productStatusFilter] || "Todos");
+  report.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${escapeAttr(title)}</title><style>body{font:14px Arial,sans-serif;color:#152b3b;padding:24px}h1{font-size:24px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:9px;border-bottom:1px solid #ddd;text-align:left}th{background:#fff5a6}thead{display:table-header-group}tr{break-inside:avoid}button{padding:10px 20px;background:#14743b;color:white;border:0;border-radius:8px}@media print{button{display:none}body{padding:0}}</style></head><body><button onclick="window.print()">Imprimir / Salvar em PDF</button><h1>${escapeAttr(title)}</h1><p>${escapeAttr(state.settings.company || "Tortela Plus")} · ${today()} · ${rows.length} produto(s)</p>${query?`<p>Busca: ${escapeAttr(query)}</p>`:""}<table><thead><tr><th>Código</th><th>Produto</th><th>Preço</th><th>Estoque</th><th>Situação</th></tr></thead><tbody>${rows.map(p=>`<tr><td>${escapeAttr(p.id)}</td><td>${escapeAttr(p.description)}</td><td>${money(p.price)}</td><td>${escapeAttr(p.stock)}</td><td>${p.active===false?"Inativo":"Ativo"}</td></tr>`).join("") || '<tr><td colspan="5">Nenhum produto encontrado.</td></tr>'}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
+  report.document.close();
+}
+
+function exportProductsList() {
+  const query = (byId("product-search")?.value ?? productSearch).trim().toLowerCase();
+  const rows = state.products.filter((product) => (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
   downloadText(`produtos-${today()}.csv`, [
     "Codigo;Referencia;SKU;Descricao;Tipo;NCM;CFOP;CST;Preco;Estoque;Minimo;Fiscal;Ecommerce;Cozinha;Status",
     ...rows.map((product) => [product.id, product.reference || "", product.sku || "", product.description, product.type, product.ncm || "", product.cfop || "", product.cst || "", product.price || 0, product.stock || 0, product.minStock || 0, product.fiscalStatus || "Conferir", product.ecommerceIntegration ? "Sim" : "Nao", product.kitchenRequest ? "Sim" : "Nao", product.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
