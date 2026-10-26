@@ -5124,6 +5124,11 @@ async function startServer() {
   }, 60000).unref();
   server = http.createServer((req, res) => {
     const urlPath = decodeURIComponent(req.url.split("?")[0]);
+    // Health is read-only and must not wait behind tenant writes or reload every tenant.
+    if (req.method === "GET" && urlPath === "/api/health") {
+      handleApi(req,res,urlPath).catch(error=>sendJson(res,500,{ok:false,error:error.message}));
+      return;
+    }
     if (urlPath.startsWith("/api/")) {
       coordinateState(() => {
         if (req.aborted || res.destroyed) return;

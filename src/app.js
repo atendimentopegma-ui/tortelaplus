@@ -568,7 +568,7 @@ async function api(path, options = {}) {
 
 async function boot() {
   try {
-    const health = await api("/api/health");
+    const health = await api("/api/health",{timeoutMs:45000});
     if (health.ok !== true || health.product !== "Tortela Plus") throw new Error("Servidor da unidade indisponivel.");
     apiOnline = true;
   } catch {
@@ -580,7 +580,7 @@ async function boot() {
 
 async function loadTenantState(tenantCode) {
   if (!apiOnline) return;
-  const remote = await api(`/api/tenant/${tenantCode}/state`);
+  const remote = await api(`/api/tenant/${tenantCode}/state`,{timeoutMs:45000});
   state = withDefaults({
     ...(remote.state || {}),
     provider: remote.provider,
@@ -621,6 +621,7 @@ async function refreshPdvEmission() {
 async function startSession(tenantCode, user, password) {
   if (!apiOnline) return;
   const result = await api("/api/auth/login", {
+    timeoutMs:45000,
     method: "POST",
     body: JSON.stringify({
       tenantCode,
@@ -937,7 +938,7 @@ function renderLogin() {
     if (feedback) feedback.textContent = apiOnline ? "Conectando com a unidade..." : "Abrindo em modo local...";
     if (window.location.protocol !== "file:") {
       try {
-        const health = await api("/api/health");
+        const health = await api("/api/health",{timeoutMs:45000});
         if (health.ok !== true || health.product !== "Tortela Plus") throw new Error("Servidor da unidade indisponivel.");
         apiOnline = true;
       } catch {
