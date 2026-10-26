@@ -38,7 +38,10 @@
  }
  function choices(product,products=[]){
   const candidates=products.filter(row=>row.active!==false&&(!product.tenantCode||row.tenantCode===product.tenantCode));
-  return {coverage:options(product.coverageOptions).length?options(product.coverageOptions):isTortela(product)?candidates.filter(row=>role(row)==='Calda / cobertura').map(row=>row.description):[],extras:options(product.toppingOptions||product.additionalOptions||product.extrasOptions).length?options(product.toppingOptions||product.additionalOptions||product.extrasOptions):isTortela(product)?candidates.filter(row=>role(row)==='Acompanhamento').map(row=>row.description):[]};
+  const noExtra=name=>/^sem\s+(?:toppings?|acompanhamentos?)(?:\s*-\s*topping)?$/i.test(String(name||"" ).trim());
+  const selection={coverage:options(product.coverageOptions).length?options(product.coverageOptions):isTortela(product)?candidates.filter(row=>role(row)==='Calda / cobertura').map(row=>row.description):[],extras:options(product.toppingOptions||product.additionalOptions||product.extrasOptions).length?options(product.toppingOptions||product.additionalOptions||product.extrasOptions):isTortela(product)?candidates.filter(row=>role(row)==='Acompanhamento').map(row=>row.description):[]};
+  selection.extras=selection.extras.filter(name=>!noExtra(name));
+  return selection;
  }
  function split(product,preparation,qty,products=[]){
   const components=[],match=(name,kind)=>isTortela(product)&&products.find(row=>row.active!==false&&row.description===name&&role(row)===kind&&(!product.tenantCode||row.tenantCode===product.tenantCode));
