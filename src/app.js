@@ -1180,20 +1180,13 @@ function renderDashboard() {
         <section class="panel dashboard-section dashboard-main-grid">
           <div class="panel-head">
             <div>
-              <h3>Comprar da Central</h3>
-              <p>Reposição automática de produtos ativos abaixo do mínimo configurado. O pedido é enviado à Central ao sincronizar o estoque.</p>
+              <h3>Reposição automática — pedidos para a franqueadora</h3>
+              <p>Informativo da sua unidade. O sistema gera e envia os pedidos automaticamente pelo estoque mínimo; você não precisa solicitar a compra.</p>
             </div>
-            <span class="badge ${lowStock.length ? "warn" : "ok"}">${lowStock.length ? `${lowStock.length} item(ns)` : "Sem necessidade"}</span>
+            <span class="badge ok">Envio automático</span>
           </div>
           <div class="panel-body">
-          ${lowStock.length ? `
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Produto</th><th>Atual</th><th>Minimo</th><th>Necessidade</th><th>Unidade</th></tr></thead>
-                <tbody>${lowStock.map((product) => `<tr><td>${product.description}</td><td>${formatQty(product.stock)}</td><td>${formatQty(product.minStock)}</td><td>${formatQty(Math.max(product.minStock - product.stock, 1))}</td><td>${product.unit}</td></tr>`).join("")}</tbody>
-              </table>
-            </div>
-          ` : `<div class="empty">Nenhum produto ativo abaixo do estoque mínimo configurado.</div>`}
+            ${renderAutomaticReplenishmentInfo(lowStock)}
           </div>
         </section>
 
@@ -1242,6 +1235,12 @@ function renderDashboard() {
       </div>
     </section>
   `;
+}
+
+function renderAutomaticReplenishmentInfo(lowStock = []) {
+  const orders = (state.automaticOrders || []).filter(order => ["Reposição automática por estoque mínimo", "Estoque minimo semanal"].includes(order.origin)).slice().sort((a,b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date))).slice(0,20);
+  return `<p class="helper">Acompanhe abaixo os pedidos registrados e seus itens. A entrada no estoque ocorre somente após o recebimento da mercadoria.</p>
+    ${orders.length ? `<div class="table-wrap"><table><thead><tr><th>Pedido</th><th>Data de envio</th><th>Situação</th><th>Produtos e quantidades solicitadas</th></tr></thead><tbody>${orders.map(order => `<tr><td>#${escapeAttr(order.id)}</td><td>${escapeAttr(order.createdAt ? new Date(order.createdAt).toLocaleString("pt-BR") : order.date || "—")}</td><td><span class="badge ${order.status === "Cancelado" ? "warn" : "ok"}">${escapeAttr(order.status || "Enviado")}</span></td><td>${(order.items || []).map(item=>`${escapeAttr(item.description || item.productId)} — <strong>${formatQty(item.suggestedQty || item.qty || 0)} ${escapeAttr(item.unit || "UN")}</strong>`).join("<br>") || "Sem itens pendentes"}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Ainda não há pedido automático registrado nesta unidade.${lowStock.length ? " Existem produtos abaixo do mínimo; o pedido será registrado na próxima sincronização do estoque." : " O sistema acompanha os produtos ativos com estoque mínimo configurado."}</div>`}`;
 }
 
 function stockOrderWeekKey(date = new Date()) {
