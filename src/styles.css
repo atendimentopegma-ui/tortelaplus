@@ -7412,3 +7412,15 @@ input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0
 #customer-campaign-panel input[type=checkbox],.customer-campaign-units input[type=checkbox] { width:20px; height:20px; min-height:20px; padding:0; accent-color:#14743b; vertical-align:middle; }
 #customer-campaign-panel .people-selection-actions label { display:grid; gap:6px; }
 #customer-campaign-panel .people-selection-actions { padding:14px; background:#f8fafb; border:1px solid #dce3eb; border-radius:12px; margin-top:12px; }
+/* CRM panels grow with their content: filters and explanatory text must never share a constrained grid row. */
+.people-screen .people-body { grid-template-rows:auto auto; align-items:start; }
+.people-screen .people-list-panel { display:flex; flex-direction:column; align-items:stretch; min-width:0; height:auto; gap:12px; }
+.people-screen .people-list-panel > * { flex-shrink:0; min-width:0; }
+.people-screen .people-list-panel > .helper { position:static; margin:0; line-height:1.55; white-space:normal; overflow-wrap:anywhere; }
+.people-screen .customer-insight-filters { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-auto-rows:auto; align-items:end; height:auto; min-height:min-content; margin:0; }
+.people-screen .customer-insight-filters label { display:flex; flex-direction:column; align-items:stretch; min-width:0; gap:6px; line-height:1.4; }
+.people-screen .customer-insight-filters input,.people-screen .customer-insight-filters select { box-sizing:border-box; min-width:0; height:44px; }
+.people-screen .people-catalog-scroll { flex:none; max-width:100%; }
+.people-screen .people-section-title { flex-wrap:wrap; }
+@media(min-width:1400px) { .people-screen .customer-insight-filters { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+@media(max-width:600px) { .people-screen .customer-insight-filters { grid-template-columns:minmax(0,1fr); } .people-screen .people-section-title .badge { white-space:normal; } }
