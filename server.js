@@ -3328,6 +3328,18 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if (urlPath === "/api/network/customer-campaigns" && req.method === "GET") {
+    const access=providerAccess(req);if(!access)return sendJson(res,401,{ok:false,error:"Sessão da Central obrigatória"});
+    if(!permissionsFor(access).includes("customers"))return sendJson(res,403,{ok:false,error:"Acesso a clientes não permitido"});
+    const insights=require("./src/customer-insights"),days=[30,60,90].includes(Number(requestUrl.searchParams.get("days")))?Number(requestUrl.searchParams.get("days")):30;
+    const units=readProvider().clients.map(t=>({code:t.tenantCode,name:t.tradeName||t.tenantCode})),rows=[];
+    for(const unit of units){const tenantState=readTenantState(unit.code),people=(tenantState.people||[]).filter(p=>p.type==="Cliente"),metrics=insights.build(people,tenantState.sales||[],days,businessDay());
+      for(const person of people)rows.push({id:String(person.id),unitCode:unit.code,unit:unit.name,name:person.name,document:person.document||"",city:person.city||"",district:person.district||"",uf:person.uf||"",active:person.active!==false,phone:insights.phone(person),metrics:metrics.get(String(person.id))});
+    }
+    const consumed=new Map();for(const row of rows){if(row.metrics.lifetimeCount>0){const key=String(row.document).replace(/[^a-z0-9]/gi,"").toUpperCase()||row.unitCode+":"+row.id;if(!consumed.has(key))consumed.set(key,new Set());consumed.get(key).add(row.unit);}}
+    return sendJson(res,200,{ok:true,days,units,rows:rows.map(row=>({...row,consumesAt:[...(consumed.get(String(row.document).replace(/[^a-z0-9]/gi,"").toUpperCase()||row.unitCode+":"+row.id)||[])]}))});
+  }
+
   if (urlPath === "/api/network/franchisees" && req.method === "GET") {
     const access = providerAccess(req);
     if (!access) return sendJson(res, 401, {ok:false,error:"Sessao administrativa obrigatoria"});

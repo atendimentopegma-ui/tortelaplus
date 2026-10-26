@@ -18,6 +18,7 @@ function routePermissions(path) {
   if (/^\/api\/tenant\/[^/]+\/fiscal\/cancel$/.test(path)) return ['fiscal_cancel'];
   if (path === "/api/network/promotions") return ["promotions"];
   if (path === "/api/network/approvals/decide") return ["orders"];
+  if (path === "/api/network/customer-campaigns") return ["customers"];
   if (path === "/api/network/whatsapp/settings") return ["customers"];
   if (path === "/api/network/royalties/generate") return ["royalties"];
   if (["/api/provider", "/api/state", "/api/provider/monitoring", "/api/deployment/readiness"].includes(path) || /^\/api\/provider\/(?:backup|restore)-all$/.test(path)) return ["deployment"];

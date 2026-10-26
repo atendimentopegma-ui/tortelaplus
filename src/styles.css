@@ -7394,3 +7394,21 @@ input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0
 .people-screen .people-selection-actions>div { display:flex; flex-wrap:wrap; gap:8px; }
 .people-screen .people-selection-actions p { margin:0 0 12px; }
 .people-screen .people-selection-actions button:disabled { opacity:.45; cursor:not-allowed; }
+.customer-insight-filters { display:flex; gap:12px; flex-wrap:wrap; padding:14px; background:#fffbe0; border:1px solid #e4dba6; border-radius:12px; align-items:end; margin-bottom:12px; }
+.customer-insight-filters label { display:grid; gap:6px; flex:1 1 170px; font-weight:600; }
+.customer-insight-filters input,.customer-insight-filters select { width:100%; min-height:42px; }
+.people-screen .people-catalog-scroll table { min-width:1700px; }
+.people-screen .people-catalog-scroll input[type=checkbox] { width:20px; height:20px; accent-color:#14743b; }
+.customer-message-dialog { width:min(760px,94vw); max-height:85vh; overflow:auto; border:0; border-radius:18px; padding:24px; }
+.customer-message-dialog::backdrop { background:#102a435c; }
+.customer-message-dialog header { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.customer-message-dialog label,.people-selection-actions label { display:grid; gap:8px; margin:12px 0; }
+.customer-message-dialog article,[data-links] article { padding:14px; margin-top:10px; border:1px solid #d8e1e9; border-radius:10px; }
+.customer-message-dialog article { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.customer-campaign-units { display:flex; flex-wrap:wrap; gap:14px; padding:12px 0; }
+#customer-campaign-panel .people-catalog-scroll { max-height:400px; overflow:auto; border:1px solid #dce3eb; border-radius:10px; }
+#customer-campaign-panel .people-catalog-scroll table { min-width:1300px; }
+#customer-campaign-panel .people-catalog-scroll th { position:sticky; top:0; background:#fff6bd; z-index:1; }
+#customer-campaign-panel input[type=checkbox],.customer-campaign-units input[type=checkbox] { width:20px; height:20px; min-height:20px; padding:0; accent-color:#14743b; vertical-align:middle; }
+#customer-campaign-panel .people-selection-actions label { display:grid; gap:6px; }
+#customer-campaign-panel .people-selection-actions { padding:14px; background:#f8fafb; border:1px solid #dce3eb; border-radius:12px; margin-top:12px; }

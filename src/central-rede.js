@@ -13,7 +13,7 @@ const modules = [
   ["orders", "Pedidos", "Automaticos"],
   ["promotions", "Promocoes", "Rede ou unidades"],
   ["royalties", "Royalties", "Propaganda e taxas"],
-  ["customers", "Clientes", "Consumo e retorno"],
+  ["customers", "CRM", "Consumo e campanhas"],
   ["finance", "Financeiro", "Contas e repasses"],
   ["permissions", "Permissoes", "Acesso das lojas"],
   ["fiscal", "Fiscal", "NF-e, NFC-e e cancelamentos"],
@@ -504,7 +504,8 @@ function renderCustomers() {
   const whatsappLeads = summary.whatsappGroupLeads || [];
   const whatsappQueue = summary.whatsappGroupQueue || [];
   return `<div class="network-module compact">
-    ${moduleTitle("Clientes da rede", "Consumo por unidade, retorno de compra e lista de clientes sem compra ha 30 dias ou mais.")}
+    ${moduleTitle("CRM da rede", "Consumo por unidade, retorno de compra e lista de clientes sem compra ha 30 dias ou mais.")}
+    <section class="network-card" id="customer-campaign-panel"></section>
     <div class="network-grid three">
       ${kpi("Clientes com compra", amount(consumptionRows.length))}
       ${kpi("Sem comprar 30+ dias", amount(inactiveRows.length))}
@@ -803,6 +804,7 @@ function renderReports() {
 }
 
 function bindRender() {
+  if(byId("customer-campaign-panel"))CustomerCampaignPanel.mount(byId("customer-campaign-panel"),api).catch(error=>{const panel=byId("customer-campaign-panel");if(panel)panel.textContent=error.message;});
   if(byId("network-sales-reports")&&window.CashReportsPanel)window.CashReportsPanel.mount(byId("network-sales-reports"),{api,network:true});
   if(window.CentralAdministration)window.CentralAdministration.bind({api,onFranchiseSaved:async()=>{summary=normalizeSummary(await api("/api/network/summary"));}});
   if(byId("central-company-profile")&&window.CompanyProfile)window.CompanyProfile.mount(byId("central-company-profile"),{api,endpoint:"/api/provider/company-profile"});

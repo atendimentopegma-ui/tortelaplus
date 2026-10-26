@@ -283,6 +283,11 @@ let editingAccountId = 0;
 let selectedPersonId = 0;
 let selectedProductId = 0;
 let personSearch = "";
+let customerPeriod = 30;
+let customerFrequency = "all";
+let customerRegion = "";
+let customerMinTotal = 0;
+let customerMessageIds = new Set();
 let productSearch = "";
 let productStatusFilter = "all";
 let sessionId = sessionStorage.getItem("tortelaplus-session-id") || "";
@@ -314,7 +319,7 @@ const permissionLabels = {
   restore_backup: "Restaurar backup", manage_users: "Gerenciar usuarios"
 };
 const personTypes = ["Cliente", "Fornecedor", "Funcionario", "Parceiro", "Entregador", "Transportadora", "Motorista", "Contador", "SPC/CCF", "Tomador", "Destinatario", "Remetente"];
-const personFilters = [...personTypes, "Aniversariantes", "Todos"];
+const personFilters = ["CRM", ...personTypes, "Aniversariantes", "Todos"];
 const screenPermissions = [
   ["dashboard", "Painel"],
   ["people", "Pessoas"],
@@ -337,7 +342,8 @@ function permissionLabel(permission) {
 
 function personFilterLabel(type) {
   const labels = {
-    Cliente: "Clientes",
+    Cliente: "Clientes (PJ)",
+    CRM: "CRM (PF)",
     Fornecedor: "Fornecedores",
     Funcionario: "Funcionarios",
     Parceiro: "Parceiros",
@@ -579,6 +585,7 @@ async function boot() {
 }
 
 async function loadTenantState(tenantCode) {
+  customerMessageIds.clear();
   if (!apiOnline) return;
   const remote = await api(`/api/tenant/${tenantCode}/state`,{timeoutMs:45000});
   state = withDefaults({
@@ -639,6 +646,7 @@ async function startSession(tenantCode, user, password) {
 }
 
 function endSession() {
+  customerMessageIds.clear();
   clearInterval(onlineNoticeTimer);onlineNoticeTimer=0;document.getElementById("online-order-notice")?.remove();
   if (heartbeatTimer) {
     clearInterval(heartbeatTimer);
@@ -1323,7 +1331,7 @@ function renderPeople() {
           <div class="people-list-panel">
             <div class="people-section-title">
               <div>
-                <h3>Lista de pessoas</h3>
+                <h3>${currentPeopleTab==="CRM"?"CRM — consumidores PF":currentPeopleTab==="Cliente"?"Clientes — pessoas jurídicas":"Lista de pessoas"}</h3>
                 <p>${activePeople} ativo(s), ${inactivePeople} inativo(s), ${peopleStats.birthdays} aniversario(s) futuros.</p>
               </div>
               <span class="badge ${selectedPerson ? "ok" : "warn"}">${selectedPerson ? `Selecionado: ${selectedPerson.name}` : "Selecione para alterar"}</span>
@@ -1412,27 +1420,55 @@ function personDocumentKind(document) {
 function peopleTable() {
   const query = personSearch.trim().toLowerCase();
   const filter = personTypes.includes(currentPeopleTab) && currentPeopleTab !== "SPC/CCF" ? currentPeopleTab : "";
+  const customerKind = currentPeopleTab === "CRM" ? "PF" : currentPeopleTab === "Cliente" ? "PJ" : "";
   const creditAlert = currentPeopleTab === "SPC/CCF";
   const aniversariantes = currentPeopleTab === "Aniversariantes";
   const monthDay = today().slice(5);
+  const metrics=CustomerInsights.build(state.people,state.sales,customerPeriod,today());
   const rows = state.people.filter((person) => (!filter || person.type === filter)
+    && (!customerKind || person.type === "Cliente" && personDocumentKind(person.document) === customerKind)
     && (!creditAlert || person.creditAlert || person.type === "SPC/CCF")
     && (!aniversariantes || String(person.birthDate || "").slice(5) >= monthDay)
     && (!query || [person.name, person.alias, person.document, person.city, person.phone, person.vehiclePlate, person.rntrc].some((value) => String(value || "").toLowerCase().includes(query))));
-  const selected=rows.find(person=>Number(person.id)===Number(selectedPersonId));
+  const filteredRows=rows.filter(person=>CustomerInsights.matches(metrics.get(String(person.id)),customerFrequency) && metrics.get(String(person.id)).total>=customerMinTotal && (!customerRegion || CustomerInsights.normalize([person.district,person.city,person.uf].join(" ")).includes(CustomerInsights.normalize(customerRegion))));
+  const selected=filteredRows.find(person=>Number(person.id)===Number(selectedPersonId));
   return `
+    <div class="customer-insight-filters">
+      <label>Período de compras<select id="customer-period">${[30,60,90].map(days=>`<option value="${days}" ${customerPeriod===days?'selected':''}>Últimos ${days} dias</option>`).join('')}</select></label>
+      <label>Frequência<select id="customer-frequency">${[['all','Todos'],['recurring','Recorrentes (2 ou mais compras)'],['one','Uma compra no período'],['none','Sem compra no período'],['dormant','Já compraram, mas estão sem voltar'],['never','Nunca compraram']].map(([key,label])=>`<option value="${key}" ${customerFrequency===key?'selected':''}>${label}</option>`).join('')}</select></label>
+      <label>Cidade, bairro ou UF<input id="customer-region" value="${escapeAttr(customerRegion)}" placeholder="Ex.: São Paulo" /></label>
+      <label>Total mínimo comprado (R$)<input id="customer-min-total" type="number" min="0" step="0.01" value="${customerMinTotal}" /></label>
+      <button class="btn" type="button" id="apply-customer-insights">Aplicar filtros</button>
+      <button class="btn" type="button" id="clear-customer-insights">Limpar filtros</button>
+    </div>
+    <p class="helper">${filteredRows.length} cadastro(s). Unidade: <strong>${escapeHtml(state.settings.company || state.settings.tenantCode)} (${escapeHtml(state.settings.tenantCode)})</strong>. Compras concluídas desta unidade; cancelamentos e orçamentos não entram. Valores e frequência referem-se ao período escolhido. Última compra considera todo o histórico.</p>
     <p class="helper">Selecione um cadastro e escolha uma ação abaixo.</p><div class="table-wrap erp-table people-catalog-scroll" tabindex="0" aria-label="Lista de clientes e pessoas">
       <table>
-        <thead><tr><th>Selecionar</th><th>Codigo</th><th>Tipo</th><th>Nome</th><th>Fantasia</th><th>Pessoa</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>UF</th><th>Auxiliar</th><th>Status</th></tr></thead>
-        <tbody>${rows.map((person) => `<tr class="${Number(selectedPersonId) === Number(person.id) ? "selected-row" : ""}" data-select-person="${person.id}"><td><input type="radio" name="catalog-person" aria-label="Selecionar ${escapeAttr(person.name)}" ${Number(selectedPersonId)===Number(person.id)?"checked":""} /></td><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td><span class="badge">${personDocumentKind(person.document)}</span></td><td>${escapeHtml(person.document || "")}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td>${person.birthDate || person.vehiclePlate || person.rntrc || (person.creditAlert ? "SPC/CCF" : "-")}</td><td><span class="badge ${person.active === false ? "danger" : person.creditAlert ? "warn" : "ok"}">${person.active === false ? "Inativo" : person.creditAlert ? "Alerta" : "Ativo"}</span></td></tr>`).join("") || '<tr><td colspan="12">Nenhum cadastro encontrado.</td></tr>'}</tbody>
+        <thead><tr><th>Selecionar</th><th>Mensagem</th><th>Codigo</th><th>Tipo</th><th>Nome</th><th>Fantasia</th><th>Pessoa</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>UF</th><th>Unidade de consumo</th><th>Última compra</th><th>Compras no período</th><th>Total comprado</th><th>Ticket médio</th><th>Frequência</th><th>Intervalo médio</th><th>Status</th></tr></thead>
+        <tbody>${filteredRows.map((person) => `<tr class="${Number(selectedPersonId) === Number(person.id) ? "selected-row" : ""}" data-select-person="${person.id}"><td><input type="radio" name="catalog-person" aria-label="Selecionar ${escapeAttr(person.name)}" ${Number(selectedPersonId)===Number(person.id)?"checked":""} /></td><td><input type="checkbox" data-customer-message="${person.id}" aria-label="Selecionar ${escapeAttr(person.name)} para mensagem" ${customerMessageIds.has(String(person.id))?"checked":""} ${person.type!=="Cliente"||person.active===false||!CustomerInsights.phone(person)?"disabled":""} /></td><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td><span class="badge">${personDocumentKind(person.document)}</span></td><td>${escapeHtml(person.document || "")}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td>${metrics.get(String(person.id)).lifetimeCount?escapeHtml(state.settings.company || state.settings.tenantCode):"Sem compra registrada"}</td><td>${metrics.get(String(person.id)).last || "Nunca comprou"}</td><td>${metrics.get(String(person.id)).count}</td><td>${money(metrics.get(String(person.id)).total)}</td><td>${money(metrics.get(String(person.id)).ticket)}</td><td>${metrics.get(String(person.id)).frequency}</td><td>${metrics.get(String(person.id)).interval===null?"—":metrics.get(String(person.id)).interval+" dias"}</td><td><span class="badge ${person.active === false ? "danger" : person.creditAlert ? "warn" : "ok"}">${person.active === false ? "Inativo" : person.creditAlert ? "Alerta" : "Ativo"}</span></td></tr>`).join("") || '<tr><td colspan="19">Nenhum cadastro encontrado.</td></tr>'}</tbody>
       </table>
     </div>
     <div class="people-selection-actions"><p role="status">${selected?`Selecionado: <strong>${escapeHtml(selected.name)}</strong> · ${personDocumentKind(selected.document)}`:"Selecione uma linha para liberar as ações."}</p><div>
       <button class="btn" type="button" id="edit-selected-person" ${selected?'':'disabled'}>Editar cadastro</button>
       <button class="btn ${selected?.active===false?'primary':'danger'}" type="button" id="toggle-selected-person" ${selected?'':'disabled'}>${selected?.active===false?'Ativar cadastro':'Inativar cadastro'}</button>
+      <button class="btn primary" type="button" id="customer-message-one" ${selected?.type==='Cliente' && selected.active!==false && CustomerInsights.phone(selected)?'':'disabled'}>Preparar WhatsApp individual</button>
+      <button class="btn" type="button" id="customer-mark-filtered">Marcar clientes filtrados para mensagem</button>
+      <button class="btn" type="button" id="customer-clear-selection">Limpar seleção de mensagens</button>
+      <button class="btn primary" type="button" id="customer-message-group">Preparar mensagens selecionadas (${customerMessageIds.size})</button>
       <button class="btn" type="button" id="print-people">Exportar lista / Excel</button>
     </div></div>
   `;
+}
+
+function openCustomerMessages(ids) {
+  const recipients=[...new Map(state.people.filter(p=>ids.includes(String(p.id))&&p.type==="Cliente"&&p.active!==false&&CustomerInsights.phone(p)).map(p=>[CustomerInsights.phone(p),p])).values()];
+  if(!recipients.length)return alert("Selecione clientes ativos com telefone ou WhatsApp válido no cadastro.");
+  const dialog=document.createElement("dialog");dialog.className="customer-message-dialog";
+  dialog.innerHTML=`<header><h2>Preparar mensagens para clientes</h2><button class="btn" data-close type="button">Fechar</button></header><p>${recipients.length} destinatário(s) desta unidade. Escreva a mensagem e gere os links para revisar individualmente no WhatsApp.</p><label>Mensagem<textarea data-message rows="5" placeholder="Olá, {nome}!" maxlength="3000"></textarea></label><p class="helper">Use {nome} para personalizar. Os links abrem as conversas; o envio é confirmado por você no WhatsApp. A seleção não cria um grupo.</p><button class="btn primary" data-prepare type="button">Gerar links para revisão</button><div data-recipients></div>`;
+  dialog.querySelector('[data-close]').addEventListener('click',()=>{dialog.close();dialog.remove();});
+  dialog.querySelector('[data-message]').addEventListener('input',()=>dialog.querySelector('[data-recipients]').replaceChildren());
+  dialog.querySelector('[data-prepare]').addEventListener('click',()=>{const text=dialog.querySelector('[data-message]').value.trim();if(!text)return alert('Escreva a mensagem antes de preparar os links.');dialog.querySelector('[data-recipients]').innerHTML=recipients.map(p=>`<article><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.city||'')} · ${escapeHtml(state.settings.company || state.settings.tenantCode)}</span><a class="btn primary" target="_blank" rel="noopener noreferrer" href="https://wa.me/${CustomerInsights.phone(p)}?text=${encodeURIComponent(text.replaceAll('{nome}',p.name||''))}">Revisar no WhatsApp</a></article>`).join('');});
+  document.body.appendChild(dialog);dialog.addEventListener('close',()=>dialog.remove());dialog.showModal();
 }
 
 function findPersonByName(name) {
@@ -3776,6 +3812,14 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-new-person-type]").forEach((button) => {
     button.addEventListener("click", () => newPersonRecord(button.dataset.newPersonType || "Cliente"));
   });
+  const applyCustomerFilters=()=>{personSearch=byId("person-search")?.value || personSearch; customerPeriod=Number(byId("customer-period")?.value || 30);customerFrequency=byId("customer-frequency")?.value || "all";customerRegion=byId("customer-region")?.value || "";customerMinTotal=Math.max(0,Number(byId("customer-min-total")?.value || 0));customerMessageIds.clear();renderShell();};
+  byId("apply-customer-insights")?.addEventListener("click",applyCustomerFilters);
+  byId("clear-customer-insights")?.addEventListener("click",()=>{customerPeriod=30;customerFrequency="all";customerRegion="";customerMinTotal=0;customerMessageIds.clear();renderShell();});
+  document.querySelectorAll("[data-customer-message]").forEach(input=>input.addEventListener("change",()=>{if(input.checked)customerMessageIds.add(input.dataset.customerMessage);else customerMessageIds.delete(input.dataset.customerMessage);const b=byId("customer-message-group");if(b)b.textContent=`Preparar mensagens selecionadas (${customerMessageIds.size})`;}));
+  byId("customer-mark-filtered")?.addEventListener("click",()=>{document.querySelectorAll("[data-customer-message]:not(:disabled)").forEach(input=>{input.checked=true;customerMessageIds.add(input.dataset.customerMessage);});const b=byId("customer-message-group");if(b)b.textContent=`Preparar mensagens selecionadas (${customerMessageIds.size})`;});
+  byId("customer-clear-selection")?.addEventListener("click",()=>{customerMessageIds.clear();document.querySelectorAll("[data-customer-message]").forEach(input=>input.checked=false);const b=byId("customer-message-group");if(b)b.textContent="Preparar mensagens selecionadas (0)";});
+  byId("customer-message-one")?.addEventListener("click",()=>openCustomerMessages([String(selectedPersonId)]));
+  byId("customer-message-group")?.addEventListener("click",()=>openCustomerMessages([...customerMessageIds]));
   byId("person-doc")?.addEventListener("input", event=>{ const kind=personDocumentKind(event.target.value); const hint=byId("person-document-kind"); if(hint) hint.textContent=kind==="PF"?"PF — Pessoa física":kind==="PJ"?"PJ — Pessoa jurídica":"Informe CPF para PF ou CNPJ para PJ."; });
   byId("toggle-selected-person")?.addEventListener("click",()=>togglePersonRecord(Number(selectedPersonId)));
   const editSelectedPerson = byId("edit-selected-person");
@@ -3796,7 +3840,7 @@ function bindCurrentModule() {
     renderShell();
   }));
   document.querySelectorAll("[data-select-person]").forEach((row) => row.addEventListener("click", (event) => {
-    if (event.target.closest("button")) return;
+    if (event.target.closest("button,input[type=checkbox]")) return;
     const listTop=document.querySelector(".people-catalog-scroll")?.scrollTop || 0;
     selectedPersonId = Number(row.dataset.selectPerson);
     renderShell();
@@ -5992,13 +6036,13 @@ function exportProductsList() {
 }
 
 function printPeopleList() {
-  const query = personSearch.trim().toLowerCase();
-  const filter = ["Cliente", "Fornecedor", "Funcionario", "Parceiro"].includes(currentTab) ? currentTab : "";
-  const rows = state.people.filter((person) => (!filter || person.type === filter) && (!query || [person.name, person.alias, person.document, person.city, person.phone].some((value) => String(value || "").toLowerCase().includes(query))));
-  downloadText(`pessoas-${today()}.csv`, [
-    "Codigo;Tipo;Nome;Fantasia;Pessoa;CPF/CNPJ;Telefone;Cidade;UF;Status",
-    ...rows.map((person) => [person.id, person.type, person.name, person.alias || "", personDocumentKind(person.document), person.document || "", person.phone || "", person.city || "", person.uf || "", person.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
-  ].join("\n"));
+  const visible=new Set([...document.querySelectorAll('[data-select-person]')].map(row=>String(row.dataset.selectPerson)));
+  const metrics=CustomerInsights.build(state.people,state.sales,customerPeriod,today());
+  const rows=state.people.filter(person=>visible.has(String(person.id)));
+  downloadText(`clientes-${customerPeriod}-dias-${today()}.csv`,[
+    "Codigo;Tipo;Nome;Pessoa;CPF/CNPJ;Telefone;Cidade;UF;Unidade;Ultima compra;Compras no periodo;Total no periodo;Ticket medio;Frequencia;Intervalo medio em dias;Status",
+    ...rows.map(person=>{const m=metrics.get(String(person.id));return [person.id,person.type,person.name,personDocumentKind(person.document),person.document,person.whatsapp||person.phone,person.city,person.uf,state.settings.tenantCode,m.last,m.count,m.total,m.ticket,m.frequency,m.interval??"",person.active===false?"Inativo":"Ativo"].map(csvCell).join(';');})
+  ].join('\n'));
 }
 
 function updateOnlineOrderStatus(id, status) {
