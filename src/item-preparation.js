@@ -4,8 +4,8 @@
  function lines(item={}){
   const result=[];
   if(clean(item.size))result.push('Tamanho: '+clean(item.size));
-  const extras=options(item.extras);if(extras.length)result.push('Acompanhamentos: '+extras.join(', '));
   if(clean(item.coverage))result.push('Cobertura: '+clean(item.coverage));
+  const extras=options(item.extras);if(extras.length)result.push('Topping: '+extras.join(', '));
   if(clean(item.note))result.push('Obs.: '+clean(item.note));
   return result;
  }
@@ -17,7 +17,7 @@
   for(const parent of items.filter(isTortela)){
    result.push(parent);used.add(parent);
    const children=items.filter(row=>parent.lineId&&row.parentLineId===parent.lineId);
-   children.sort((a,b)=>(role(a)==='Acompanhamento'?0:1)-(role(b)==='Acompanhamento'?0:1));
+   children.sort((a,b)=>((role(a)||a.preparationRole)==='Calda / cobertura'?0:1)-((role(b)||b.preparationRole)==='Calda / cobertura'?0:1));
    for(const child of children){result.push(child);used.add(child);}
   }
   return result.concat(items.filter(row=>!used.has(row)));
@@ -25,7 +25,7 @@
  function validateSale(items=[]){
   for(const parent of items.filter(isTortela)){
    const children=items.filter(row=>parent.lineId&&row.parentLineId===parent.lineId&&(role(row)==='Acompanhamento'||row.preparationRole==='Acompanhamento'));
-   if(options(parent.extras).length+children.reduce((sum,row)=>sum+Number(row.qty||0)/Number(parent.qty||1),0)>1)throw Error('Selecione apenas 1 acompanhamento por Tortela. Remova o anterior para escolher outro.');
+   if(options(parent.extras).length+children.reduce((sum,row)=>sum+Number(row.qty||0)/Number(parent.qty||1),0)>1)throw Error('Selecione apenas 1 topping por Tortela. Remova o anterior para escolher outro.');
   }
  }
  function attach(items,item,parentId){
@@ -45,10 +45,10 @@
  }
  function split(product,preparation,qty,products=[]){
   const components=[],match=(name,kind)=>isTortela(product)&&products.find(row=>row.active!==false&&row.description===name&&role(row)===kind&&(!product.tenantCode||row.tenantCode===product.tenantCode));
-  if(isTortela(product)&&options(preparation.extras).length>1)throw Error('Selecione apenas 1 acompanhamento por Tortela.');
+  if(isTortela(product)&&options(preparation.extras).length>1)throw Error('Selecione apenas 1 topping por Tortela.');
   const coverage=match(preparation.coverage,'Calda / cobertura');
-  const extras=options(preparation.extras).filter(name=>{const extra=match(name,'Acompanhamento');if(extra)components.push({...extra,qty});return !extra;});
   if(coverage)components.push({...coverage,qty});
+  const extras=options(preparation.extras).filter(name=>{const extra=match(name,'Acompanhamento');if(extra)components.push({...extra,qty});return !extra;});
   return {preparation:{...preparation,coverage:coverage?'':preparation.coverage||'',extras},components};
  }
  return {ordered,validateSale,lines,options,isTortela,role,attach,choices,split,text:item=>lines(item).join('; '),html:item=>lines(item).map(line=>'<small style="display:block;padding-left:8px">'+escape(line)+'</small>').join(''),same:(a,b)=>JSON.stringify(lines(a))===JSON.stringify(lines(b))};
