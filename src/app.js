@@ -4398,7 +4398,7 @@ function isCashRegisterStale() {
   return Boolean(state.cashRegister?.open && (!cashBusinessDay(state.cashRegister.openedAt) || cashBusinessDay(state.cashRegister.openedAt)!==cashBusinessDay()));
 }
 async function refreshCashRegister() {
-  if(apiOnline && sessionId && navigator.onLine){const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register`);state.cashRegister=result.register;}
+  if(apiOnline && sessionId && navigator.onLine){const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register`,{timeoutMs:45000});state.cashRegister=result.register;}
 }
 
 async function authorizePdvOperation(action, title) {
@@ -4422,15 +4422,33 @@ async function authorizePdvOperation(action, title) {
   }
 }
 
+let cashOpeningInProgress = false;
 async function openCashRegister() {
+  if(cashOpeningInProgress)return;
   if(!apiOnline||!sessionId)return alert("Conecte-se ao sistema para abrir o caixa.");
   const password=byId("cash-open-password")?.value||"";
   if(!password)return alert("Informe a senha do operador para abrir o caixa.");
+  cashOpeningInProgress=true;
+  const button=byId("open-cash-register");
+  if(button){button.disabled=true;button.textContent="Aguarde, confirmando abertura…";}
   try{
-    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/open`,{method:"POST",body:JSON.stringify({password,initialAmount:num("cash-open-amount"),terminal:byId("cash-open-terminal").value||currentPdvTerminal().name})});
+    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/open`,{timeoutMs:45000,method:"POST",body:JSON.stringify({password,initialAmount:num("cash-open-amount"),terminal:byId("cash-open-terminal").value||currentPdvTerminal().name})});
     state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});
     saleItems=[];localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));renderShell();
-  }catch(error){alert(error.message);await refreshCashRegister().catch(()=>{});renderShell();}
+  }catch(error){
+    let checked=false;
+    try{await refreshCashRegister();checked=true;}catch{}
+    const register=state.cashRegister;
+    if(checked && register?.open && register.openedBy===state.settings.user && register.terminalId===currentPdvTerminal().id){
+      localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));
+      alert("A abertura foi confirmada no servidor. O caixa já está aberto.");
+    }else alert(error.message + (checked ? " Confira a situação do caixa antes de tentar novamente." : " Não foi possível confirmar a situação do caixa. Aguarde a conexão voltar antes de tentar novamente."));
+    renderShell();
+  }finally{
+    cashOpeningInProgress=false;
+    const currentButton=byId("open-cash-register");
+    if(currentButton){currentButton.disabled=false;currentButton.textContent="Abrir caixa do dia";}
+  }
 }
 
 async function authorizePdvOperationWithPassword(action, user, password) {
@@ -4460,7 +4478,7 @@ async function closeCashRegister() {
   const countedAmount=Number(String(countedText).replace(",","."));if(!Number.isFinite(countedAmount)||countedAmount<0)return alert("Informe um valor contado valido.");
   const responsible=prompt("Responsavel pela conferencia:",user)||user,closingNote=prompt("Observacao da conferencia ou diferenca:","")||"";
   try{
-    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/close`,{method:"POST",body:JSON.stringify({user,password,countedAmount,responsible,closingNote})});
+    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/close`,{timeoutMs:45000,method:"POST",body:JSON.stringify({user,password,countedAmount,responsible,closingNote})});
     state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});saleItems=[];
     localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));printCashClosure(result.closure);renderShell();alert("Caixa fechado. Relatorio detalhado disponivel em Financeiro > Caixa e na Central > Vendas.");
   }catch(error){alert(error.message);await refreshCashRegister().catch(()=>{});renderShell();}
