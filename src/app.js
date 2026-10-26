@@ -1539,10 +1539,6 @@ function renderProducts() {
 
       <div class="desktop-action-bar erp-action-bar">
         <button class="desktop-command primary" id="new-product" type="button"><span>+</span>F2 | Novo</button>
-        <button class="desktop-command" id="edit-selected-product" type="button"><span>=</span>F3 | Alterar</button>
-        <button class="desktop-command primary" id="label-selected-product" type="button"><span>B</span>Etiqueta</button>
-        <button class="desktop-command" id="print-products" type="button"><span>P</span>F4 | Imprimir lista</button>
-        <button class="desktop-command" id="export-products" type="button">Exportar Excel / CSV</button>
         <button class="desktop-command" id="refresh-products" type="button"><span>R</span>F5 | Atualizar</button>
         <button class="desktop-command primary" id="save-product" type="button"><span>S</span>${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button>
         <button class="desktop-command danger" id="close-products" type="button"><span>X</span>Fechar</button>
@@ -2116,12 +2112,23 @@ async function copyPublicTerminalToken() {
 function productsTable() {
   const query = productSearch.trim().toLowerCase();
   const rows = state.products.filter((product) => (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
+  const selected = rows.find(product => Number(product.id) === Number(selectedProductId));
   return `
-    <p class="helper" role="status">${rows.length} produto(s) encontrado(s). Clique em Editar para abrir o cadastro.</p><div class="table-wrap erp-table product-catalog-scroll" tabindex="0" aria-label="Lista de produtos com rolagem">
+    <p class="helper" role="status">${rows.length} produto(s) encontrado(s). Selecione um produto e escolha uma ação abaixo da lista.</p><div class="table-wrap erp-table product-catalog-scroll" tabindex="0" aria-label="Lista de produtos com rolagem">
       <table>
-        <thead><tr><th>Foto</th><th>Codigo</th><th>Referencia</th><th>Descricao</th><th>Tipo</th><th>NCM</th><th>Preco</th><th>Estoque</th><th>Fiscal</th><th>Status</th><th>Acoes</th></tr></thead>
-        <tbody>${rows.map((product) => `<tr class="${Number(selectedProductId) === Number(product.id) ? "selected-row" : ""}" data-select-product="${product.id}"><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.reference || product.sku || "-"}</td><td>${product.description}${product.ecommerceIntegration ? ` <span class="badge ok">Web</span>` : ""}${product.kitchenRequest ? ` <span class="badge warn">Cozinha</span>` : ""}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td><span class="badge ${product.fiscalStatus === "Homologado" ? "ok" : product.fiscalStatus === "Bloqueado" ? "danger" : "warn"}">${product.fiscalStatus || "Conferir"}</span></td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : "Ativo"}</span></td><td><button class="btn" data-edit-product="${product.id}">Editar</button> <button class="btn" data-label-product="${product.id}">Etiqueta</button> <button class="btn ${product.active === false ? "" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("") || '<tr><td colspan="11">Nenhum produto encontrado neste filtro.</td></tr>'}</tbody>
+        <thead><tr><th>Selecionar</th><th>Foto</th><th>Codigo</th><th>Referencia</th><th>Descricao</th><th>Tipo</th><th>NCM</th><th>Preco</th><th>Estoque</th><th>Fiscal</th><th>Status</th></tr></thead>
+        <tbody>${rows.map((product) => `<tr class="${Number(selectedProductId) === Number(product.id) ? "selected-row" : ""}" data-select-product="${product.id}"><td><input type="radio" name="catalog-product" value="${product.id}" aria-label="Selecionar ${escapeAttr(product.description)}" ${Number(selectedProductId)===Number(product.id)?"checked":""} /></td><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.reference || product.sku || "-"}</td><td>${product.description}${product.ecommerceIntegration ? ` <span class="badge ok">Web</span>` : ""}${product.kitchenRequest ? ` <span class="badge warn">Cozinha</span>` : ""}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td><span class="badge ${product.fiscalStatus === "Homologado" ? "ok" : product.fiscalStatus === "Bloqueado" ? "danger" : "warn"}">${product.fiscalStatus || "Conferir"}</span></td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : "Ativo"}</span></td></tr>`).join("") || '<tr><td colspan="11">Nenhum produto encontrado neste filtro.</td></tr>'}</tbody>
       </table>
+    </div>
+    <div class="product-selection-actions">
+      <p id="product-selection-caption" role="status">${selected ? `Selecionado: <strong>${escapeAttr(selected.description)}</strong>` : "Selecione um produto na lista para liberar as ações."}</p>
+      <div class="product-selection-buttons">
+        <button class="btn" id="edit-selected-product" type="button" ${selected?'':'disabled'}>Editar produto</button>
+        <button class="btn" id="label-selected-product" type="button" ${selected?'':'disabled'}>Imprimir etiqueta</button>
+        <button class="btn ${selected?.active===false?'primary':'danger'}" id="toggle-selected-product" type="button" ${selected?'':'disabled'}>${selected?.active===false?'Ativar produto':'Inativar produto'}</button>
+        <button class="btn" id="print-products" type="button">Imprimir lista filtrada</button>
+        <button class="btn" id="export-products" type="button">Exportar Excel / CSV</button>
+      </div>
     </div>
   `;
 }
@@ -3842,12 +3849,19 @@ function bindCurrentModule() {
   if (closeProducts) closeProducts.addEventListener("click", () => { currentModule = "dashboard"; renderShell(); });
   document.querySelectorAll("[data-product-status]").forEach(button => button.addEventListener("click", () => { captureProductDraft(); productSearch = byId("product-search")?.value || ""; productStatusFilter = button.dataset.productStatus; renderShell(); }));
   byId("product-search")?.addEventListener("keydown", event => { if(event.key === "Enter") { event.preventDefault(); captureProductDraft(); productSearch=event.target.value; renderShell(); } });
+  byId("toggle-selected-product")?.addEventListener("click", () => { if(selectedProductId) { captureProductDraft(); toggleProductRecord(Number(selectedProductId)); } });
   const filterProducts = byId("filter-products");
   if (filterProducts) filterProducts.addEventListener("click", () => { captureProductDraft(); productSearch = byId("product-search").value; renderShell(); });
   document.querySelectorAll("[data-select-product]").forEach((row) => row.addEventListener("click", (event) => {
     if (event.target.closest("button")) return;
+    captureProductDraft();
+    const listScroll = document.querySelector(".product-catalog-scroll")?.scrollTop || 0;
+    const pageScroll = window.scrollY;
     selectedProductId = Number(row.dataset.selectProduct);
     renderShell();
+    const list = document.querySelector(".product-catalog-scroll");
+    if (list) list.scrollTop = listScroll;
+    window.scrollTo(0, pageScroll);
   }));
   document.querySelectorAll("[data-edit-product]").forEach((button) => button.addEventListener("click", () => editProductRecord(Number(button.dataset.editProduct))));
   document.querySelectorAll("[data-toggle-product]").forEach((button) => button.addEventListener("click", () => toggleProductRecord(Number(button.dataset.toggleProduct))));
