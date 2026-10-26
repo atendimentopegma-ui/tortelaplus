@@ -18,6 +18,7 @@ function routePermissions(path) {
   if (/^\/api\/tenant\/[^/]+\/fiscal\/cancel$/.test(path)) return ['fiscal_cancel'];
   if (path === "/api/network/promotions") return ["promotions"];
   if (path === "/api/network/approvals/decide") return ["orders"];
+  if (/^\/api\/tenant\/[^/]+\/products\/\d+\/automatic-sale-item$/.test(path)) return ["products"];
   if (path === "/api/network/customer-campaigns") return ["customers"];
   if (path === "/api/network/whatsapp/settings") return ["customers"];
   if (path === "/api/network/royalties/generate") return ["royalties"];

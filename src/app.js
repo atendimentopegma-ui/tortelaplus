@@ -1739,6 +1739,8 @@ function productForm() {
         </div>
       </div></details>
 
+      <details class="product-form-section"><summary>Item automático na venda (PDV)</summary><div class="product-section-content"><p class="helper">Ao vender esta Tortela, o item vinculado entra junto, com seu próprio preço e baixa de estoque. Ex.: Tortela Kinder + bombom Kinder.</p><div class="grid four"><div class="field wide-field"><label>Produto incluído automaticamente</label><select id="product-auto-sale-item"><option value="">Nenhum</option>${state.products.filter(p=>p.active!==false&&Number(p.id)!==Number(editingProductId)&&!ItemPreparation.isTortela(p)).map(p=>`<option value="${p.id}" ${Number(draft.automaticSaleProductId)===Number(p.id)?'selected':''}>${escapeHtml(p.description)}</option>`).join('')}</select></div><div class="field"><label>Quantidade por Tortela</label><input id="product-auto-sale-qty" type="number" min="0.001" step="0.001" value="${Number(draft.automaticSaleQty||1)}" /></div></div></div></details>
+
       <details class="product-form-section"><summary>Fiscal rapido</summary><div class="product-section-content">
         <div class="grid four">
           <div class="field"><label>NCM</label><input id="product-ncm" value="${escapeAttr(draft.ncm)}" /></div>
@@ -4439,8 +4441,8 @@ function bindCurrentModule() {
     button.addEventListener("click", async () => {
       const item = saleItems[Number(button.dataset.removeSaleItem)];
       if (!item) return;
-      if(item.parentLineId){await editTortelaPreparation(item);return;}
-      saleItems=saleItems.filter(row=>item?.comboGroupId?row.comboGroupId!==item.comboGroupId:row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
+      if(item.parentLineId&&!item.automaticLinked){await editTortelaPreparation(item);return;}
+      saleItems=saleItems.filter(row=>item.automaticLinked?row!==item:item?.comboGroupId?row.comboGroupId!==item.comboGroupId:row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
       audit("Item removido do PDV", `${item.description || "Item"} removido da venda em andamento por ${state.settings.user}`);
       save();
       renderShell();
@@ -4959,6 +4961,8 @@ function saveProductRecord() {
     paysCommission: Boolean(pendingProductDraft.paysCommission),
     complementary: Boolean(pendingProductDraft.complementary),
     pairProduct: Boolean(pendingProductDraft.pairProduct),
+    automaticSaleProductId: Number(pendingProductDraft.automaticSaleProductId)||null,
+    automaticSaleQty: Number(pendingProductDraft.automaticSaleQty)||1,
     showInApp: Boolean(pendingProductDraft.showInApp),
     usesPriceTable: Boolean(pendingProductDraft.usesPriceTable),
     controlsImei: Boolean(pendingProductDraft.controlsImei),
@@ -5088,6 +5092,8 @@ function captureProductDraft() {
     allowsSale: byId("product-allows-sale") ? byId("product-allows-sale").checked : previous.allowsSale !== false,
     paysCommission: byId("product-pays-commission") ? byId("product-pays-commission").checked : Boolean(previous.paysCommission),
     complementary: byId("product-complementary") ? byId("product-complementary").checked : Boolean(previous.complementary),
+    automaticSaleProductId: byId("product-auto-sale-item") ? Number(byId("product-auto-sale-item").value)||null : previous.automaticSaleProductId,
+    automaticSaleQty: byId("product-auto-sale-qty") ? Number(byId("product-auto-sale-qty").value)||1 : previous.automaticSaleQty||1,
     pairProduct: byId("product-pair-product") ? byId("product-pair-product").checked : Boolean(previous.pairProduct),
     showInApp: byId("product-show-app") ? byId("product-show-app").checked : Boolean(previous.showInApp),
     usesPriceTable: byId("product-uses-price-table") ? byId("product-uses-price-table").checked : Boolean(previous.usesPriceTable),
@@ -7546,11 +7552,22 @@ function chooseComboSale(template, position='') {
  form.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();
  });
 }
+function addAutomaticSaleProduct(target,product,parent) {
+  if(!product.automaticSaleProductId)return;
+  const linked=state.products.find(p=>Number(p.id)===Number(product.automaticSaleProductId)&&p.active!==false&&p.allowsSale!==false);
+  const factor=Number(product.automaticSaleQty||1);
+  if(!linked||linked.id===product.id||ItemPreparation.isTortela(linked)||!Number.isFinite(factor)||factor<=0)throw Error("Confira o item automático no cadastro da Tortela.");
+  if(target.some(row=>row.parentLineId===parent.lineId&&row.automaticLinked))return;
+  const qty=Number(parent.qty||1)*factor;
+  ItemPreparation.attach(target,{id:linked.id,description:linked.description,qty,unit:linked.unit,price:effectiveProductPrice(linked,qty),automaticLinked:true,...(parent.comboGroupId?{comboGroupId:parent.comboGroupId,comboTemplateId:parent.comboTemplateId,comboName:parent.comboName,comboRole:'preparation'}:{})},parent.lineId);
+}
+
 async function preparedTortela(target, product, price, metadata={}, position='') {
  const preparation=await chooseSalePreparation(product,position);if(!preparation)return false;
  const split=ItemPreparation.split(product,preparation,1,state.products);
  const parent=ItemPreparation.attach(target,{id:product.id,description:product.description,qty:1,unit:product.unit,price,...split.preparation,...metadata,note:[split.preparation.note,metadata.comboName?'Combo: '+metadata.comboName:''].filter(Boolean).join(' · ')});
  for(const component of split.components)ItemPreparation.attach(target,{id:component.id,description:component.description,qty:1,unit:component.unit,price:effectiveProductPrice(component,1),...(metadata.comboGroupId?{comboGroupId:metadata.comboGroupId,comboTemplateId:metadata.comboTemplateId,comboName:metadata.comboName,comboRole:'preparation'}:{})},parent.lineId);
+ if(product.automaticSaleProductId){try{addAutomaticSaleProduct(target,product,parent);}catch(error){alert(error.message);return false;}}
  return true;
 }
 function commitPreparedPdvItems(items){
@@ -7586,6 +7603,7 @@ async function editTortelaPreparation(item) {
   const replacement={...parent,coverage:split.preparation.coverage,extras:split.preparation.extras};
   staged.splice(saleItems.indexOf(parent),0,replacement);
   for(const component of split.components)ItemPreparation.attach(staged,{id:component.id,description:component.description,qty:Number(parent.qty||1),unit:component.unit,price:effectiveProductPrice(component,Number(parent.qty||1)),...(parent.comboGroupId?{comboGroupId:parent.comboGroupId,comboTemplateId:parent.comboTemplateId,comboName:parent.comboName,comboRole:'preparation'}:{})},parent.lineId);
+  if(product.automaticSaleProductId){try{addAutomaticSaleProduct(staged,product,replacement);}catch(error){alert(error.message);return;}}
   ItemPreparation.validateSale(staged);saleItems=ItemPreparation.ordered(staged);
   audit('Preparo alterado no PDV',`${parent.description} por ${state.settings.user}`);save();renderShell();
 }
@@ -7656,6 +7674,7 @@ async function addSaleItem(productId) {
     const split=ItemPreparation.split(product,preparation,qty,state.products);
     const parent=ItemPreparation.attach(saleItems,{id:product.id,description:product.description,qty,unit:product.unit,price:effectivePrice,...split.preparation},preparation.parentLineId);
     for(const component of split.components)ItemPreparation.attach(saleItems,{id:component.id,description:component.description,qty,unit:component.unit,price:effectiveProductPrice(component,qty)},parent.lineId);
+    if(product.automaticSaleProductId)addAutomaticSaleProduct(saleItems,product,parent);
   }
   ItemPreparation.validateSale(saleItems);
   saleItems=ItemPreparation.ordered(saleItems);

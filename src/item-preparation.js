@@ -31,8 +31,8 @@
  function attach(items,item,parentId){
   for(const parent of items.filter(isTortela))parent.lineId ||= 'tortela-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   if(isTortela(item))item.lineId ||= 'tortela-'+Date.now()+'-'+Math.random().toString(36).slice(2);
-  const parent=role(item)?(parentId?items.find(row=>row.lineId===parentId&&isTortela(row)):items.filter(isTortela).at(-1)):null;
-  if(parent){item.parentLineId=parent.lineId;item.preparationRole=role(item);let index=items.indexOf(parent)+1;while(items[index]?.parentLineId===parent.lineId)index++;items.splice(index,0,item);}else items.push(item);
+  const parent=(role(item)||item.automaticLinked)?(parentId?items.find(row=>row.lineId===parentId&&isTortela(row)):items.filter(isTortela).at(-1)):null;
+  if(parent){item.parentLineId=parent.lineId;item.preparationRole=item.automaticLinked?"Item vinculado":role(item);let index=items.indexOf(parent)+1;while(items[index]?.parentLineId===parent.lineId)index++;items.splice(index,0,item);}else items.push(item);
   items.splice(0,items.length,...ordered(items));
   return item;
  }

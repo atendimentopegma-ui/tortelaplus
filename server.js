@@ -3328,6 +3328,18 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const automaticItemMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/products\/(\d+)\/automatic-sale-item$/);
+  if(automaticItemMatch && req.method==="POST"){
+    const access=providerAccess(req);if(!access)return sendJson(res,401,{ok:false,error:"Sessão da Central obrigatória"});
+    if(!permissionsFor(access).includes("products"))return sendJson(res,403,{ok:false,error:"Acesso a produtos não permitido"});
+    const code=normalizeTenantCode(automaticItemMatch[1]),tenant=findTenant(readProvider(),code);if(!tenant)return sendJson(res,404,{ok:false,error:"Unidade não encontrada"});
+    const body=await readBody(req),tenantState=readTenantState(code),product=tenantState.products.find(p=>Number(p.id)===Number(automaticItemMatch[2])),linked=tenantState.products.find(p=>Number(p.id)===Number(body.productId)&&p.active!==false&&p.allowsSale!==false),qty=Number(body.qty||1);
+    if(!product||!itemPreparation.isTortela(product)||!linked||linked.id===product.id||itemPreparation.isTortela(linked)||!Number.isFinite(qty)||qty<=0)return sendJson(res,400,{ok:false,error:"Confira Tortela, produto vinculado e quantidade"});
+    product.automaticSaleProductId=linked.id;product.automaticSaleQty=qty;
+    writeTenantState(code,tenantState);appendTenantAudit(code,"Item automático configurado",`${product.description}: ${qty} x ${linked.description}`,access.username);
+    return sendJson(res,200,{ok:true,productId:product.id,linkedProductId:linked.id,qty});
+  }
+
   if (urlPath === "/api/network/customer-campaigns" && req.method === "GET") {
     const access=providerAccess(req);if(!access)return sendJson(res,401,{ok:false,error:"Sessão da Central obrigatória"});
     if(!permissionsFor(access).includes("customers"))return sendJson(res,403,{ok:false,error:"Acesso a clientes não permitido"});
