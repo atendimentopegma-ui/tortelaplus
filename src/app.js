@@ -1346,7 +1346,7 @@ function renderPeople() {
                 <div class="field"><label>Tipo</label><select id="person-type">${personTypes.map((type) => `<option ${draft.type === type ? "selected" : ""}>${type}</option>`).join("")}</select></div>
                 <div class="field"><label>Nome/Razao social</label><input id="person-name" value="${escapeAttr(draft.name || "")}" required /></div>
                 <div class="field"><label>Fantasia/Apelido</label><input id="person-alias" value="${escapeAttr(draft.alias || "")}" /></div>
-                <div class="field"><label>CPF/CNPJ</label><input id="person-doc" value="${escapeAttr(draft.document || "")}" /></div>
+                <div class="field"><label>CPF/CNPJ</label><input id="person-doc" value="${escapeAttr(draft.document || "")}" /><span class="helper" id="person-document-kind">${personDocumentKind(draft.document)==="PF"?"PF — Pessoa física":personDocumentKind(draft.document)==="PJ"?"PJ — Pessoa jurídica":"Informe CPF para PF ou CNPJ para PJ."}</span></div>
                 <div class="field"><label>Telefone</label><input id="person-phone" value="${escapeAttr(draft.phone || "")}" /></div>
                 <div class="field"><label>WhatsApp</label><input id="person-whatsapp" value="${escapeAttr(draft.whatsapp || "")}" /></div>
                 <div class="field"><label>Email</label><input id="person-email" value="${escapeAttr(draft.email || "")}" /></div>
@@ -1394,14 +1394,19 @@ function renderPeople() {
       </div>
       <div class="desktop-action-bar erp-action-bar">
         <button class="desktop-command primary" id="new-person" type="button"><span>+</span>F2 | Novo</button>
-        <button class="desktop-command" id="edit-selected-person" type="button"><span>=</span>F3 | Alterar</button>
-        <button class="desktop-command" id="print-people" type="button"><span>P</span>F4 | Imprimir</button>
         <button class="desktop-command" id="refresh-people" type="button"><span>R</span>F5 | Atualizar</button>
         <button class="desktop-command primary" id="save-person" type="button"><span>S</span>${editingPersonId ? "Salvar alteracao" : "Salvar novo"}</button>
         <button class="desktop-command danger" id="close-people" type="button"><span>X</span>Fechar</button>
       </div>
     </section>
   `;
+}
+
+function personDocumentKind(document) {
+  const value=String(document || "").replace(/[^a-z0-9]/gi, "");
+  if (/^\d{11}$/.test(value)) return "PF";
+  if (/^[a-z0-9]{12}\d{2}$/i.test(value)) return "PJ";
+  return "—";
 }
 
 function peopleTable() {
@@ -1414,13 +1419,19 @@ function peopleTable() {
     && (!creditAlert || person.creditAlert || person.type === "SPC/CCF")
     && (!aniversariantes || String(person.birthDate || "").slice(5) >= monthDay)
     && (!query || [person.name, person.alias, person.document, person.city, person.phone, person.vehiclePlate, person.rntrc].some((value) => String(value || "").toLowerCase().includes(query))));
+  const selected=rows.find(person=>Number(person.id)===Number(selectedPersonId));
   return `
-    <div class="table-wrap erp-table">
+    <p class="helper">Selecione um cadastro e escolha uma ação abaixo.</p><div class="table-wrap erp-table people-catalog-scroll" tabindex="0" aria-label="Lista de clientes e pessoas">
       <table>
-        <thead><tr><th>Codigo</th><th>Tipo</th><th>Nome</th><th>Fantasia</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>UF</th><th>Auxiliar</th><th>Status</th><th>Acoes</th></tr></thead>
-        <tbody>${rows.map((person) => `<tr class="${Number(selectedPersonId) === Number(person.id) ? "selected-row" : ""}" data-select-person="${person.id}"><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td>${person.document}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td>${person.birthDate || person.vehiclePlate || person.rntrc || (person.creditAlert ? "SPC/CCF" : "-")}</td><td><span class="badge ${person.active === false ? "danger" : person.creditAlert ? "warn" : "ok"}">${person.active === false ? "Inativo" : person.creditAlert ? "Alerta" : "Ativo"}</span></td><td><button class="btn" data-edit-person="${person.id}">Editar</button> <button class="btn ${person.active === false ? "" : "danger"}" data-toggle-person="${person.id}">${person.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
+        <thead><tr><th>Selecionar</th><th>Codigo</th><th>Tipo</th><th>Nome</th><th>Fantasia</th><th>Pessoa</th><th>CPF/CNPJ</th><th>Telefone</th><th>Cidade</th><th>UF</th><th>Auxiliar</th><th>Status</th></tr></thead>
+        <tbody>${rows.map((person) => `<tr class="${Number(selectedPersonId) === Number(person.id) ? "selected-row" : ""}" data-select-person="${person.id}"><td><input type="radio" name="catalog-person" aria-label="Selecionar ${escapeAttr(person.name)}" ${Number(selectedPersonId)===Number(person.id)?"checked":""} /></td><td>${person.id}</td><td>${person.type}</td><td>${person.name}</td><td>${person.alias || ""}</td><td><span class="badge">${personDocumentKind(person.document)}</span></td><td>${escapeHtml(person.document || "")}</td><td>${person.phone || ""}</td><td>${person.city}</td><td>${person.uf}</td><td>${person.birthDate || person.vehiclePlate || person.rntrc || (person.creditAlert ? "SPC/CCF" : "-")}</td><td><span class="badge ${person.active === false ? "danger" : person.creditAlert ? "warn" : "ok"}">${person.active === false ? "Inativo" : person.creditAlert ? "Alerta" : "Ativo"}</span></td></tr>`).join("") || '<tr><td colspan="12">Nenhum cadastro encontrado.</td></tr>'}</tbody>
       </table>
     </div>
+    <div class="people-selection-actions"><p role="status">${selected?`Selecionado: <strong>${escapeHtml(selected.name)}</strong> · ${personDocumentKind(selected.document)}`:"Selecione uma linha para liberar as ações."}</p><div>
+      <button class="btn" type="button" id="edit-selected-person" ${selected?'':'disabled'}>Editar cadastro</button>
+      <button class="btn ${selected?.active===false?'primary':'danger'}" type="button" id="toggle-selected-person" ${selected?'':'disabled'}>${selected?.active===false?'Ativar cadastro':'Inativar cadastro'}</button>
+      <button class="btn" type="button" id="print-people">Exportar lista / Excel</button>
+    </div></div>
   `;
 }
 
@@ -3765,6 +3776,8 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-new-person-type]").forEach((button) => {
     button.addEventListener("click", () => newPersonRecord(button.dataset.newPersonType || "Cliente"));
   });
+  byId("person-doc")?.addEventListener("input", event=>{ const kind=personDocumentKind(event.target.value); const hint=byId("person-document-kind"); if(hint) hint.textContent=kind==="PF"?"PF — Pessoa física":kind==="PJ"?"PJ — Pessoa jurídica":"Informe CPF para PF ou CNPJ para PJ."; });
+  byId("toggle-selected-person")?.addEventListener("click",()=>togglePersonRecord(Number(selectedPersonId)));
   const editSelectedPerson = byId("edit-selected-person");
   if (editSelectedPerson) editSelectedPerson.addEventListener("click", () => editPersonRecord(selectedPersonId || Number(document.querySelector("[data-select-person]")?.dataset.selectPerson || 0)));
   const printPeople = byId("print-people");
@@ -3784,8 +3797,10 @@ function bindCurrentModule() {
   }));
   document.querySelectorAll("[data-select-person]").forEach((row) => row.addEventListener("click", (event) => {
     if (event.target.closest("button")) return;
+    const listTop=document.querySelector(".people-catalog-scroll")?.scrollTop || 0;
     selectedPersonId = Number(row.dataset.selectPerson);
     renderShell();
+    const list=document.querySelector(".people-catalog-scroll"); if(list)list.scrollTop=listTop;
   }));
   document.querySelectorAll("[data-edit-person]").forEach((button) => button.addEventListener("click", () => editPersonRecord(Number(button.dataset.editPerson))));
   document.querySelectorAll("[data-toggle-person]").forEach((button) => button.addEventListener("click", () => togglePersonRecord(Number(button.dataset.togglePerson))));
@@ -4809,6 +4824,8 @@ function editPersonRecord(id) {
   selectedPersonId = id;
   pendingPersonDraft = structuredClone(person);
   renderShell();
+  document.querySelector(".people-edit-panel")?.scrollIntoView({block:"start",behavior:"smooth"});
+  byId("person-name")?.focus({preventScroll:true});
 }
 
 function togglePersonRecord(id) {
@@ -5979,8 +5996,8 @@ function printPeopleList() {
   const filter = ["Cliente", "Fornecedor", "Funcionario", "Parceiro"].includes(currentTab) ? currentTab : "";
   const rows = state.people.filter((person) => (!filter || person.type === filter) && (!query || [person.name, person.alias, person.document, person.city, person.phone].some((value) => String(value || "").toLowerCase().includes(query))));
   downloadText(`pessoas-${today()}.csv`, [
-    "Codigo;Tipo;Nome;Fantasia;CPF/CNPJ;Telefone;Cidade;UF;Status",
-    ...rows.map((person) => [person.id, person.type, person.name, person.alias || "", person.document || "", person.phone || "", person.city || "", person.uf || "", person.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
+    "Codigo;Tipo;Nome;Fantasia;Pessoa;CPF/CNPJ;Telefone;Cidade;UF;Status",
+    ...rows.map((person) => [person.id, person.type, person.name, person.alias || "", personDocumentKind(person.document), person.document || "", person.phone || "", person.city || "", person.uf || "", person.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
   ].join("\n"));
 }
 
