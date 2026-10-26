@@ -284,6 +284,7 @@ let selectedPersonId = 0;
 let selectedProductId = 0;
 let personSearch = "";
 let productSearch = "";
+let productStatusFilter = "all";
 let sessionId = sessionStorage.getItem("tortelaplus-session-id") || "";
 let heartbeatTimer = 0;
 let onlineNoticeTimer=0,onlineNoticeDismissed="",onlineNoticeInFlight=false;
@@ -1493,6 +1494,7 @@ function renderProducts() {
         </div>
         <span class="badge ${selectedProduct ? "ok" : "warn"}">${selectedProduct ? `Selecionado: ${selectedProduct.description}` : "Selecione para alterar"}</span>
       </div>
+      <div class="product-status-tabs" role="group" aria-label="Situação dos produtos">${[["all","Todos",state.products.length],["active","Ativos",activeProducts],["inactive","Inativos",state.products.length-activeProducts]].map(([key,label,count]) => `<button type="button" data-product-status="${key}" aria-pressed="${productStatusFilter===key}" class="${productStatusFilter===key?'selected':''}">${label} <strong>${count}</strong></button>`).join("")}</div>
       ${productsTable()}
     </div>
   `;
@@ -1535,6 +1537,15 @@ function renderProducts() {
         <span>${selectedProduct ? `Selecionado: ${selectedProduct.description}` : "Nenhum selecionado"}</span>
       </div>
 
+      <div class="desktop-action-bar erp-action-bar">
+        <button class="desktop-command primary" id="new-product" type="button"><span>+</span>F2 | Novo</button>
+        <button class="desktop-command" id="edit-selected-product" type="button"><span>=</span>F3 | Alterar</button>
+        <button class="desktop-command primary" id="label-selected-product" type="button"><span>B</span>Etiqueta</button>
+        <button class="desktop-command" id="print-products" type="button"><span>P</span>F4 | Imprimir</button>
+        <button class="desktop-command" id="refresh-products" type="button"><span>R</span>F5 | Atualizar</button>
+        <button class="desktop-command primary" id="save-product" type="button"><span>S</span>${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button>
+        <button class="desktop-command danger" id="close-products" type="button"><span>X</span>Fechar</button>
+      </div>
       <div class="desktop-work-area">
         <div class="desktop-summary-strip product-overview">
           <div><span>Total</span><strong>${state.products.length}</strong></div>
@@ -1558,15 +1569,7 @@ function renderProducts() {
           ${bodyHtml}
         </div>
       </div>
-      <div class="desktop-action-bar erp-action-bar">
-        <button class="desktop-command primary" id="new-product" type="button"><span>+</span>F2 | Novo</button>
-        <button class="desktop-command" id="edit-selected-product" type="button"><span>=</span>F3 | Alterar</button>
-        <button class="desktop-command primary" id="label-selected-product" type="button"><span>B</span>Etiqueta</button>
-        <button class="desktop-command" id="print-products" type="button"><span>P</span>F4 | Imprimir</button>
-        <button class="desktop-command" id="refresh-products" type="button"><span>R</span>F5 | Atualizar</button>
-        <button class="desktop-command primary" id="save-product" type="button"><span>S</span>${editingProductId ? "Salvar alteracao" : "Salvar novo"}</button>
-        <button class="desktop-command danger" id="close-products" type="button"><span>X</span>Fechar</button>
-      </div>
+
     </section>
   `;
 }
@@ -1670,8 +1673,7 @@ function productForm() {
   };
   return `
     <form class="form-card product-form-card" id="product-form">
-      <div class="product-form-section required">
-        <h4>Dados essenciais</h4>
+      <details class="product-form-section required" open><summary>Dados essenciais</summary><div class="product-section-content">
         <div class="grid four">
           <div class="field wide-field"><label>Descricao</label><input id="product-description" value="${escapeAttr(draft.description)}" required /></div>
           <div class="field"><label>Codigo de barras</label><input id="product-barcode" value="${escapeAttr(draft.barcode)}" /></div>
@@ -1679,10 +1681,9 @@ function productForm() {
           <div class="field"><label>Unidade estoque/compra</label><select id="product-unit">${["UN", "KG", "G", "LT", "ML", "CX", "HR"].map((item) => `<option ${draft.unit === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
           <div class="field"><label>Ativo</label><select id="product-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
         </div>
-      </div>
+      </div></details>
 
-      <div class="product-form-section">
-        <h4>Organizacao interna</h4>
+      <details class="product-form-section"><summary>Organizacao interna</summary><div class="product-section-content">
         <div class="grid four">
           <div class="field"><label>Marca</label><input id="product-brand" value="${escapeAttr(draft.brand)}" /></div>
           <div class="field"><label>Grupo</label><input id="product-group" value="${escapeAttr(draft.group)}" /></div>
@@ -1692,20 +1693,18 @@ function productForm() {
           <div class="field"><label>Embalagem</label><input id="product-packaging" value="${escapeAttr(draft.packaging)}" /></div>
           <div class="field"><label>Status fiscal</label><select id="product-fiscal-status">${["Conferir", "Homologado", "Pendente", "Bloqueado"].map((item) => `<option ${draft.fiscalStatus === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
         </div>
-      </div>
+      </div></details>
 
-      <div class="product-form-section required">
-        <h4>Preco e estoque</h4>
+      <details class="product-form-section required" open><summary>Preco e estoque</summary><div class="product-section-content">
         <div class="grid four">
           <div class="field"><label>Custo</label><input id="product-cost" type="number" step="0.01" value="${draft.cost}" /></div>
           <div class="field"><label>Venda</label><input id="product-price" type="number" step="0.01" value="${draft.price}" /></div>
           <div class="field"><label>Estoque atual</label><input id="product-stock" type="number" step="0.001" value="${draft.stock}" /></div>
           <div class="field"><label>Estoque minimo</label><input id="product-min" type="number" step="0.001" value="${draft.minStock}" /></div>
         </div>
-      </div>
+      </div></details>
 
-      <div class="product-form-section">
-        <h4>Como o produto funciona</h4>
+      <details class="product-form-section"><summary>Como o produto funciona</summary><div class="product-section-content">
         <div class="desktop-check-grid">
           ${productCheck("product-moves-stock", "Movimenta estoque", draft.movesStock !== false)}
           ${productCheck("product-allows-sale", "Permite venda", draft.allowsSale !== false)}
@@ -1723,20 +1722,18 @@ function productForm() {
           ${productCheck("product-kitchen-request", "Pedir na cozinha", draft.kitchenRequest)}
           ${productCheck("product-medicine", "Medicamento", draft.medicine)}
         </div>
-      </div>
+      </div></details>
 
-      <div class="product-form-section">
-        <h4>Totem, combos e adicionais</h4>
+      <details class="product-form-section"><summary>Totem, combos e adicionais</summary><div class="product-section-content">
         <div class="grid four">
           <label class="check-row desktop-check"><input id="product-has-coverage" type="checkbox" ${draft.hasCoverage || commaOptionList(draft.coverageOptions).length ? "checked" : ""} /> Possui cobertura</label>
           <div class="field wide-field"><label>Coberturas do produto</label><input id="product-coverage-options" value="${escapeAttr(commaOptionList(draft.coverageOptions).join(", "))}" placeholder="Chocolate ao leite, Morango" /></div>
           <div class="field wide-field"><label>Toppings/adicionais do totem</label><input id="product-topping-options" value="${escapeAttr(commaOptionList(draft.toppingOptions || draft.additionalOptions || draft.extrasOptions).join(", "))}" placeholder="Granulado, Chocoball" /></div>
           <span class="helper">Use virgula para separar opcoes. Combos usam a ficha tecnica da aba Composicao.</span>
         </div>
-      </div>
+      </div></details>
 
-      <div class="product-form-section">
-        <h4>Fiscal rapido</h4>
+      <details class="product-form-section"><summary>Fiscal rapido</summary><div class="product-section-content">
         <div class="grid four">
           <div class="field"><label>NCM</label><input id="product-ncm" value="${escapeAttr(draft.ncm)}" /></div>
           <div class="field"><label>CEST</label><input id="product-cest" value="${escapeAttr(draft.cest)}" /></div>
@@ -1747,10 +1744,9 @@ function productForm() {
           <div class="field"><label>Principio ativo</label><input id="product-active-principle" value="${escapeAttr(draft.activePrinciple)}" /></div>
         </div>
         <span class="helper">Aba Impostos mantem a conferencia fiscal completa para NF-e, NFC-e e reforma tributaria.</span>
-      </div>
+      </div></details>
 
-      <div class="product-form-section">
-        <h4>Foto, composicao e producao</h4>
+      <details class="product-form-section"><summary>Foto, composicao e producao</summary><div class="product-section-content">
         <div class="photo-uploader">
           <div class="photo-preview" id="product-photo-preview">${pendingProductPhoto ? `<img src="${pendingProductPhoto}" alt="Foto do produto" />` : "Sem foto"}</div>
           <div class="grid">
@@ -1759,7 +1755,7 @@ function productForm() {
             <p class="helper">Marque quando este cadastro for uma receita/produto produzido, como torta de limao, ou um kit. A ficha tecnica fica na aba Composicao.</p>
           </div>
         </div>
-      </div>
+      </div></details>
     </form>
   `;
 }
@@ -2118,12 +2114,12 @@ async function copyPublicTerminalToken() {
 
 function productsTable() {
   const query = productSearch.trim().toLowerCase();
-  const rows = state.products.filter((product) => !query || [product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query)));
+  const rows = state.products.filter((product) => (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
   return `
-    <div class="table-wrap erp-table">
+    <p class="helper" role="status">${rows.length} produto(s) encontrado(s). Clique em Editar para abrir o cadastro.</p><div class="table-wrap erp-table product-catalog-scroll" tabindex="0" aria-label="Lista de produtos com rolagem">
       <table>
         <thead><tr><th>Foto</th><th>Codigo</th><th>Referencia</th><th>Descricao</th><th>Tipo</th><th>NCM</th><th>Preco</th><th>Estoque</th><th>Fiscal</th><th>Status</th><th>Acoes</th></tr></thead>
-        <tbody>${rows.map((product) => `<tr class="${Number(selectedProductId) === Number(product.id) ? "selected-row" : ""}" data-select-product="${product.id}"><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.reference || product.sku || "-"}</td><td>${product.description}${product.ecommerceIntegration ? ` <span class="badge ok">Web</span>` : ""}${product.kitchenRequest ? ` <span class="badge warn">Cozinha</span>` : ""}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td><span class="badge ${product.fiscalStatus === "Homologado" ? "ok" : product.fiscalStatus === "Bloqueado" ? "danger" : "warn"}">${product.fiscalStatus || "Conferir"}</span></td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : product.stock <= product.minStock ? "Comprar" : "OK"}</span></td><td><button class="btn" data-edit-product="${product.id}">Editar</button> <button class="btn" data-label-product="${product.id}">Etiqueta</button> <button class="btn ${product.active === false ? "" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("")}</tbody>
+        <tbody>${rows.map((product) => `<tr class="${Number(selectedProductId) === Number(product.id) ? "selected-row" : ""}" data-select-product="${product.id}"><td>${product.photo ? `<img src="${product.photo}" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px" />` : "-"}</td><td>${product.id}</td><td>${product.reference || product.sku || "-"}</td><td>${product.description}${product.ecommerceIntegration ? ` <span class="badge ok">Web</span>` : ""}${product.kitchenRequest ? ` <span class="badge warn">Cozinha</span>` : ""}</td><td>${product.type}</td><td>${product.ncm}</td><td>${money(product.price)}</td><td>${product.stock}</td><td><span class="badge ${product.fiscalStatus === "Homologado" ? "ok" : product.fiscalStatus === "Bloqueado" ? "danger" : "warn"}">${product.fiscalStatus || "Conferir"}</span></td><td><span class="badge ${product.active === false ? "danger" : product.stock <= product.minStock ? "warn" : "ok"}">${product.active === false ? "Inativo" : "Ativo"}</span></td><td><button class="btn" data-edit-product="${product.id}">Editar</button> <button class="btn" data-label-product="${product.id}">Etiqueta</button> <button class="btn ${product.active === false ? "" : "danger"}" data-toggle-product="${product.id}">${product.active === false ? "Ativar" : "Inativar"}</button></td></tr>`).join("") || '<tr><td colspan="11">Nenhum produto encontrado neste filtro.</td></tr>'}</tbody>
       </table>
     </div>
   `;
@@ -3842,8 +3838,10 @@ function bindCurrentModule() {
   if (refreshProducts) refreshProducts.addEventListener("click", renderShell);
   const closeProducts = byId("close-products");
   if (closeProducts) closeProducts.addEventListener("click", () => { currentModule = "dashboard"; renderShell(); });
+  document.querySelectorAll("[data-product-status]").forEach(button => button.addEventListener("click", () => { captureProductDraft(); productSearch = byId("product-search")?.value || ""; productStatusFilter = button.dataset.productStatus; renderShell(); }));
+  byId("product-search")?.addEventListener("keydown", event => { if(event.key === "Enter") { event.preventDefault(); captureProductDraft(); productSearch=event.target.value; renderShell(); } });
   const filterProducts = byId("filter-products");
-  if (filterProducts) filterProducts.addEventListener("click", () => { productSearch = byId("product-search").value; renderShell(); });
+  if (filterProducts) filterProducts.addEventListener("click", () => { captureProductDraft(); productSearch = byId("product-search").value; renderShell(); });
   document.querySelectorAll("[data-select-product]").forEach((row) => row.addEventListener("click", (event) => {
     if (event.target.closest("button")) return;
     selectedProductId = Number(row.dataset.selectProduct);
@@ -5187,6 +5185,8 @@ function editProductRecord(id) {
   pendingProductPhoto = product.photo || "";
   currentTab = "dados";
   renderShell();
+  document.querySelector(".product-edit-panel")?.scrollIntoView({block:"start", behavior:"smooth"});
+  byId("product-description")?.focus({preventScroll:true});
 }
 
 function toggleProductRecord(id) {
