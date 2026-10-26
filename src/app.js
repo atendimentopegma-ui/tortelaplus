@@ -4379,10 +4379,9 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-remove-sale-item]").forEach((button) => {
     button.addEventListener("click", async () => {
       const item = saleItems[Number(button.dataset.removeSaleItem)];
-      const authorization = await authorizePdvOperation("remove_item", "Autorizar exclusao de item");
-      if (!authorization) return;
+      if (!item) return;
       saleItems=saleItems.filter(row=>item?.comboGroupId?row.comboGroupId!==item.comboGroupId:row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
-      audit("Item removido do PDV", `${item?.description || "Item"} autorizado por ${authorization.authorizedBy}`);
+      audit("Item removido do PDV", `${item.description || "Item"} removido da venda em andamento por ${state.settings.user}`);
       save();
       renderShell();
     });
