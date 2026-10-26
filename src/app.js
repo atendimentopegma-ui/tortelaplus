@@ -1057,7 +1057,6 @@ function renderLicenseGate() {
 function renderShell() {
   applyInternalRoute();
   ensureAllowedModule();
-  ensureAutomaticStockOrder();
   const tenant = getCurrentTenant();
   const license = licenseStatus(tenant);
   const modules = visibleModules();
@@ -1128,7 +1127,7 @@ function renderModule() {
 }
 
 function renderDashboard() {
-  const lowStock = state.products.filter((product) => product.stock <= product.minStock);
+  const lowStock = state.products.filter((product) => product.active !== false && product.movesStock !== false && product.type !== "Servico" && Number(product.minStock || 0) > 0 && Number(product.stock || 0) < Number(product.minStock));
   const payables = state.payables.filter((item) => !item.paid && !item.cancelled).reduce((sum, item) => sum + financeBalance(item), 0);
   const receivables = state.receivables.filter((item) => !item.paid && !item.cancelled).reduce((sum, item) => sum + financeBalance(item), 0);
   const sales = state.sales.reduce((sum, sale) => sum + sale.total, 0);
@@ -1182,7 +1181,7 @@ function renderDashboard() {
           <div class="panel-head">
             <div>
               <h3>Comprar da Central</h3>
-              <p>Produtos abaixo do estoque minimo entram na sugestao semanal.</p>
+              <p>Reposição automática de produtos ativos abaixo do mínimo configurado. O pedido é enviado à Central ao sincronizar o estoque.</p>
             </div>
             <span class="badge ${lowStock.length ? "warn" : "ok"}">${lowStock.length ? `${lowStock.length} item(ns)` : "Sem necessidade"}</span>
           </div>
@@ -1190,11 +1189,11 @@ function renderDashboard() {
           ${lowStock.length ? `
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Produto</th><th>Atual</th><th>Minimo</th><th>Sugerido</th><th>Unidade</th></tr></thead>
+                <thead><tr><th>Produto</th><th>Atual</th><th>Minimo</th><th>Necessidade</th><th>Unidade</th></tr></thead>
                 <tbody>${lowStock.map((product) => `<tr><td>${product.description}</td><td>${formatQty(product.stock)}</td><td>${formatQty(product.minStock)}</td><td>${formatQty(Math.max(product.minStock - product.stock, 1))}</td><td>${product.unit}</td></tr>`).join("")}</tbody>
               </table>
             </div>
-          ` : `<div class="empty">Nenhum item abaixo do estoque minimo.</div>`}
+          ` : `<div class="empty">Nenhum produto ativo abaixo do estoque mínimo configurado.</div>`}
           </div>
         </section>
 
@@ -1252,43 +1251,6 @@ function stockOrderWeekKey(date = new Date()) {
   const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
   const week = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
   return `${target.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
-}
-
-function ensureAutomaticStockOrder() {
-  const items = state.products
-    .filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0))
-    .map((product) => ({
-      productId: product.id,
-      description: product.description,
-      currentStock: Number(product.stock || 0),
-      minStock: Number(product.minStock || 0),
-      suggestedQty: Math.max(Number(product.minStock || 0) - Number(product.stock || 0), 1),
-      unit: product.unit,
-      cost: Number(product.cost || 0)
-    }));
-
-  if (!items.length) return;
-
-  state.automaticOrders = state.automaticOrders || [];
-  const weekKey = stockOrderWeekKey();
-  const alreadySent = state.automaticOrders.some((order) => order.weekKey === weekKey && order.origin === "Estoque minimo semanal");
-  if (alreadySent) return;
-
-  state.automaticOrders.unshift({
-    id: nextId(state.automaticOrders),
-    date: today(),
-    createdAt: new Date().toISOString(),
-    status: "Enviado",
-    origin: "Estoque minimo semanal",
-    requestedBy: "Sistema automatico",
-    weekKey,
-    totalItems: items.length,
-    estimatedCost: items.reduce((sum, item) => sum + item.suggestedQty * item.cost, 0),
-    items
-  });
-
-  audit("Pedido automatico semanal para Central Tortela", `${items.length} itens abaixo do minimo`);
-  save();
 }
 
 function renderPeople() {

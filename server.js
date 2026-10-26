@@ -1,3 +1,4 @@
+const stockReplenishment = require("./src/server/stock-replenishment");
 const deliveryArea = require("./src/server/delivery-area");
 const deliveryGeocoder = deliveryArea.createGeocoder();
 const a1Certificate = require("./src/server/a1-certificate");
@@ -410,6 +411,7 @@ function writeTenantState(tenantCode, state, allowTerminalSettings = false, allo
     revision: Number(current._meta?.revision || 0) + 1,
     updatedAt: new Date().toISOString()
   };
+  if (!allowDataReset) stockReplenishment.replenish(normalized);
   createDailyTenantBackup(code, current);
   if (postgresStore) {
     tenantCache.set(code, structuredClone(normalized));
@@ -2878,7 +2880,7 @@ async function handleApi(req, res, urlPath) {
           authorizedAt: person.whatsappGroupConsent?.answeredAt || person.nearestStoreSelectedAt || person.registeredAt || ""
         }));
       const products = (tenantState.products || []).filter((product) => product.active !== false);
-      const lowStock = products.filter((product) => Number(product.stock || 0) <= Number(product.minStock || 0));
+      const lowStock = products.filter(stockReplenishment.eligible);
       const salesTotal = sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
       const averageTicket = sales.length ? moneyRound(salesTotal / sales.length) : 0;
       const fiscalAuthorized = fiscalRows.filter((row) => row.status === "Autorizada").length;
