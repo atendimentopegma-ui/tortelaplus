@@ -7439,3 +7439,5 @@ input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0
 .pdv-preparation-footer .btn { min-height:38px; padding:8px 14px; }
 @media(min-width:760px) { .pdv-preparation-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media(max-width:500px) { .pdv-preparation-dialog .pdv-preparation-option { min-height:42px; } .pdv-preparation-footer { flex-wrap:wrap; } .pdv-preparation-header,.pdv-preparation-body,.pdv-preparation-footer { padding:10px 12px; } }
+.products-screen .product-link-shortcut { display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.products-screen .product-link-shortcut .helper { line-height:1.5; }

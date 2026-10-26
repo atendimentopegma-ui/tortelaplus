@@ -1687,7 +1687,10 @@ function productForm() {
           <div class="field"><label>Unidade estoque/compra</label><select id="product-unit">${["UN", "KG", "G", "LT", "ML", "CX", "HR"].map((item) => `<option ${draft.unit === item ? "selected" : ""}>${item}</option>`).join("")}</select></div>
           <div class="field"><label>Ativo</label><select id="product-active"><option value="true">Sim</option><option value="false" ${draft.active === false ? "selected" : ""}>Nao</option></select></div>
         </div>
+        <div class="product-link-shortcut"><button class="btn primary" id="open-product-link" type="button" aria-controls="product-automatic-link">Vincular outro produto</button><span class="helper">${draft.automaticSaleProductId?`Vinculado: ${escapeHtml(state.products.find(p=>Number(p.id)===Number(draft.automaticSaleProductId))?.description || 'Produto indisponível')} · ${Number(draft.automaticSaleQty||1)} por Tortela`:'Inclua automaticamente um bombom, bolacha ou outro item junto com esta Tortela.'}</span></div>
       </div></details>
+
+      <details class="product-form-section" id="product-automatic-link"><summary>Item automático na venda (PDV)</summary><div class="product-section-content"><p class="helper">Ao vender esta Tortela, o item vinculado entra junto, com seu próprio preço e baixa de estoque. Ex.: Tortela Kinder + bombom Kinder, Ferrero + bombom ou Oreo + bolacha. Escolha Nenhum para desfazer o vínculo e depois salve o cadastro.</p><div class="grid four"><div class="field wide-field"><label>Produto incluído automaticamente</label><select id="product-auto-sale-item"><option value="">Nenhum</option>${state.products.filter(p=>p.active!==false&&Number(p.id)!==Number(editingProductId)&&!ItemPreparation.isTortela(p)).map(p=>`<option value="${p.id}" ${Number(draft.automaticSaleProductId)===Number(p.id)?'selected':''}>${escapeHtml(p.description)}</option>`).join('')}</select></div><div class="field"><label>Quantidade por Tortela</label><input id="product-auto-sale-qty" type="number" min="0.001" step="0.001" value="${Number(draft.automaticSaleQty||1)}" /></div></div></div></details>
 
       <details class="product-form-section"><summary>Organizacao interna</summary><div class="product-section-content">
         <div class="grid four">
@@ -1739,7 +1742,7 @@ function productForm() {
         </div>
       </div></details>
 
-      <details class="product-form-section"><summary>Item automático na venda (PDV)</summary><div class="product-section-content"><p class="helper">Ao vender esta Tortela, o item vinculado entra junto, com seu próprio preço e baixa de estoque. Ex.: Tortela Kinder + bombom Kinder.</p><div class="grid four"><div class="field wide-field"><label>Produto incluído automaticamente</label><select id="product-auto-sale-item"><option value="">Nenhum</option>${state.products.filter(p=>p.active!==false&&Number(p.id)!==Number(editingProductId)&&!ItemPreparation.isTortela(p)).map(p=>`<option value="${p.id}" ${Number(draft.automaticSaleProductId)===Number(p.id)?'selected':''}>${escapeHtml(p.description)}</option>`).join('')}</select></div><div class="field"><label>Quantidade por Tortela</label><input id="product-auto-sale-qty" type="number" min="0.001" step="0.001" value="${Number(draft.automaticSaleQty||1)}" /></div></div></div></details>
+
 
       <details class="product-form-section"><summary>Fiscal rapido</summary><div class="product-section-content">
         <div class="grid four">
@@ -3851,6 +3854,7 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-edit-person]").forEach((button) => button.addEventListener("click", () => editPersonRecord(Number(button.dataset.editPerson))));
   document.querySelectorAll("[data-toggle-person]").forEach((button) => button.addEventListener("click", () => togglePersonRecord(Number(button.dataset.togglePerson))));
 
+  byId("open-product-link")?.addEventListener("click",()=>{const section=byId("product-automatic-link");if(section){section.open=true;section.scrollIntoView({block:"center",behavior:"smooth"});byId("product-auto-sale-item")?.focus({preventScroll:true});}});
   const saveProduct = byId("save-product");
   if (saveProduct) saveProduct.addEventListener("click", saveProductRecord);
   bindComboBuilder();
