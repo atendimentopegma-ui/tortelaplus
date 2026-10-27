@@ -93,11 +93,19 @@ function brandMarkup() {
 }
 
 async function api(path, options = {}) {
+  const requestSession=sessionId;
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-  if (sessionId) headers.Authorization = `Bearer ${sessionId}`;
+  if (requestSession) headers.Authorization = `Bearer ${requestSession}`;
   const response = await fetch(path, { ...options, headers });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
+  if (!response.ok) {
+    const error=new Error(payload.error || `Erro ${response.status}`);error.status=response.status;
+    if(response.status===401&&requestSession&&requestSession===sessionId&&!path.startsWith('/api/provider/auth/')){
+      sessionId='';summary=null;sessionStorage.removeItem('tortela-central-session');sessionStorage.removeItem('tortela-rede-session');
+      renderLogin('Sua sessão expirou. Entre novamente para continuar de onde parou.');
+    }
+    throw error;
+  }
   return payload;
 }
 
@@ -132,7 +140,7 @@ function normalizeSummary(payload = {}) {
   };
 }
 
-function renderLogin() {
+function renderLogin(message = "") {
   byId("app").innerHTML = `
     <main class="login-shell tortela-login-shell">
       <section class="login-card">
@@ -142,6 +150,7 @@ function renderLogin() {
         </div>
         <form class="login-panel" id="network-login">
           <h2>Acesso da administracao</h2>
+          ${message?`<p class="helper" role="status">${escapeHtml(message)}</p>`:""}
           <div class="field"><label>Usuario</label><input id="network-user" autocomplete="username" required /></div>
           <div class="field"><label>Senha</label><input id="network-password" type="password" autocomplete="current-password" required /></div>
           <button class="btn primary" type="submit">Entrar</button>
@@ -172,11 +181,11 @@ async function boot() {
   try {
     summary = normalizeSummary(await api("/api/network/summary"));
     render();
-  } catch {
-    sessionId = "";
-    sessionStorage.removeItem("tortela-central-session");
-    sessionStorage.removeItem("tortela-rede-session");
-    renderLogin();
+  } catch (error) {
+    if(error.status===401||!sessionId)return renderLogin('Sua sessão expirou. Entre novamente para continuar de onde parou.');
+    if(summary){render();alert('Não foi possível atualizar a Central. '+error.message);return;}
+    byId('app').innerHTML=`<main class="login-shell"><section class="network-card"><h2>Não foi possível carregar a Central</h2><p role="status">${escapeHtml(error.message)}</p><button class="btn primary" id="retry-central">Tentar novamente</button></section></main>`;
+    byId('retry-central').onclick=boot;
   }
 }
 
@@ -500,7 +509,7 @@ function renderRoyalties() {
 
 function renderCustomers(){
  const tabs=`<div class="network-actions"><button class="btn ${customerCrmView==='sales'?'primary':''}" data-customer-view="sales" type="button">Vendas por cliente</button><button class="btn ${customerCrmView==='campaigns'?'primary':''}" data-customer-view="campaigns" type="button">Campanhas e WhatsApp</button></div>`;
- return tabs+(customerCrmView==='sales'?`<div class="network-module"><section class="network-card" id="customer-sales-panel"></section></div>`:renderCustomerCampaigns());
+ return tabs+(customerCrmView==='sales'?`<div class="network-module"><section class="network-card" id="customer-sales-panel"><p role="status">Carregando vendas por cliente…</p></section></div>`:renderCustomerCampaigns());
 }
 function renderCustomerCampaigns() {
   const consumptionRows = summary.customerConsumption || [];
@@ -510,14 +519,14 @@ function renderCustomerCampaigns() {
   const whatsappQueue = summary.whatsappGroupQueue || [];
   return `<div class="network-module compact">
     ${moduleTitle("CRM da rede", "Consumo por unidade, retorno de compra e lista de clientes sem compra ha 30 dias ou mais.")}
-    <section class="network-card" id="customer-campaign-panel"></section>
+    <section class="network-card" id="customer-campaign-panel"><p role="status">Carregando campanhas e conexão oficial da Meta…</p></section>
     <div class="network-grid three">
       ${kpi("Clientes com compra", amount(consumptionRows.length))}
       ${kpi("Sem comprar 30+ dias", amount(inactiveRows.length))}
       ${kpi("Autorizados no grupo", amount(whatsappLeads.length))}
     </div>
     <section class="network-card">
-      <h2>Conta WhatsApp da Central</h2>
+      <h2>Integração de grupos WhatsApp da Central</h2><p>Dados existentes para entrada em grupos e integração Genérico/W-API. A conexão oficial da Meta para campanhas fica no painel de campanhas acima.</p>
       <form class="network-form" id="whatsapp-settings-form">
         <div class="field"><label>Nome da conta</label><input id="whatsapp-account-name" value="${escapeAttr(whatsapp.accountName || "Central Tortela")}" /></div>
         <div class="field"><label>Numero WhatsApp oficial</label><input id="whatsapp-phone" value="${escapeAttr(whatsapp.phone || "")}" placeholder="55 11 99999-9999" /></div>
