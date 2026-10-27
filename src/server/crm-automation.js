@@ -24,7 +24,12 @@ function plan(rules,states,unitNames,existing=[],now=new Date()){
  }}
  }return planned;
 }
-function payload(campaign,recipient){const c=recipient.coupon;return {messaging_product:'whatsapp',to:recipient.phone,type:'template',template:{name:campaign.template,language:{code:campaign.language},components:[{type:'body',parameters:[recipient.name,recipient.couponCode,recipient.sources.map(s=>s.unit).join(', '),c.type==='percent'?c.value+'%':Number(c.value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),c.validTo.split('-').reverse().join('/')].map(text=>({type:'text',text:String(text)}))}]}};}
+function payload(campaign,recipient){
+ const c=recipient.coupon,units=recipient.sources.map(s=>s.unit).join(', '),values=campaign.automatic?[recipient.name,recipient.couponCode,units,c.type==='percent'?c.value+'%':Number(c.value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}),c.validTo.split('-').reverse().join('/')]:
+ (campaign.parameters||[]).map(text=>String(text).replaceAll('{nome}',recipient.name).replaceAll('{unidade}',units).replaceAll('{mensagem}',campaign.message||''));
+ if(values.some(text=>!text||text.length>1024))throw Error('Parâmetro de mensagem vazio ou com mais de 1024 caracteres.');
+ return {messaging_product:'whatsapp',to:recipient.phone,type:'template',template:{name:campaign.template,language:{code:campaign.language||'pt_BR'},...(values.length?{components:[{type:'body',parameters:values.map(text=>({type:'text',text:String(text)}))}]}:{})}};
+}
 async function send(config,token,campaign,recipient,fetcher=fetch){
  const response=await fetcher(`https://graph.facebook.com/${config.version}/${config.phoneId}/messages`,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(payload(campaign,recipient)),signal:AbortSignal.timeout(20000)});const data=await response.json();
  if(!response.ok)return {status:response.status>=500?'Incerto':'Erro',error:'Meta recusou a mensagem (código '+String(data.error?.code||response.status)+').'};
