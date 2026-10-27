@@ -1,5 +1,6 @@
 let sessionId = sessionStorage.getItem("tortela-central-session") || sessionStorage.getItem("tortela-rede-session") || "";
 let summary = null;
+let customerCrmView = "sales";
 let currentModule = sessionStorage.getItem("tortela-central-module") || "overview";
 
 const modules = [
@@ -13,7 +14,7 @@ const modules = [
   ["orders", "Pedidos", "Automaticos"],
   ["promotions", "Promocoes", "Rede ou unidades"],
   ["royalties", "Royalties", "Propaganda e taxas"],
-  ["customers", "CRM", "Consumo e campanhas"],
+  ["customers", "CRM", "Vendas por cliente"],
   ["finance", "Financeiro", "Contas e repasses"],
   ["permissions", "Permissoes", "Acesso das lojas"],
   ["fiscal", "Fiscal", "NF-e, NFC-e e cancelamentos"],
@@ -497,7 +498,11 @@ function renderRoyalties() {
   </div>`;
 }
 
-function renderCustomers() {
+function renderCustomers(){
+ const tabs=`<div class="network-actions"><button class="btn ${customerCrmView==='sales'?'primary':''}" data-customer-view="sales" type="button">Vendas por cliente</button><button class="btn ${customerCrmView==='campaigns'?'primary':''}" data-customer-view="campaigns" type="button">Campanhas e WhatsApp</button></div>`;
+ return tabs+(customerCrmView==='sales'?`<div class="network-module"><section class="network-card" id="customer-sales-panel"></section></div>`:renderCustomerCampaigns());
+}
+function renderCustomerCampaigns() {
   const consumptionRows = summary.customerConsumption || [];
   const inactiveRows = summary.inactiveCustomers || [];
   const whatsapp = summary.whatsapp || {};
@@ -804,6 +809,8 @@ function renderReports() {
 }
 
 function bindRender() {
+  document.querySelectorAll('[data-customer-view]').forEach(button=>button.onclick=()=>{customerCrmView=button.dataset.customerView;render();});
+  if(byId('customer-sales-panel'))CustomerSalesPanel.mount(byId('customer-sales-panel'),api).catch(error=>{const panel=byId('customer-sales-panel');if(panel)panel.textContent=error.message;});
   if(byId("customer-campaign-panel"))CustomerCampaignPanel.mount(byId("customer-campaign-panel"),api).catch(error=>{const panel=byId("customer-campaign-panel");if(panel)panel.textContent=error.message;});
   if(byId("network-sales-reports")&&window.CashReportsPanel)window.CashReportsPanel.mount(byId("network-sales-reports"),{api,network:true});
   if(window.CentralAdministration)window.CentralAdministration.bind({api,onFranchiseSaved:async()=>{summary=normalizeSummary(await api("/api/network/summary"));}});
