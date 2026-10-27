@@ -509,7 +509,7 @@ function renderRoyalties() {
 
 function renderCustomers(){
  const tabs=`<div class="network-actions"><button class="btn ${customerCrmView==='sales'?'primary':''}" data-customer-view="sales" type="button">Vendas por cliente</button><button class="btn ${customerCrmView==='campaigns'?'primary':''}" data-customer-view="campaigns" type="button">Campanhas e WhatsApp</button></div>`;
- return tabs+(customerCrmView==='sales'?`<div class="network-module"><section class="network-card" id="customer-sales-panel"><p role="status">Carregando vendas por cliente…</p></section></div>`:renderCustomerCampaigns());
+ return tabs+(customerCrmView==='sales'?`<div class="network-module network-module-flow"><section class="network-card" id="customer-sales-panel"><p role="status">Carregando vendas por cliente…</p></section></div>`:renderCustomerCampaigns());
 }
 function renderCustomerCampaigns() {
   const consumptionRows = summary.customerConsumption || [];
@@ -517,7 +517,7 @@ function renderCustomerCampaigns() {
   const whatsapp = summary.whatsapp || {};
   const whatsappLeads = summary.whatsappGroupLeads || [];
   const whatsappQueue = summary.whatsappGroupQueue || [];
-  return `<div class="network-module compact">
+  return `<div class="network-module compact network-module-flow">
     ${moduleTitle("CRM da rede", "Consumo por unidade, retorno de compra e lista de clientes sem compra ha 30 dias ou mais.")}
     <section class="network-card" id="customer-campaign-panel"><p role="status">Carregando campanhas e conexão oficial da Meta…</p></section>
     <div class="network-grid three">
