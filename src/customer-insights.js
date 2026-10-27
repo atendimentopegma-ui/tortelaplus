@@ -12,10 +12,18 @@
    groups.get(String(person.id)).push({date,net});
   }
   const result=new Map();for(const p of people){const all=groups.get(String(p.id)).sort((a,b)=>a.date-b.date),period=all.filter(x=>x.date>=start),total=period.reduce((n,x)=>n+x.net,0),last=all.at(-1)?.date;
-   result.set(String(p.id),{count:period.length,total,ticket:period.length?total/period.length:0,last:last===undefined?'':new Date(last).toISOString().slice(0,10),daysSince:last===undefined?null:Math.floor((now-last)/86400000),lifetimeCount:all.length,interval:all.length>1?Math.round((all.at(-1).date-all[0].date)/86400000/(all.length-1)):null,frequency:period.length>=2?'Recorrente':period.length===1?'Uma compra':all.length?'Sem compra no período':'Nunca comprou'});
+   result.set(String(p.id),{count:period.length,total,ticket:period.length?total/period.length:0,last:last===undefined?'':new Date(last).toISOString().slice(0,10),daysSince:last===undefined?null:Math.floor((now-last)/86400000),first:all.length?new Date(all[0].date).toISOString().slice(0,10):'',lifetimeTotal:all.reduce((n,x)=>n+x.net,0),lifetimeTicket:all.length?all.reduce((n,x)=>n+x.net,0)/all.length:0,lifetimeCount:all.length,interval:all.length>1?Math.round((all.at(-1).date-all[0].date)/86400000/(all.length-1)):null,frequency:period.length>=2?'Recorrente':period.length===1?'Uma compra':all.length?'Sem compra no período':'Nunca comprou'});
   }return result;
+ }
+ function classification(metric,person={}){
+  if(person.active===false)return {label:'Inativo',tone:'inactive'};
+  if(!metric.lifetimeCount)return {label:'Sem compras',tone:'neutral'};
+  if(metric.daysSince>60)return {label:'Sem voltar há 60+ dias',tone:'risk'};
+  if(metric.daysSince>30)return {label:'Atenção ao retorno',tone:'attention'};
+  if(metric.lifetimeCount===1)return {label:'Novo cliente',tone:'new'};
+  return {label:'Recorrente',tone:'loyal'};
  }
  function matches(metric,filter){return filter==='all'||filter==='recurring'&&metric.count>=2||filter==='one'&&metric.count===1||filter==='none'&&metric.count===0||filter==='never'&&metric.lifetimeCount===0||filter==='dormant'&&metric.lifetimeCount>0&&metric.count===0;}
  function phone(person){let n=String(person.whatsapp||person.phone||'').replace(/\D/g,'');if(n.length===10||n.length===11)n='55'+n;return /^55\d{10,11}$/.test(n)?n:'';}
- return {build,matches,phone,normalize};
+ return {build,matches,phone,normalize,classification};
 });

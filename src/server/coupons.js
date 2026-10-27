@@ -34,8 +34,8 @@ function applySales(current,incoming,now=new Date()){
   const subtotal=round((sale.items||[]).reduce((sum,i)=>sum+Number(i.qty)*Number(i.price),0)),manual=Number(sale.manualDiscount||0);
   if(!Number.isFinite(manual)||manual<0||manual>subtotal)throw Error('Desconto manual inválido para aplicar o cupom.');
   const result=preview(current,{code:sale.couponCode,customerDocument:sale.customerDocument||sale.clubCpf,base:subtotal-manual},now,ledger);
-  if(Math.abs(result.discount-Number(sale.couponDiscount||0))>.009||Math.abs(manual+result.discount-Number(sale.discount||0))>.009)throw Error('Desconto do cupom divergente. Aplique o cupom novamente.');
-  const expected=round(Math.max(0,subtotal-manual-result.discount+Number(sale.addition||0)-Number(sale.exchangeCredit||0)));
+  if(Math.abs(result.discount-Number(sale.couponDiscount||0))>.009||Math.abs(manual+result.discount+Number(sale.loyaltyDiscount||0)-Number(sale.discount||0))>.009)throw Error('Desconto do cupom divergente. Aplique o cupom novamente.');
+  const expected=round(Math.max(0,subtotal-manual-result.discount-Number(sale.loyaltyDiscount||0)+Number(sale.addition||0)-Number(sale.exchangeCredit||0)));
   if(Math.abs(expected-Number(sale.total))>.009)throw Error('Total da venda divergente do cupom.');
   ledger.push({code:result.code,saleId:sale.id,customerDocument:doc(sale.customerDocument||sale.clubCpf),discount:result.discount,usedAt:now.toISOString()});
  }return ledger;

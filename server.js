@@ -1,3 +1,4 @@
+const loyaltyService = require('./src/server/loyalty');
 const couponService = require("./src/server/coupons");
 const stockReplenishment = require("./src/server/stock-replenishment");
 const deliveryArea = require("./src/server/delivery-area");
@@ -395,6 +396,7 @@ function readTenantState(tenantCode) {
   return withTenantStateDefaults(state, code);
 }
 
+function loyaltyStates(){return Object.fromEntries((readProvider().clients||[]).map(c=>[normalizeTenantCode(c.tenantCode),readTenantState(c.tenantCode)]));}
 function writeTenantState(tenantCode, state, allowTerminalSettings = false, allowDataReset = false, allowCouponSettings = false) {
   const code = normalizeTenantCode(tenantCode);
   const current = readTenantState(code);
@@ -405,6 +407,7 @@ function writeTenantState(tenantCode, state, allowTerminalSettings = false, allo
     users: (stripped.users || current.users || initialTenantState.users).map(user => ({...user, passwordHash: user.passwordHash || current.users.find(existing => existing.id === user.id)?.passwordHash}))
   }, code);
   if (!allowCouponSettings) normalized.coupons=structuredClone(current.coupons||[]);
+  normalized.loyaltyLedger=allowDataReset?structuredClone(current.loyaltyLedger||[]):loyaltyService.apply(current,normalized,loyaltyStates(),code,readProvider().loyalty);
   normalized.couponRedemptions=allowDataReset?structuredClone(current.couponRedemptions||[]):couponService.applySales(current,normalized);
   if (!allowTerminalSettings) normalized.settings.pdvTerminals = structuredClone(current.settings.pdvTerminals || []);
   normalized._meta = {
@@ -3331,6 +3334,26 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if(urlPath==='/api/network/loyalty'&&['GET','POST'].includes(req.method)){
+    const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessão da Central obrigatória.'});
+    if(!permissionsFor(access).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});
+    const provider=readProvider();
+    if(req.method==='POST'){const body=await readBody(req);if(!['unit','network'].includes(body.scope))return sendJson(res,422,{error:'Selecione loja ou rede.'});
+      if(provider.loyalty?.scope&&(provider.loyalty.scope!==body.scope||(provider.loyalty.unitCode||'')!==(body.scope==='unit'?normalizeTenantCode(body.unitCode):''))&&Object.values(loyaltyStates()).some(s=>(s.loyaltyLedger||[]).length))return sendJson(res,422,{error:'Já existem movimentos de pontos. A abrangência não pode mudar sem transferir os saldos; preserve a configuração atual.'});
+      if(body.scope==='unit'&&!findTenant(provider,body.unitCode))return sendJson(res,422,{error:'Selecione uma loja cadastrada.'});
+      provider.loyalty={unitCode:body.scope==='unit'?normalizeTenantCode(body.unitCode):'',enabled:body.enabled===true,scope:body.scope,pointsPerReal:1,pointsPerReward:100,rewardValue:2};writeProvider(provider);appendProviderAudit('Fidelidade configurada',JSON.stringify(provider.loyalty),access.username,requestIp(req));
+    }return sendJson(res,200,{ok:true,config:provider.loyalty||{enabled:false,scope:'unit',pointsPerReal:1,pointsPerReward:100,rewardValue:2}});
+  }
+  const loyaltyMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/loyalty(?:\/(preview))?$/);
+  if(loyaltyMatch&&['GET','POST'].includes(req.method)){
+    const unit=normalizeTenantCode(loyaltyMatch[1]),provider=readProvider(),access=tenantAccessOrProvider(req,provider,unit,loyaltyMatch[2]?'pdv':'people');if(access.error)return deny(res,access);
+    if(access.session.provider&&!permissionsFor(providerAccess(req)).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});
+    const config=provider.loyalty||{enabled:false,scope:'unit'},states=loyaltyStates();
+    if(req.method==='GET')return sendJson(res,200,{ok:true,config,accounts:(readTenantState(unit).people||[]).filter(p=>p.type==='Cliente').map(p=>({id:p.id,name:p.name,document:p.document,...loyaltyService.balance(states,p.document,unit,config)}))});
+    if(!loyaltyMatch[2])return sendJson(res,405,{error:'Operação inválida.'});
+    try{return sendJson(res,200,{ok:true,...loyaltyService.preview(states,unit,config,await readBody(req))});}catch(error){return sendJson(res,422,{error:error.message});}
+  }
+
   const couponsMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/coupons(?:\/(preview|toggle|edit))?$/);
   if(couponsMatch && ["GET","POST"].includes(req.method)){
     const tenantCode=normalizeTenantCode(couponsMatch[1]),action=couponsMatch[2]||'',provider=readProvider(),access=tenantAccessOrProvider(req,provider,tenantCode,action==='preview'?'pdv':'people');if(access.error)return deny(res,access);
@@ -3375,7 +3398,7 @@ async function handleApi(req, res, urlPath) {
       for(const person of people)rows.push({id:String(person.id),unitCode:unit.code,unit:unit.name,name:person.name,document:person.document||"",city:person.city||"",district:person.district||"",uf:person.uf||"",active:person.active!==false,phone:insights.phone(person),metrics:metrics.get(String(person.id))});
     }
     const consumed=new Map();for(const row of rows){if(row.metrics.lifetimeCount>0){const key=String(row.document).replace(/[^a-z0-9]/gi,"").toUpperCase()||row.unitCode+":"+row.id;if(!consumed.has(key))consumed.set(key,new Set());consumed.get(key).add(row.unit);}}
-    return sendJson(res,200,{ok:true,days,units,rows:rows.map(row=>({...row,consumesAt:[...(consumed.get(String(row.document).replace(/[^a-z0-9]/gi,"").toUpperCase()||row.unitCode+":"+row.id)||[])]}))});
+    return sendJson(res,200,{ok:true,days,units,rows:rows.map(row=>({...row,loyalty:loyaltyService.balance(loyaltyStates(),row.document,row.unitCode,readProvider().loyalty||{scope:'unit'}),consumesAt:[...(consumed.get(String(row.document).replace(/[^a-z0-9]/gi,"").toUpperCase()||row.unitCode+":"+row.id)||[])]}))});
   }
 
   if (urlPath === "/api/network/franchisees" && req.method === "GET") {
@@ -3533,7 +3556,7 @@ async function handleApi(req, res, urlPath) {
         licensePassword: existing?.licensePassword || client.licensePassword || "PEGMA-2026"
       };
     });
-    writeProvider({ ...incoming, companyProfile: current.companyProfile, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
+    writeProvider({ ...incoming, loyalty:current.loyalty, companyProfile: current.companyProfile, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
     appendProviderAudit("Central atualizada", "Configuracoes gerais alteradas", providerAccess(req).username, requestIp(req));
     sendJson(res, 200, { ok: true });
     return;
@@ -3821,7 +3844,7 @@ async function handleApi(req, res, urlPath) {
     catch(error){return sendJson(res,422,{error:error.message});}
     try { assertPdvCashWrite(currentState,incoming); }
     catch(error){return sendJson(res,423,{ok:false,error:error.message});}
-    try { couponService.applySales(currentState,incoming); }
+    try { loyaltyService.apply(currentState,incoming,loyaltyStates(),tenantCode,readProvider().loyalty); couponService.applySales(currentState,incoming); }
     catch(error){return sendJson(res,422,{ok:false,code:"COUPON_INVALID",error:error.message,state:publicTenantState(currentState)});}
     incoming.users = currentState.users;
     writeTenantState(tenantCode, incoming);
