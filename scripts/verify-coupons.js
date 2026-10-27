@@ -11,5 +11,14 @@ await api(root+'/coupons',{...definition,validFrom:businessDay(),validTo:'2099-1
 await api(root+'/coupons/preview',{code:'TORTELA10',customerDocument:'12345678900',base:25},422);assert.equal((await api(root+'/coupons')).coupons[0].uses,0);
 let tenant=(await api(root+'/state')).state;const payload=t=>{const{users,coupons,couponRedemptions,...rest}=t;return {state:rest,baseRevision:t._meta.revision};};tenant.sales.push({...sale,date:businessDay(),cashRegisterOpenedAt:tenant.cashRegister.openedAt,change:0,payments:[{method:'PIX',value:22.5}]});await api(root+'/state',payload(tenant));assert.equal((await api(root+'/coupons')).coupons[0].uses,1);
 tenant=(await api(root+'/state')).state;tenant.sales.push({...tenant.sales[0],id:2});const rejected=await api(root+'/state',payload(tenant),422);assert.equal(rejected.code,'COUPON_INVALID');assert.equal((await api(root+'/state')).state.sales.length,1);await api(root+'/coupons/preview',{code:'TORTELA10',customerDocument:'52998224725',base:25},422);
-console.log('OK cupons: percentual/fixo, validade, cliente autorizado, limites global/individual, consumo somente na conclusão, repetição idempotente e recusa sem gravar segunda venda. Banco temporário isolado.');
+const editBody={...definition,type:'fixed',value:5,validFrom:businessDay(),validTo:'2099-12-31',maxUses:3,audience:'all'};
+await api(root+'/coupons/edit',{...editBody,maxUses:0},422);
+await api(root+'/coupons/edit',editBody);
+const changed=(await api(root+'/coupons')).coupons[0];assert.equal(changed.type,'fixed');assert.equal(changed.value,5);assert.equal(changed.uses,1);assert.equal((await api(root+'/state')).state.sales[0].couponDiscount,2.5);
+await api(root+'/pdv-customers/register',{document:'11144477735',name:'Cliente novo depois do cupom',city:'São Paulo',uf:'SP'});
+assert.equal((await api(root+'/coupons/preview',{code:'TORTELA10',customerDocument:'11144477735',base:25})).discount,5);
+await api(root+'/coupons/preview',{code:'TORTELA10',customerDocument:'52998224725',base:25},422);
+assert.throws(()=>C.update(coupon,{...definition,code:'OUTRO'},[],now),/código/);
+assert.throws(()=>C.update(coupon,{...definition,maxUses:1},[{code:coupon.code},{code:coupon.code}],now),/usos já registrados/);
+console.log('OK cupons: percentual/fixo, validade, cliente autorizado, limites global/individual, consumo somente na conclusão, repetição idempotente e recusa sem gravar segunda venda. Edição preserva usos e vendas; cupom para todos inclui novos cadastros. Banco temporário isolado.');
 }finally{child.kill();await new Promise(resolve=>child.exitCode!==null?resolve():child.once('exit',resolve));if(path.dirname(path.resolve(dir))!==path.resolve(os.tmpdir())||!path.basename(dir).startsWith('tortela-coupon-test-'))throw Error('Diretório temporário inválido');fs.rmSync(dir,{recursive:true,force:true});}})().catch(error=>{console.error(error);process.exitCode=1;});

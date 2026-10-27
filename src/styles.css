@@ -7457,3 +7457,5 @@ input:focus,select:focus,textarea:focus { border-color:#0284c7; outline-color:#0
 .pdv-payment-dialog { max-height:92dvh; overflow:auto; }
 @media(max-width:600px) { .coupon-create-form { grid-template-columns:minmax(0,1fr); } }
 .pdv-coupon-entry [data-remove][hidden],.coupon-targets[hidden] { display:none!important; }
+.coupon-create-form [data-cancel-edit][hidden] { display:none!important; }
+.coupon-create-form input[readonly] { background:#edf1f5; color:#475569; }

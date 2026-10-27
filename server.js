@@ -3331,7 +3331,7 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
-  const couponsMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/coupons(?:\/(preview|toggle))?$/);
+  const couponsMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/coupons(?:\/(preview|toggle|edit))?$/);
   if(couponsMatch && ["GET","POST"].includes(req.method)){
     const tenantCode=normalizeTenantCode(couponsMatch[1]),action=couponsMatch[2]||'',provider=readProvider(),access=tenantAccessOrProvider(req,provider,tenantCode,action==='preview'?'pdv':'people');if(access.error)return deny(res,access);
     if(access.session.provider&&!permissionsFor(providerAccess(req)).includes('customers'))return sendJson(res,403,{ok:false,error:'Sem acesso ao CRM'});
@@ -3341,9 +3341,15 @@ async function handleApi(req, res, urlPath) {
     const body=await readBody(req);
     try{
       if(action==='preview')return sendJson(res,200,{ok:true,...couponService.preview(tenantState,body)});
-      if(action==='toggle'){const c=(tenantState.coupons||[]).find(c=>c.code===couponService.code(body.code));if(!c)throw Error('Cupom não encontrado');c.active=Boolean(body.active);}
+      if(action==='edit'){
+        const index=(tenantState.coupons||[]).findIndex(c=>c.code===couponService.code(body.code));if(index<0)throw Error('Cupom não encontrado');
+        const changed=couponService.update(tenantState.coupons[index],body,tenantState.couponRedemptions||[]);
+        if(changed.audience==='selected'&&changed.documents.some(d=>!(tenantState.people||[]).some(p=>p.type==='Cliente'&&String(p.document||'').replace(/[^a-z0-9]/gi,'').toUpperCase()===d)))throw Error('Cliente selecionado não pertence a esta unidade');
+        tenantState.coupons[index]=changed;
+      }
+      else if(action==='toggle'){const c=(tenantState.coupons||[]).find(c=>c.code===couponService.code(body.code));if(!c)throw Error('Cupom não encontrado');c.active=Boolean(body.active);}
       else{const c=couponService.create(body,tenantState.coupons||[]);if(c.audience==='selected'&&c.documents.some(d=>!(tenantState.people||[]).some(p=>p.type==='Cliente'&&String(p.document||'').replace(/[^a-z0-9]/gi,'').toUpperCase()===d)))throw Error('Cliente selecionado não pertence a esta unidade');(tenantState.coupons||=[]).push(c);}
-      writeTenantState(tenantCode,tenantState,false,false,true);appendTenantAudit(tenantCode,action==='toggle'?'Situação de cupom alterada':'Cupom criado',couponService.code(body.code),access.session.user);
+      writeTenantState(tenantCode,tenantState,false,false,true);appendTenantAudit(tenantCode,action==='toggle'?'Situação de cupom alterada':action==='edit'?'Cupom editado':'Cupom criado',couponService.code(body.code),access.session.user);
       return sendJson(res,200,{ok:true});
     }catch(error){return sendJson(res,422,{ok:false,error:error.message});}
   }

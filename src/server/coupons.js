@@ -9,6 +9,12 @@ function create(body,existing=[],now=new Date()){
  if(!['all','selected'].includes(result.audience)||result.audience==='selected'&&(!result.documents.length||result.documents.some(d=>![11,14].includes(d.length))))throw Error('Selecione ao menos um cliente com CPF/CNPJ para este cupom.');
  return result;
 }
+function update(existing,body,ledger=[],now=new Date()){
+ if(body.code&&code(body.code)!==existing.code)throw Error('O código do cupom não pode mudar. Crie outro código para uma nova campanha.');
+ const changed=create({...body,code:existing.code},[],now),uses=ledger.filter(r=>r.code===existing.code).length;
+ if(changed.maxUses<uses)throw Error('O limite total não pode ser menor que os usos já registrados.');
+ return {...changed,active:existing.active,createdAt:existing.createdAt,updatedAt:now.toISOString()};
+}
 function preview(state,body,now=new Date(),ledger=state.couponRedemptions||[]){
  const c=(state.coupons||[]).find(c=>c.code===code(body.code)),date=businessDay(now),customer=doc(body.customerDocument),base=round(body.base);
  if(!c||!c.active)throw Error('Cupom não encontrado ou desativado.');
@@ -33,4 +39,4 @@ function applySales(current,incoming,now=new Date()){
   ledger.push({code:result.code,saleId:sale.id,customerDocument:doc(sale.customerDocument||sale.clubCpf),discount:result.discount,usedAt:now.toISOString()});
  }return ledger;
 }
-module.exports={create,preview,applySales,code};
+module.exports={create,update,preview,applySales,code};

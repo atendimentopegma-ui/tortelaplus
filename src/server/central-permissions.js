@@ -19,7 +19,7 @@ function routePermissions(path) {
   if (path === "/api/network/promotions") return ["promotions"];
   if (path === "/api/network/approvals/decide") return ["orders"];
   if (/^\/api\/tenant\/[^/]+\/products\/\d+\/automatic-sale-item$/.test(path)) return ["products"];
-  if (/^\/api\/tenant\/[^/]+\/coupons(?:\/(?:preview|toggle))?$/.test(path)) return ["customers"];
+  if (/^\/api\/tenant\/[^/]+\/coupons(?:\/(?:preview|toggle|edit))?$/.test(path)) return ["customers"];
   if (path === "/api/network/customer-campaigns") return ["customers"];
   if (path === "/api/network/whatsapp/settings") return ["customers"];
   if (path === "/api/network/royalties/generate") return ["royalties"];
