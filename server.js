@@ -1,3 +1,4 @@
+const storeJourneys=require('./src/server/store-journeys');
 const crmAutomation=require('./src/server/crm-automation');
 const crmCampaigns=require('./src/server/crm-campaigns');
 const loyaltyService = require('./src/server/loyalty');
@@ -224,7 +225,7 @@ const initialTenantState = {
     district: "",
     city: "",
     cityCode: "",
-    deliveryRadiusKm: 10,
+    deliveryRadiusKm: 15,
     cepProvider: "ViaCEP",
     fiscalEnvironment: "Homologacao",
     fiscalEngine: "ACBrLib",
@@ -1088,7 +1089,7 @@ function publicTenantState(state) {
 }
 
 function publicProvider(provider) {
-  const { providerAdmins, marketingCampaigns, crmAutomations, crmWhatsapp, companyProfile: privateCompanyProfile, ...safe } = provider;
+  const { providerAdmins, marketingCampaigns, crmAutomations, crmWhatsapp, storeLeads, companyProfile: privateCompanyProfile, ...safe } = provider;
   return {
     ...safe,
     clients: (safe.clients || []).map(publicTenant)
@@ -1368,7 +1369,7 @@ async function onlineStoreCatalog(query = {}) {
     deliveryMessage: customerAddressMismatch?"O endereço informado não corresponde ao CEP. Confira o CEP, o logradouro e a cidade antes de enviar o pedido.":delivery.message,
     deliveryDistanceKm: delivery.distanceKm,
     deliveryReason: customerAddressMismatch?"address_mismatch":delivery.reason||"",
-    deliveryRadiusKm:10,
+    deliveryRadiusKm:deliveryArea.RADIUS_KM,
     distanceMethod:"geographic",
     locationAttribution:"Photon / © OpenStreetMap contributors",
     units: units.sort((a, b) => a.distanceKm - b.distanceKm || String(a.tradeName).localeCompare(String(b.tradeName))),
@@ -2365,6 +2366,43 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if(urlPath==='/api/public/store/customer-lookup'&&req.method==='POST'){
+    if(!storeJourneys.allow('lookup:'+requestIp(req),30))return sendJson(res,429,{error:'Muitas consultas. Aguarde alguns minutos e tente novamente.'});
+    const body=await readBody(req),document=String(body.document||'').replace(/\D/g,'');
+    if(!storeJourneys.validCpf(document))return sendJson(res,400,{error:'Informe um CPF válido.'});
+    const provider=readProvider();let customer;
+    for(const unit of provider.clients||[]){const person=(readTenantState(unit.tenantCode).people||[]).find(p=>p.type==='Cliente'&&p.active!==false&&String(p.document||'').replace(/\D/g,'')===document);if(person){customer=person;break;}}
+    if(!customer)customer=[...(provider.storeLeads||[])].reverse().find(l=>l.customer?.document===document)?.customer;
+    if(!customer)return sendJson(res,200,{ok:true,exists:false});
+    const phone=String(body.phone||'').replace(/\D/g,''),known=String(customer.phone||customer.whatsapp||'').replace(/\D/g,'');
+    if(!phone)return sendJson(res,200,{ok:true,exists:true,verificationRequired:true});
+    if(phone.length<10||phone.slice(-11)!==known.slice(-11))return sendJson(res,400,{error:'Telefone diferente do cadastro. Confira o telefone ou atualize seu cadastro com a loja.'});
+    const fields=['name','document','birthDate','phone','cep','address','number','complement','district','city','uf','email'];
+    return sendJson(res,200,{ok:true,exists:true,customer:Object.fromEntries(fields.map(k=>[k,String(customer[k]||'')]))});
+  }
+  if(urlPath==='/api/public/store/registration'&&req.method==='POST'){
+    if(!storeJourneys.allow('registration:'+requestIp(req),20))return sendJson(res,429,{error:'Aguarde alguns minutos antes de tentar novamente.'});
+    try{const body=await readBody(req),provider=readProvider(),created=storeJourneys.create(body);(provider.storeLeads||=[]).push(created.lead);writeProvider(provider);return sendJson(res,201,{ok:true,id:created.lead.id,token:created.token,customer:created.lead.customer});}catch(error){return sendJson(res,400,{error:error.message});}
+  }
+  if(urlPath==='/api/public/store/journey'&&req.method==='POST'){
+    const body=await readBody(req),provider=readProvider();let lead;try{lead=storeJourneys.authorize(provider.storeLeads||[],body.id,body.token);}catch(error){return sendJson(res,403,{error:error.message});}
+    if(body.action==='coverage'){
+      if(lead.phase==='ordered')return sendJson(res,409,{error:'Este pedido já foi enviado. Inicie uma nova compra.'});
+      const catalog=await onlineStoreCatalog({cep:lead.customer.cep,customer:lead.customer});lead.tenantCode=catalog.nearest?.tenantCode||'';lead.tenantName=catalog.nearest?.tradeName||'';lead.available=catalog.deliveryAvailable===true;lead.distanceKm=catalog.deliveryDistanceKm;lead.reason=catalog.deliveryReason;lead.phase=lead.available?'ready':catalog.deliveryReason==='outside_radius'?'outside':'location_error';lead.updatedAt=new Date().toISOString();
+      if(lead.available&&lead.tenantCode){const state=readTenantState(lead.tenantCode),existing=state.people.find(p=>p.type==='Cliente'&&String(p.document||'').replace(/\D/g,'')===lead.customer.document);if(existing)lead.customerId=existing.id;else{const customer={...lead.customer,id:Math.max(0,...state.people.map(p=>Number(p.id)||0))+1,type:'Cliente',alias:'',whatsapp:lead.customer.phone,active:true,source:'Loja online — cadastro antes da compra',registeredAt:lead.createdAt,lgpdConsent:lead.consent,whatsappGroupAuthorized:lead.whatsappGroupAuthorized,preferredTenantCode:lead.tenantCode};state.people.push(customer);lead.customerId=customer.id;writeTenantState(lead.tenantCode,state);}}
+      writeProvider(provider);return sendJson(res,200,{ok:true,available:lead.available,message:catalog.deliveryMessage,radiusKm:deliveryArea.RADIUS_KM,distanceKm:lead.distanceKm,tenantCode:lead.tenantCode,tenantName:lead.tenantName,catalog});
+    }
+    if(lead.phase!=='ordered'){if(body.action==='abandon'&&['registered','ready'].includes(lead.phase))lead.phase='abandoned';else if(body.action==='activity'&&['ready','abandoned'].includes(lead.phase)&&lead.available)lead.phase='ready';lead.updatedAt=new Date().toISOString();writeProvider(provider);}
+    return sendJson(res,200,{ok:true,status:storeJourneys.describe(lead)});
+  }
+  const webLeadsMatch=urlPath.match(/^\/api\/(network|tenant\/([^/]+))\/store-leads$/);
+  if(webLeadsMatch&&req.method==='GET'){
+    const provider=readProvider(),unit=webLeadsMatch[2]?normalizeTenantCode(webLeadsMatch[2]):'';
+    if(unit){const access=tenantAccessOrProvider(req,provider,unit,'people');if(access.error)return deny(res,access);if(access.session.provider&&!permissionsFor(providerAccess(req)).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});}
+    else{const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessão da Central obrigatória.'});if(!permissionsFor(access).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});}
+    return sendJson(res,200,{ok:true,leads:(provider.storeLeads||[]).filter(l=>!unit||l.tenantCode===unit).map(l=>storeJourneys.safe(l)).reverse()});
+  }
+
   const publicCustomerMatch = urlPath.match(/^\/api\/public\/unit\/([^/]+)\/customers$/);
   if (req.method === "POST" && (publicCustomerMatch || urlPath === "/api/public/customers")) {
     const body = await readBody(req);
@@ -2462,8 +2500,11 @@ async function handleApi(req, res, urlPath) {
 
   if (req.method === "POST" && urlPath === "/api/public/store/orders") {
     const body = await readBody(req);
-    if(String(body.cep||'').replace(/\D/g,'').length!==8){sendJson(res,422,{ok:false,error:'Informe um CEP válido para verificar o raio de atendimento de 10 km.'});return;}
-    const catalog = await onlineStoreCatalog({ cep: body.cep || "",customer:body.customer||{} });
+    if(String(body.cep||'').replace(/\D/g,'').length!==8){sendJson(res,422,{ok:false,error:'Informe um CEP válido para verificar o raio de atendimento de 15 km.'});return;}
+    const leadProvider=readProvider();let journey;try{journey=storeJourneys.authorize(leadProvider.storeLeads||[],body.journeyId,body.journeyToken);storeJourneys.checkAddress(journey,body);}catch(error){return sendJson(res,403,{error:error.message});}
+    if(journey.orderId){const tenant=findTenant(leadProvider,journey.tenantCode),sale=(readTenantState(journey.tenantCode).sales||[]).find(s=>s.id===journey.orderId);if(sale)return sendJson(res,200,{ok:true,orderId:sale.id,tenantCode:journey.tenantCode,unit:tenant.tradeName,total:sale.total,payment:sale.payment,paymentInfo:sale.paymentInfo});}
+    if(!journey.available||!['ready','abandoned'].includes(journey.phase))return sendJson(res,409,{error:'Confirme o atendimento do seu endereço antes de enviar o pedido.'});
+    const catalog = await onlineStoreCatalog({ cep: journey.customer.cep,customer:journey.customer });
     if(catalog.deliveryAvailable!==true){sendJson(res,409,{ok:false,error:catalog.deliveryMessage||deliveryArea.UNKNOWN_MESSAGE,reason:catalog.deliveryReason});return;}
     const tenantCode = normalizeTenantCode(catalog.nearest?.tenantCode || "");
     if(body.tenantCode&&normalizeTenantCode(body.tenantCode)!==tenantCode){sendJson(res,409,{ok:false,error:'A loja mais próxima deste endereço mudou. Consulte o CEP novamente e monte o pedido no cardápio da unidade indicada.',reason:'nearest_store_changed',tenantCode});return;}
@@ -2520,6 +2561,7 @@ async function handleApi(req, res, urlPath) {
       date: today(),
       createdAt: new Date().toISOString(),
       customer: customer.name,
+      customerId:journey.customerId,customerDocument:journey.customer.document,customerCity:customer.city,customerUf:customer.uf,customerDistrict:customer.district,storeJourneyId:journey.id,
       seller: "Loja online",
       total,
       type: "Pedido online",
@@ -2537,7 +2579,7 @@ async function handleApi(req, res, urlPath) {
         tenantCode: tenant.tenantCode,
         tradeName: tenant.tradeName,
         distanceKm: catalog.deliveryDistanceKm,
-        radiusKm: catalog.nearest?.deliveryRadiusKm || 10
+        radiusKm: catalog.nearest?.deliveryRadiusKm || deliveryArea.RADIUS_KM
       },
       customerData: customer,
       items: normalizedItems
@@ -2559,6 +2601,7 @@ async function handleApi(req, res, urlPath) {
     tenantState.sales.push(sale);
     tenantState.receivables.push(receivableForSale(tenantState.receivables, sale, customer.name, payment, `Pedido online ${sale.id} - ${payment}`));
     writeTenantState(tenant.tenantCode, tenantState);
+    journey.phase='ordered';journey.orderId=sale.id;journey.tenantCode=tenant.tenantCode;journey.tenantName=tenant.tradeName;journey.updatedAt=new Date().toISOString();writeProvider(leadProvider);
     appendTenantAudit(tenant.tenantCode, "Pedido online recebido", `${customer.name} ${moneyRound(total)}`, "loja-online");
     sendJson(res, 201, { ok: true, orderId: sale.id, tenantCode: tenant.tenantCode, unit: tenant.tradeName, total, payment, paymentInfo });
     return;
@@ -3588,7 +3631,7 @@ async function handleApi(req, res, urlPath) {
         licensePassword: existing?.licensePassword || client.licensePassword || "PEGMA-2026"
       };
     });
-    writeProvider({ ...incoming, loyalty:current.loyalty, marketingCampaigns:current.marketingCampaigns, crmAutomations:current.crmAutomations, crmWhatsapp:current.crmWhatsapp, companyProfile: current.companyProfile, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
+    writeProvider({ ...incoming, loyalty:current.loyalty, marketingCampaigns:current.marketingCampaigns, crmAutomations:current.crmAutomations, crmWhatsapp:current.crmWhatsapp, storeLeads:current.storeLeads, companyProfile: current.companyProfile, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
     appendProviderAudit("Central atualizada", "Configuracoes gerais alteradas", providerAccess(req).username, requestIp(req));
     sendJson(res, 200, { ok: true });
     return;

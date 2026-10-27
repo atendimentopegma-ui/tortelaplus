@@ -65,20 +65,20 @@ function displayProductName(value){return String(value||'').toLocaleLowerCase('p
 function render() {
   const total = cart.reduce((sum, item) => sum + item.qty * item.price, 0);
   const itemCount = cart.filter(item=>!item.parentLineId).reduce((sum, item) => sum + item.qty, 0);
-  const currentCep = fieldValue("store-cep", params.get("cep") || "");
+  const currentCep = StoreSignup.customer()?.cep || "";
   const currentSearch = fieldValue("store-search", params.get("q") || "");
   if(!categories().includes(activeCategory))activeCategory=categories()[0]||"Todos";
   const selectedPayment = document.querySelector('input[name="payment-method"]:checked')?.value || "PIX";
   const deliveryBlocked = catalog.deliveryAvailable === false;
   const deliveryKnown = catalog.deliveryAvailable === true;
   const formValues = {
-    name: fieldValue("customer-name"),
-    phone: fieldValue("customer-phone"),
-    address: fieldValue("customer-address", catalog.deliveryAddress?.address || ""),
-    number: fieldValue("customer-number"),
-    district: fieldValue("customer-district", catalog.deliveryAddress?.district || ""),
-    city: fieldValue("customer-city", catalog.deliveryAddress?.city || ""),
-    uf: fieldValue("customer-uf", catalog.deliveryAddress?.uf || "SP"),
+    name: StoreSignup.customer()?.name || fieldValue("customer-name"),
+    phone: StoreSignup.customer()?.phone || fieldValue("customer-phone"),
+    address: StoreSignup.customer()?.address || fieldValue("customer-address", catalog.deliveryAddress?.address || ""),
+    number: StoreSignup.customer()?.number || fieldValue("customer-number"),
+    district: StoreSignup.customer()?.district || fieldValue("customer-district", catalog.deliveryAddress?.district || ""),
+    city: StoreSignup.customer()?.city || fieldValue("customer-city", catalog.deliveryAddress?.city || ""),
+    uf: StoreSignup.customer()?.uf || fieldValue("customer-uf", catalog.deliveryAddress?.uf || "SP"),
     delivery: fieldValue("delivery-mode", "Entrega"),
     payment: selectedPayment
   };
@@ -88,15 +88,15 @@ function render() {
     <header class="store-header"><div class="store-topbar">
       <a class="store-brand" href="./loja.html" aria-label="Tortela início"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela"><span>LOJA ONLINE</span></a>
       <nav class="store-header-nav" aria-label="Navegação principal"><a href="#store-products-area">Cardápio</a><a href="#store-how">Como pedir</a></nav>
-      <div class="store-header-actions"><button class="store-location" id="store-focus-cep">${storeIcon('pin')}<span><small>Sua unidade</small><strong>${currentCep?escapeHtml(currentCep):'Informe seu CEP'}</strong></span></button>
+      <div class="store-header-actions"><button class="store-location" id="store-focus-cep">${storeIcon('pin')}<span><small>Sua unidade</small><strong>${currentCep?escapeHtml(currentCep):'Iniciar compra'}</strong></span></button>
       <button class="store-chip" id="store-jump-cart" aria-label="Ver sacola">${storeIcon('bag')}<span>Sacola <b>${itemCount}</b></span><strong>${money(total)}</strong></button></div>
     </div></header>
     <main class="store-main">
-      <section class="store-radius-intro" aria-labelledby="store-radius-title">${storeIcon('pin')}<div><h2 id="store-radius-title">Antes de pedir: compras online somente em até 10 km da loja mais próxima</h2><p>Esse cuidado ajuda a preservar a qualidade da sua Tortela e proporcionar uma melhor experiência com o produto. Informe seu CEP para conferir se atendemos seu endereço antes de montar o pedido.</p></div><button type="button" id="store-check-radius">Consultar meu CEP ${storeIcon('arrow')}</button></section>
-      <section class="store-hero" aria-labelledby="store-hero-title"><div class="store-hero-copy"><span class="store-eyebrow"><i></i> MUITO MAIS QUE UMA SOBREMESA</span><h1 id="store-hero-title">Seu momento<br>pede uma <em>Tortela.</em></h1><p>Escolha seu sabor, combine o topping e finalize com a cobertura que você ama.</p><div class="store-hero-actions"><a class="store-cta" href="#store-products-area">Quero a minha ${storeIcon('arrow')}</a><span>Do seu jeito.<br>Em poucos cliques.</span></div><div class="store-hero-footnote">${storeIcon('spark')} Pequenas escolhas. Um grande momento.</div></div><div class="store-hero-media"><img fetchpriority="high" decoding="async" width="1536" height="1024" src="./assets/tortela/store-campaign-v1.png" alt="Tortelas com cobertura de chocolate e chocolate branco sobre uma base clara"><div class="store-hero-stamp">ESCOLHA.<br>COMBINE.<br><strong>APAIXONE-SE.</strong></div><small>Imagem ilustrativa</small></div></section>
+      <section class="store-radius-intro" aria-labelledby="store-radius-title">${storeIcon('pin')}<div><h2 id="store-radius-title">Comece pelo CPF para comprar sua Tortela</h2><p>1. Informe seu CPF. Complete ou confirme seu cadastro. 2. Confira a entrega. 3. Monte seu pedido.</p></div><button type="button" id="store-check-radius">Iniciar compra ${storeIcon('arrow')}</button></section>
+      <section class="store-hero" aria-labelledby="store-hero-title"><div class="store-hero-copy"><span class="store-eyebrow"><i></i> MUITO MAIS QUE UMA SOBREMESA</span><h1 id="store-hero-title">Seu momento<br>pede uma <em>Tortela.</em></h1><p>Escolha seu sabor, combine o topping e finalize com a cobertura que você ama.</p><div class="store-hero-actions"><a class="store-cta" id="store-start-purchase" href="#store-products-area">Quero a minha ${storeIcon('arrow')}</a><span>Do seu jeito.<br>Em poucos cliques.</span></div><div class="store-hero-footnote">${storeIcon('spark')} Pequenas escolhas. Um grande momento.</div></div><div class="store-hero-media"><img fetchpriority="high" decoding="async" width="1536" height="1024" src="./assets/tortela/store-campaign-v1.png" alt="Tortelas com cobertura de chocolate e chocolate branco sobre uma base clara"><div class="store-hero-stamp">ESCOLHA.<br>COMBINE.<br><strong>APAIXONE-SE.</strong></div><small>Imagem ilustrativa</small></div></section>
       <section class="store-how" id="store-how" aria-label="Como fazer seu pedido"><div><b>01</b><span><strong>Encontre seu sabor</strong><small>Uma Tortela para cada vontade.</small></span></div><div><b>02</b><span><strong>Deixe com a sua cara</strong><small>Sua cobertura e um topping.</small></span></div><div><b>03</b><span><strong>Escolha como receber</strong><small>Entrega ou retirada na unidade.</small></span></div></section>
-      <details class="store-unit-panel" id="store-unit-panel" ${locationOpen?'open':''}><summary>${storeIcon('pin')}<span><strong>${catalog.nearest?escapeHtml(publicUnitName(catalog.nearest)):'Onde você vai aproveitar sua Tortela?'}</strong><small>${currentCep?'CEP '+escapeHtml(currentCep):'Informe seu CEP para encontrar a unidade que atende você.'}</small></span><b>Alterar unidade ${storeIcon('arrow')}</b></summary><div class="store-unit-content"><div><label for="store-cep">CEP de entrega</label><div class="store-cep-row"><input id="store-cep" inputmode="numeric" maxlength="9" autocomplete="postal-code" value="${escapeHtml(currentCep)}" placeholder="00000-000"><button class="btn primary" id="store-refresh" ${catalogLoadInFlight?'disabled':''}>${catalogLoadInFlight?'Buscando…':'Encontrar unidade'}</button></div></div><p class="store-unit-message ${deliveryBlocked?'blocked':''}" role="status">${escapeHtml(catalog.deliveryMessage||'Consulte a disponibilidade de entrega pelo seu CEP.')}</p></div></details>
-      ${currentCep.replace(/\D/g,'').length===8?`<section class="store-coverage-result ${deliveryBlocked?'blocked':deliveryKnown?'available':'checking'}" role="status">${storeIcon(deliveryBlocked?'pin':'check')}<div><strong>${catalogLoadInFlight?'Verificando a unidade mais próxima…':deliveryBlocked?'Ainda não atendemos este endereço':deliveryKnown?'Sua Tortela está por perto!':'Verifique seu endereço'}</strong><p>${escapeHtml(catalogLoadInFlight?'Consultando o atendimento em um raio de até 10 km.':catalog.deliveryMessage||'Consulte seu CEP para continuar.')}</p></div></section>`:''}
+      <details class="store-unit-panel" id="store-unit-panel" ${locationOpen?'open':''} ${StoreSignup.customer()?'':'hidden'}><summary>${storeIcon('pin')}<span><strong>${catalog.nearest?escapeHtml(publicUnitName(catalog.nearest)):'Onde você vai aproveitar sua Tortela?'}</strong><small>${currentCep?'CEP '+escapeHtml(currentCep):'Informe seu CEP para encontrar a unidade que atende você.'}</small></span><b>Alterar unidade ${storeIcon('arrow')}</b></summary><div class="store-unit-content"><div><label for="store-cep">CEP de entrega</label><div class="store-cep-row"><input id="store-cep" readonly inputmode="numeric" maxlength="9" autocomplete="postal-code" value="${escapeHtml(currentCep)}" placeholder="00000-000"><button class="btn primary" id="store-refresh" ${catalogLoadInFlight?'disabled':''}>${catalogLoadInFlight?'Buscando…':'Editar cadastro / endereço'}</button></div></div><p class="store-unit-message ${deliveryBlocked?'blocked':''}" role="status">${escapeHtml(catalog.deliveryMessage||'Consulte a disponibilidade de entrega pelo seu CEP.')}</p></div></details>
+      ${currentCep.replace(/\D/g,'').length===8?`<section class="store-coverage-result ${deliveryBlocked?'blocked':deliveryKnown?'available':'checking'}" role="status">${storeIcon(deliveryBlocked?'pin':'check')}<div><strong>${catalogLoadInFlight?'Verificando a unidade mais próxima…':deliveryBlocked?'Ainda não atendemos este endereço':deliveryKnown?'Sua Tortela está por perto!':'Verifique seu endereço'}</strong><p>${escapeHtml(catalogLoadInFlight?'Consultando o atendimento em um raio de até 15 km.':catalog.deliveryMessage||'Consulte seu CEP para continuar.')}</p></div></section>`:''}
       ${catalogWarning?`<p class="store-warning" role="status">${escapeHtml(catalogWarning)}</p>`:''}
       <section class="store-catalog-intro"><div><span class="store-eyebrow">ESCOLHA O SEU MOMENTO</span><h2>Qual vai ser a sua?</h2><p>Sabores, combinações e aquele toque que é só seu.</p></div><label class="store-searchbar" for="store-search">${storeIcon('search')}<input id="store-search" value="${escapeHtml(currentSearch)}" placeholder="Buscar no cardápio" type="search"></label></section>
       <nav class="store-categories" aria-label="Categorias do cardápio">${categories().map(category=>`<button class="${category===activeCategory?'active':''}" data-store-category="${escapeHtml(category)}" aria-pressed="${category===activeCategory}">${escapeHtml(category)}<small>${category==='Todos'?menuProducts().length:menuProducts().filter(p=>productCategory(p)===category).length}</small></button>`).join('')}</nav>
@@ -123,19 +123,19 @@ function render() {
           </div>
           ${cart.length ? cart.map((item, index) => cartLine(item, index)).join("") : `<div class="store-bag-empty">${storeIcon('bag')}<strong>Seu próximo momento<br>começa aqui.</strong><p>Escolha uma Tortela e monte<br>do seu jeito.</p></div>`}
           <div class="store-total"><span>Total</span><strong>${money(total)}</strong></div>
-          <button class="btn primary full" id="store-checkout-toggle" ${cart.length&&!deliveryBlocked&&!catalogLoadInFlight?"":"disabled"}>${checkoutOpen?"Continuar escolhendo produtos":"Continuar pedido"}</button><section class="store-checkout-form" ${checkoutOpen?"":"hidden"}><h3>Entrega e pagamento</h3><div class="store-checkout-steps">
+          <button class="btn primary full" id="store-checkout-toggle" ${cart.length&&!deliveryBlocked&&!catalogLoadInFlight?"":"disabled"}>${checkoutOpen?"Continuar escolhendo produtos":"Continuar pedido"}</button><section class="store-checkout-form" ${checkoutOpen?"":"hidden"}><h3>Entrega e pagamento</h3><button type="button" class="btn" id="store-edit-registration">Editar cadastro / endereço</button><div class="store-checkout-steps">
             <span class="active">Sacola</span>
             <span>Entrega</span>
             <span>Pagamento</span>
           </div>
           <div class="grid two">
-            <div class="field"><label>Nome</label><input id="customer-name" value="${escapeHtml(formValues.name)}" /></div>
-            <div class="field"><label>Telefone</label><input id="customer-phone" value="${escapeHtml(formValues.phone)}" /></div>
-            <div class="field"><label>Endereco</label><input id="customer-address" value="${escapeHtml(formValues.address)}" /></div>
-            <div class="field"><label>Numero</label><input id="customer-number" value="${escapeHtml(formValues.number)}" /></div>
-            <div class="field"><label>Bairro</label><input id="customer-district" value="${escapeHtml(formValues.district)}" /></div>
-            <div class="field"><label>Cidade</label><input id="customer-city" value="${escapeHtml(formValues.city)}" /></div>
-            <div class="field"><label>UF</label><input id="customer-uf" maxlength="2" value="${escapeHtml(formValues.uf)}" /></div>
+            <div class="field"><label>Nome</label><input id="customer-name" readonly value="${escapeHtml(formValues.name)}" /></div>
+            <div class="field"><label>Telefone</label><input id="customer-phone" readonly value="${escapeHtml(formValues.phone)}" /></div>
+            <div class="field"><label>Endereco</label><input id="customer-address" readonly value="${escapeHtml(formValues.address)}" /></div>
+            <div class="field"><label>Numero</label><input id="customer-number" readonly value="${escapeHtml(formValues.number)}" /></div>
+            <div class="field"><label>Bairro</label><input id="customer-district" readonly value="${escapeHtml(formValues.district)}" /></div>
+            <div class="field"><label>Cidade</label><input id="customer-city" readonly value="${escapeHtml(formValues.city)}" /></div>
+            <div class="field"><label>UF</label><input id="customer-uf" readonly maxlength="2" value="${escapeHtml(formValues.uf)}" /></div>
             <div class="field"><label>Como receber</label><select id="delivery-mode"><option ${formValues.delivery === "Entrega" ? "selected" : ""}>Entrega</option><option ${formValues.delivery === "Retirada" ? "selected" : ""}>Retirada</option></select></div>
           </div>
           <div class="store-payment">
@@ -147,7 +147,7 @@ function render() {
         </section></aside>
       </section>
       <footer class="store-footer"><a href="./loja.html" aria-label="Tortela início"><img src="./assets/tortela/logo-tortela.gif" alt="Tortela"></a><p>Seu sabor. Sua combinação. Seu momento.</p><span>Pedidos para entrega ou retirada · Tortela Online</span><a href="#store-products-area">Voltar ao cardápio ↑</a></footer>
-      <div class="store-added-notice" role="status" aria-live="polite">${escapeHtml(storeNotice)}</div><p class="store-map-attribution">Raio geográfico de atendimento: 10 km · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · Photon</p>
+      <div class="store-added-notice" role="status" aria-live="polite">${escapeHtml(storeNotice)}</div><p class="store-map-attribution">${StoreSignup.customer()?'Raio geográfico de atendimento: 15 km ·':''} <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · Photon</p>
     </main>`;
   bind();
   filterCategory(activeCategory);
@@ -203,15 +203,20 @@ function configureProduct(product){
   dialog.addEventListener('cancel',event=>{event.preventDefault();close();});document.body.append(dialog);draw();dialog.showModal();
 }
 
+async function beginPurchase(){const result=await StoreSignup.start();if(!result?.available)return false;const previous=catalog.nearest?.tenantCode;catalog=result.catalog;catalog.products=catalog.products.filter(p=>p.tenantCode===result.tenantCode);if(previous&&previous!==result.tenantCode)cart=[];render();return true;}
+window.addEventListener('tortela-registration-ready',()=>beginPurchase());
+
 function bind() {
-  byId("store-checkout-toggle")?.addEventListener("click",()=>{
+  byId("store-edit-registration")?.addEventListener("click",()=>StoreSignup.start(true).then(r=>{if(r)beginPurchase();}));
+  byId("store-checkout-toggle")?.addEventListener("click",async()=>{
+    if(!await beginPurchase())return;StoreSignup.touch();
     if(!checkoutOpen&&String(fieldValue('store-cep')).replace(/\D/g,'').length!==8){locationOpen=true;byId('store-unit-panel').open=true;byId('store-unit-panel').scrollIntoView({behavior:'smooth',block:'center'});byId('store-cep').focus({preventScroll:true});return;}
     checkoutOpen=!checkoutOpen;render();if(checkoutOpen)document.querySelector(".store-checkout-form")?.scrollIntoView({behavior:"smooth",block:"start"});
   });
-  byId("store-refresh")?.addEventListener("click", loadCatalog);
+  byId("store-refresh")?.addEventListener("click",()=>StoreSignup.start(true).then(r=>{if(r)beginPurchase();}));
   byId("store-cep")?.addEventListener("input", (event) => {
     const cep = String(event.target.value || "").replace(/\D/g, "");
-    if (cep.length === 8) loadCatalog();
+    if (cep.length === 8) StoreSignup.start(true).then(r=>{if(r)beginPurchase();});
   });
 
   byId("store-search")?.addEventListener("keydown", (event) => {
@@ -219,17 +224,20 @@ function bind() {
   });
   byId("store-search")?.addEventListener("input",()=>filterCategory(activeCategory));
   byId("store-unit-panel")?.addEventListener("toggle",event=>{locationOpen=event.target.open;});
-  ["store-focus-cep","store-check-radius"].forEach(id=>byId(id)?.addEventListener("click", () => {byId("store-unit-panel").open=true;byId("store-unit-panel").scrollIntoView({behavior:"smooth",block:"center"});byId("store-cep")?.focus({preventScroll:true});}));
+  ["store-focus-cep","store-check-radius","store-start-purchase"].forEach(id=>byId(id)?.addEventListener("click",async event=>{event.preventDefault();if(await beginPurchase())byId('store-products-area')?.scrollIntoView({behavior:'smooth',block:'start'});}));
   document.querySelectorAll("[data-store-category]").forEach((button) => button.addEventListener("click", () => {byId("store-search").value="";filterCategory(button.dataset.storeCategory);}));
-  document.querySelectorAll("[data-add-product]").forEach((button) => button.addEventListener("click", () => {
-    const product = catalog.products.find((item) => Number(item.id) === Number(button.dataset.addProduct) && item.tenantCode === button.dataset.tenant);
+  document.querySelectorAll("[data-add-product]").forEach((button) => button.addEventListener("click", async () => {
+    let product = catalog.products.find((item) => Number(item.id) === Number(button.dataset.addProduct) && item.tenantCode === button.dataset.tenant);
     if (!product) return;
+    const previous=product;if(!await beginPurchase())return;product=catalog.products.find(p=>p.tenantCode===catalog.nearest?.tenantCode&&((p.id===previous.id&&p.tenantCode===previous.tenantCode)||p.description===previous.description));if(!product){storeNotice='Escolha o produto no cardápio da unidade que atende você.';render();return;}
+    StoreSignup.touch();
     if(catalog.deliveryAvailable===false||catalogLoadInFlight)return;
     configureProduct(product);
   }));
   document.querySelectorAll("[data-cart-minus]").forEach((button) => button.addEventListener("click", () => {
     const item = cart[Number(button.dataset.cartMinus)];
     if (!item) return;
+    StoreSignup.touch();
     const previousQty=item.qty;item.qty -= 1;
     if(item.lineId)cart.filter(row=>row.parentLineId===item.lineId).forEach(row=>row.qty=row.qty/previousQty*item.qty);
     if (item.qty <= 0) cart = cart.filter((row) => row !== item&&(!item.lineId||row.parentLineId!==item.lineId));
@@ -237,10 +245,12 @@ function bind() {
   }));
   document.querySelectorAll("[data-cart-plus]").forEach((button) => button.addEventListener("click", () => {
     const item = cart[Number(button.dataset.cartPlus)];
+    StoreSignup.touch();
     if (item) {const previousQty=item.qty;item.qty += 1;if(item.lineId)cart.filter(row=>row.parentLineId===item.lineId).forEach(row=>row.qty=row.qty/previousQty*item.qty);}
     render();
   }));
   document.querySelectorAll("[data-cart-remove]").forEach((button) => button.addEventListener("click", () => {
+    StoreSignup.touch();
     const item=cart[Number(button.dataset.cartRemove)];cart=cart.filter(row=>row!==item&&(!item?.lineId||row.parentLineId!==item.lineId));
     render();
   }));
@@ -265,13 +275,13 @@ function filterCategory(category) {
 
 async function loadCatalog() {
   if (catalogLoadInFlight) return catalogLoadInFlight;
-  const cep = byId("store-cep")?.value || "";
+  const cep = "";
   const q = byId("store-search")?.value || "";
-  const unidade = params.get("unidade") || "";
+  const unidade = StoreSignup.result()?.tenantCode || params.get("unidade") || "";
   catalogWarning = "";
   catalogLoadInFlight = (async () => {
     try {
-      const nextCatalog = await api(`/api/public/store/catalog?cep=${encodeURIComponent(cep)}&unidade=${encodeURIComponent(unidade)}`);
+      const nextCatalog = StoreSignup.ready()?(await StoreSignup.refresh()).catalog:await api(`/api/public/store/catalog?cep=${encodeURIComponent(cep)}&unidade=${encodeURIComponent(unidade)}`);
       const firstLoad=!catalog.products.length;
       catalog = nextCatalog;
       if(catalog.nearest?.tenantCode)catalog.products=catalog.products.filter(p=>p.tenantCode===catalog.nearest.tenantCode);
@@ -286,7 +296,7 @@ async function loadCatalog() {
       if (!catalog.products.length) throw error;
       catalogWarning = `Nao foi possivel atualizar agora. Mantivemos o ultimo cardapio carregado. ${error.message}`;
     } finally {
-      const changedCep=String(fieldValue("store-cep")).replace(/\D/g,"")!==String(cep).replace(/\D/g,"");
+      const changedCep=false;
       catalogLoadInFlight = null;
       render();
       if(changedCep)loadCatalog().catch(()=>{});
@@ -311,6 +321,7 @@ function fillAddressFromCatalog() {
 
 async function sendOrder() {
   if (orderInFlight) return;
+  if(!await beginPurchase())return;
   if(catalog.deliveryAvailable!==true){locationOpen=true;render();byId("store-unit-panel").scrollIntoView({behavior:"smooth",block:"center"});return;}
   const tenantCode = catalog.nearest?.tenantCode || cart[0]?.tenantCode || "";
   orderInFlight = true;
@@ -319,7 +330,7 @@ async function sendOrder() {
     const result = await api("/api/public/store/orders", {
       method: "POST",
       body: JSON.stringify({
-        tenantCode,
+        tenantCode,...StoreSignup.credentials(),
         cep: byId("store-cep").value,
         deliveryMode: byId("delivery-mode").value,
         paymentMethod: document.querySelector('input[name="payment-method"]:checked')?.value || "PIX",
@@ -328,6 +339,7 @@ async function sendOrder() {
           phone: byId("customer-phone").value,
           address: byId("customer-address").value,
           number: byId("customer-number").value,
+          complement:StoreSignup.customer()?.complement||'',
           district: byId("customer-district").value,
           city: byId("customer-city").value,
           uf: byId("customer-uf").value,
@@ -337,6 +349,7 @@ async function sendOrder() {
       })
     });
     cart = [];
+    StoreSignup.reset();
     render();
     const paymentLink = result.paymentInfo?.paymentUrl ? `\nPagamento: ${result.paymentInfo.paymentUrl}` : "";
     alert(`Pedido ${result.orderId} enviado para ${result.unit}. Total ${money(result.total)}. Pagamento: ${result.payment}.${paymentLink}`);

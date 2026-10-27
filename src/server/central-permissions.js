@@ -20,6 +20,7 @@ function routePermissions(path) {
   if (path === "/api/network/approvals/decide") return ["orders"];
   if (/^\/api\/tenant\/[^/]+\/products\/\d+\/automatic-sale-item$/.test(path)) return ["products"];
   if (/^\/api\/tenant\/[^/]+\/coupons(?:\/(?:preview|toggle|edit))?$/.test(path)) return ["customers"];
+  if(/^\/api\/(?:network|tenant\/[^/]+)\/store-leads$/.test(path))return ["customers"];
   if(path==="/api/network/crm-automation")return ["customers"];
   if (/^\/api\/(?:network|tenant\/[^/]+)\/crm-campaigns(?:\/[a-f0-9-]+)?$/.test(path)||/^\/api\/tenant\/[^/]+\/crm-tags\/\d+$/.test(path)) return ["customers"];
   if (path === "/api/network/loyalty" || /^\/api\/tenant\/[^/]+\/loyalty(?:\/preview)?$/.test(path)) return ["customers"];

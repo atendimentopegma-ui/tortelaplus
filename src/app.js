@@ -1468,6 +1468,7 @@ function peopleTable() {
       <button class="btn" type="button" id="customer-mark-filtered">Marcar clientes filtrados para mensagem</button>
       <button class="btn" type="button" id="customer-clear-selection">Limpar seleção de mensagens</button>
       <button class="btn primary" type="button" id="customer-message-group">Preparar mensagens selecionadas (${customerMessageIds.size})</button>
+      <button class="btn" type="button" id="open-store-leads">Cadastros da loja online / não atendidos</button>
       <button class="btn" type="button" id="open-crm-loyalty">Pontos de fidelidade / extrato</button>
       <button class="btn" type="button" id="edit-crm-tags" ${selected?.type==='Cliente'?'':'disabled'}>Etiquetas do cliente</button>
       <button class="btn primary" type="button" id="open-crm-coupons">Cupons de desconto</button>
@@ -3834,6 +3835,7 @@ function bindCurrentModule() {
     button.addEventListener("click", () => newPersonRecord(button.dataset.newPersonType || "Cliente"));
   });
   if(document.querySelector('[data-loyalty-balance]'))api(`/api/tenant/${state.settings.tenantCode}/loyalty`).then(data=>{for(const a of data.accounts){const node=document.querySelector(`[data-loyalty-balance="${a.id}"]`);if(node)node.textContent=a.balance+' pts';}}).catch(()=>document.querySelectorAll('[data-loyalty-balance]').forEach(n=>n.textContent='Indisponível'));
+  byId('open-store-leads')?.addEventListener('click',()=>{const dialog=document.createElement('dialog');dialog.className='crm-coupon-dialog';dialog.innerHTML='<button class="btn" data-close>Fechar</button><div data-leads></div>';dialog.querySelector('button').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();document.body.appendChild(dialog);dialog.showModal();StoreLeadsPanel.mount(dialog.querySelector('[data-leads]'),api,'/api/tenant/'+encodeURIComponent(state.settings.tenantCode)+'/store-leads').catch(error=>dialog.querySelector('[data-leads]').textContent=error.message);});
   byId('open-crm-loyalty')?.addEventListener('click',()=>{const dialog=document.createElement('dialog');dialog.className='crm-coupon-dialog';dialog.innerHTML='<button class="btn" data-close>Fechar</button><div data-loyalty></div>';dialog.querySelector('button').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();document.body.appendChild(dialog);dialog.showModal();LoyaltyPanel.mount(dialog.querySelector('[data-loyalty]'),api,[{code:state.settings.tenantCode,name:state.settings.company}]).catch(error=>dialog.querySelector('[data-loyalty]').textContent=error.message);});
   byId('edit-crm-tags')?.addEventListener('click',()=>{const person=state.people.find(p=>Number(p.id)===Number(selectedPersonId));if(person)CrmTags.edit(person,state.settings.tenantCode,api,async()=>{await loadTenantState(state.settings.tenantCode);renderShell();});});
   byId("open-crm-coupons")?.addEventListener("click",()=>{

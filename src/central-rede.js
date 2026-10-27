@@ -508,8 +508,9 @@ function renderRoyalties() {
 }
 
 function renderCustomers(){
- const tabs=`<div class="network-actions"><button class="btn ${customerCrmView==='sales'?'primary':''}" data-customer-view="sales" type="button">Vendas por cliente</button><button class="btn ${customerCrmView==='campaigns'?'primary':''}" data-customer-view="campaigns" type="button">Campanhas e WhatsApp</button></div>`;
- return tabs+(customerCrmView==='sales'?`<div class="network-module network-module-flow"><section class="network-card" id="customer-sales-panel"><p role="status">Carregando vendas por cliente…</p></section></div>`:renderCustomerCampaigns());
+ const tabs=`<div class="network-actions"><button class="btn ${customerCrmView==='sales'?'primary':''}" data-customer-view="sales" type="button">Vendas por cliente</button><button class="btn ${customerCrmView==='campaigns'?'primary':''}" data-customer-view="campaigns" type="button">Campanhas e WhatsApp</button><button class="btn ${customerCrmView==='leads'?'primary':''}" data-customer-view="leads" type="button">Cadastros online / não atendidos</button></div>`;
+ const leads='<div class="network-module network-module-flow"><section class="network-card" id="customer-web-leads"></section></div>';
+ return tabs+(customerCrmView==='leads'?leads:customerCrmView==='sales'?`<div class="network-module network-module-flow"><section class="network-card" id="customer-sales-panel"><p role="status">Carregando vendas por cliente…</p></section></div>`:renderCustomerCampaigns());
 }
 function renderCustomerCampaigns() {
   const consumptionRows = summary.customerConsumption || [];
@@ -819,6 +820,7 @@ function renderReports() {
 
 function bindRender() {
   document.querySelectorAll('[data-customer-view]').forEach(button=>button.onclick=()=>{customerCrmView=button.dataset.customerView;render();});
+  if(byId('customer-web-leads'))StoreLeadsPanel.mount(byId('customer-web-leads'),api).catch(error=>{const panel=byId('customer-web-leads');if(panel)panel.textContent=error.message;});
   if(byId('customer-sales-panel'))CustomerSalesPanel.mount(byId('customer-sales-panel'),api).catch(error=>{const panel=byId('customer-sales-panel');if(panel)panel.textContent=error.message;});
   if(byId("customer-campaign-panel"))CustomerCampaignPanel.mount(byId("customer-campaign-panel"),api).catch(error=>{const panel=byId("customer-campaign-panel");if(panel)panel.textContent=error.message;});
   if(byId("network-sales-reports")&&window.CashReportsPanel)window.CashReportsPanel.mount(byId("network-sales-reports"),{api,network:true});
