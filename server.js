@@ -1,3 +1,5 @@
+const crmAutomation=require('./src/server/crm-automation');
+const crmCampaigns=require('./src/server/crm-campaigns');
 const loyaltyService = require('./src/server/loyalty');
 const couponService = require("./src/server/coupons");
 const stockReplenishment = require("./src/server/stock-replenishment");
@@ -397,7 +399,7 @@ function readTenantState(tenantCode) {
 }
 
 function loyaltyStates(){return Object.fromEntries((readProvider().clients||[]).map(c=>[normalizeTenantCode(c.tenantCode),readTenantState(c.tenantCode)]));}
-function writeTenantState(tenantCode, state, allowTerminalSettings = false, allowDataReset = false, allowCouponSettings = false) {
+function writeTenantState(tenantCode, state, allowTerminalSettings = false, allowDataReset = false, allowCouponSettings = false, allowCrmTags = false) {
   const code = normalizeTenantCode(tenantCode);
   const current = readTenantState(code);
   const stripped = stripProvider(state);
@@ -406,6 +408,7 @@ function writeTenantState(tenantCode, state, allowTerminalSettings = false, allo
     ...stripped,
     users: (stripped.users || current.users || initialTenantState.users).map(user => ({...user, passwordHash: user.passwordHash || current.users.find(existing => existing.id === user.id)?.passwordHash}))
   }, code);
+  if(!allowCrmTags)normalized.people=normalized.people.map(p=>{const old=current.people.find(o=>String(o.id)===String(p.id));return old?{...p,crmTags:old.crmTags||[],marketingOptOut:old.marketingOptOut===true}:{...p,crmTags:[],marketingOptOut:false};});
   if (!allowCouponSettings) normalized.coupons=structuredClone(current.coupons||[]);
   normalized.loyaltyLedger=allowDataReset?structuredClone(current.loyaltyLedger||[]):loyaltyService.apply(current,normalized,loyaltyStates(),code,readProvider().loyalty);
   normalized.couponRedemptions=allowDataReset?structuredClone(current.couponRedemptions||[]):couponService.applySales(current,normalized);
@@ -1085,7 +1088,7 @@ function publicTenantState(state) {
 }
 
 function publicProvider(provider) {
-  const { providerAdmins, companyProfile: privateCompanyProfile, ...safe } = provider;
+  const { providerAdmins, marketingCampaigns, crmAutomations, crmWhatsapp, companyProfile: privateCompanyProfile, ...safe } = provider;
   return {
     ...safe,
     clients: (safe.clients || []).map(publicTenant)
@@ -3334,6 +3337,35 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  if(urlPath==='/api/network/crm-automation'&&['GET','POST'].includes(req.method)){
+    const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessão da Central obrigatória.'});if(!permissionsFor(access).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});const provider=readProvider();
+    if(req.method==='GET'){const {tokenVault,...connection}=provider.crmWhatsapp||{};return sendJson(res,200,{ok:true,presets:crmAutomation.presets,rules:provider.crmAutomations||[],connection:{...connection,tokenConfigured:!!tokenVault},units:provider.clients.map(c=>({code:c.tenantCode,name:c.tradeName||c.tenantCode}))});}
+    try{const body=await readBody(req);if(body.connection){const c=body.connection;if(!/^v\d+\.\d+$/.test(c.version)||!/^\d{5,30}$/.test(c.phoneId))throw Error('Informe a versão da API e o Phone Number ID da Meta.');provider.crmWhatsapp={enabled:c.enabled===true,version:c.version,phoneId:c.phoneId,tokenVault:c.token?encryptVaultPayload({token:String(c.token)}):provider.crmWhatsapp?.tokenVault};if(provider.crmWhatsapp.enabled&&!provider.crmWhatsapp.tokenVault)throw Error('Informe o token da Meta.');}
+      else{const rules=provider.crmAutomations||[],index=rules.findIndex(r=>r.id===body.id);if(body.id&&index<0)return sendJson(res,404,{error:'Campanha não encontrada.'});const changed=crmAutomation.rule(body,provider.clients.map(c=>c.tenantCode),rules[index]);if(index>=0)rules[index]=changed;else rules.push(changed);provider.crmAutomations=rules;}
+      writeProvider(provider);appendProviderAudit('Automação CRM configurada','Configuração salva sem disparo imediato',access.username,requestIp(req));return sendJson(res,200,{ok:true});
+    }catch(error){return sendJson(res,422,{error:error.message});}
+  }
+  const crmTagsMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/crm-tags\/(\d+)$/);
+  if(crmTagsMatch&&req.method==='POST'){
+    const unit=normalizeTenantCode(crmTagsMatch[1]),provider=readProvider(),access=tenantAccessOrProvider(req,provider,unit,'people');if(access.error)return deny(res,access);
+    if(access.session.provider&&!permissionsFor(providerAccess(req)).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});
+    try{const body=await readBody(req),state=readTenantState(unit),person=state.people.find(p=>String(p.id)===crmTagsMatch[2]&&p.type==='Cliente');if(!person)return sendJson(res,404,{error:'Cliente não encontrado.'});person.crmTags=crmCampaigns.tags(body.tags);if(typeof body.marketingOptOut==='boolean')person.marketingOptOut=body.marketingOptOut;writeTenantState(unit,state,false,false,false,true);appendTenantAudit(unit,'Etiquetas do CRM alteradas',String(person.id),access.session.user);return sendJson(res,200,{ok:true,tags:person.crmTags});}catch(error){return sendJson(res,422,{error:error.message});}
+  }
+  const crmHistoryMatch=urlPath.match(/^\/api\/(network|tenant\/([^/]+))\/crm-campaigns(?:\/([a-f0-9-]+))?$/);
+  if(crmHistoryMatch&&['GET','POST'].includes(req.method)){
+    const provider=readProvider(),unit=crmHistoryMatch[2]?normalizeTenantCode(crmHistoryMatch[2]):'',id=crmHistoryMatch[3];let actor;
+    if(unit){const access=tenantAccessOrProvider(req,provider,unit,'people');if(access.error)return deny(res,access);actor=access.session.user;if(access.session.provider&&!permissionsFor(providerAccess(req)).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});}
+    else{const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessão da Central obrigatória.'});if(!permissionsFor(access).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});actor=access.username;}
+    const campaigns=provider.marketingCampaigns||[];
+    if(req.method==='GET'){if(id){const c=campaigns.find(c=>c.id===id),view=c&&crmCampaigns.project(c,unit);return view?sendJson(res,200,{ok:true,campaign:view}):sendJson(res,404,{error:'Campanha não encontrada.'});}
+      return sendJson(res,200,{ok:true,campaigns:campaigns.map(c=>crmCampaigns.project(c,unit)).filter(Boolean).map(({recipients,message,...c})=>c)});}
+    if(unit)return sendJson(res,403,{error:'Campanhas são configuradas somente na Central do administrador.'});
+    try{const body=await readBody(req);if(id){const index=campaigns.findIndex(c=>c.id===id);if(index<0||!crmCampaigns.project(campaigns[index],unit))return sendJson(res,404,{error:'Campanha não encontrada.'});if(unit&&campaigns[index].ownerUnit!==unit)return sendJson(res,403,{error:'Esta campanha é gerenciada pela Central.'});if(body.action==='retry-errors'){const failed=campaigns[index].recipients.filter(r=>r.status==='Erro');if(!failed.length)throw Error('Não há mensagens recusadas pela Meta para repetir.');failed.forEach(r=>{r.status='Pendente';delete r.error;});campaigns[index].status='Preparada';}else campaigns[index]=crmCampaigns.transition(campaigns[index],body.status);}
+      else{const units=provider.clients.map(c=>({code:normalizeTenantCode(c.tenantCode),name:c.tradeName||c.tenantCode}));campaigns.unshift(crmCampaigns.create(body,units,Object.fromEntries(units.filter(u=>!unit||u.code===unit).map(u=>[u.code,readTenantState(u.code)])),unit));}
+      provider.marketingCampaigns=campaigns;writeProvider(provider);appendProviderAudit('Campanha CRM registrada/atualizada',id||campaigns[0].id,actor,requestIp(req));return sendJson(res,200,{ok:true,id:id||campaigns[0].id});
+    }catch(error){return sendJson(res,422,{error:error.message});}
+  }
+
   if(urlPath==='/api/network/loyalty'&&['GET','POST'].includes(req.method)){
     const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessão da Central obrigatória.'});
     if(!permissionsFor(access).includes('customers'))return sendJson(res,403,{error:'Sem acesso ao CRM.'});
@@ -3395,7 +3427,7 @@ async function handleApi(req, res, urlPath) {
     const insights=require("./src/customer-insights"),days=[30,60,90].includes(Number(requestUrl.searchParams.get("days")))?Number(requestUrl.searchParams.get("days")):30;
     const units=readProvider().clients.map(t=>({code:t.tenantCode,name:t.tradeName||t.tenantCode})),rows=[];
     for(const unit of units){const tenantState=readTenantState(unit.code),people=(tenantState.people||[]).filter(p=>p.type==="Cliente"),metrics=insights.build(people,tenantState.sales||[],days,businessDay());
-      for(const person of people)rows.push({id:String(person.id),unitCode:unit.code,unit:unit.name,name:person.name,document:person.document||"",city:person.city||"",district:person.district||"",uf:person.uf||"",active:person.active!==false,phone:insights.phone(person),metrics:metrics.get(String(person.id))});
+      for(const person of people)rows.push({id:String(person.id),unitCode:unit.code,unit:unit.name,name:person.name,document:person.document||"",crmTags:person.crmTags||[],marketingOptOut:person.marketingOptOut===true,city:person.city||"",district:person.district||"",uf:person.uf||"",active:person.active!==false,phone:insights.phone(person),metrics:metrics.get(String(person.id))});
     }
     const consumed=new Map();for(const row of rows){if(row.metrics.lifetimeCount>0){const key=String(row.document).replace(/[^a-z0-9]/gi,"").toUpperCase()||row.unitCode+":"+row.id;if(!consumed.has(key))consumed.set(key,new Set());consumed.get(key).add(row.unit);}}
     return sendJson(res,200,{ok:true,days,units,rows:rows.map(row=>({...row,loyalty:loyaltyService.balance(loyaltyStates(),row.document,row.unitCode,readProvider().loyalty||{scope:'unit'}),consumesAt:[...(consumed.get(String(row.document).replace(/[^a-z0-9]/gi,"").toUpperCase()||row.unitCode+":"+row.id)||[])]}))});
@@ -3556,7 +3588,7 @@ async function handleApi(req, res, urlPath) {
         licensePassword: existing?.licensePassword || client.licensePassword || "PEGMA-2026"
       };
     });
-    writeProvider({ ...incoming, loyalty:current.loyalty, companyProfile: current.companyProfile, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
+    writeProvider({ ...incoming, loyalty:current.loyalty, marketingCampaigns:current.marketingCampaigns, crmAutomations:current.crmAutomations, crmWhatsapp:current.crmWhatsapp, companyProfile: current.companyProfile, clients, providerAdmins: current.providerAdmins, auditLogs: current.auditLogs });
     appendProviderAudit("Central atualizada", "Configuracoes gerais alteradas", providerAccess(req).username, requestIp(req));
     sendJson(res, 200, { ok: true });
     return;
@@ -5171,10 +5203,38 @@ function serveStorageFile(req, res, urlPath) {
   });
 }
 
+let crmAutomationRunning=false;
+async function runCrmAutomation(){
+ if(crmAutomationRunning)return;crmAutomationRunning=true;
+ try{
+ await coordinateState(()=>{const provider=readProvider();if(!(provider.crmAutomations||[]).some(r=>r.enabled))return;const states=loyaltyStates(),names=Object.fromEntries(provider.clients.map(c=>[c.tenantCode,c.tradeName||c.tenantCode])),campaigns=provider.marketingCampaigns||[],plans=crmAutomation.plan(provider.crmAutomations||[],states,names,campaigns);
+  for(const item of plans){const unit=item.recipient.sources[0].unitCode,state=states[unit],savedCoupon=(state.coupons||[]).find(c=>c.code===item.coupon.code);if(savedCoupon)item.coupon=savedCoupon;if(!savedCoupon){(state.coupons||=[]).push(item.coupon);writeTenantState(unit,state,false,false,true);}
+   let campaign=campaigns.find(c=>c.ruleId===item.ruleId&&c.date===item.date);if(!campaign){campaign={id:crypto.randomUUID(),ruleId:item.ruleId,date:item.date,automatic:true,title:item.title,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),status:'Preparada',units:[],ownerUnit:'',template:item.template,language:item.language,recipients:[]};campaigns.unshift(campaign);}
+   if(!campaign.units.includes(unit))campaign.units.push(unit);campaign.recipients.push({...item.recipient,coupon:item.coupon});
+  }
+  if(plans.length){provider.marketingCampaigns=campaigns;writeProvider(provider);}
+ });
+ for(let i=0;i<5;i++){
+  let claimed;
+  await coordinateState(()=>{const provider=readProvider(),connection=provider.crmWhatsapp;if(!connection?.enabled||!connection.tokenVault)return;
+   for(const campaign of provider.marketingCampaigns||[]){if(!campaign.automatic||!['Preparada','Processando'].includes(campaign.status)||!(provider.crmAutomations||[]).some(r=>r.id===campaign.ruleId&&r.enabled))continue;
+    for(const stale of campaign.recipients.filter(r=>r.status==='Processando'&&Date.now()-Date.parse(r.claimedAt)>600000)){stale.status='Incerto';stale.error='Execução interrompida. Confira na Meta antes de repetir.';writeProvider(provider);}
+    const row=campaign.recipients.find(r=>r.status==='Pendente');if(!row){if(!campaign.recipients.some(r=>r.status==='Processando')){campaign.status='Finalizada';writeProvider(provider);}continue;}const state=readTenantState(row.sources[0].unitCode),person=state.people.find(p=>String(p.id)===row.sources[0].id);
+    if(!person||person.active===false||person.marketingOptOut===true||require('./src/customer-insights').phone(person)!==row.phone||row.coupon.validTo<businessDay()||!(state.coupons||[]).some(c=>c.code===row.couponCode&&c.active)){row.status='Ignorada';writeProvider(provider);continue;}
+    const token=decryptVaultPayload(connection.tokenVault).token;if(!token)return;row.status='Processando';row.claimedAt=new Date().toISOString();campaign.status='Processando';writeProvider(provider);claimed={campaign:structuredClone(campaign),row:structuredClone(row),config:connection,token};break;
+   }
+  });
+  if(!claimed)break;let result;try{result=await crmAutomation.send(claimed.config,claimed.token,claimed.campaign,claimed.row);}catch{result={status:'Incerto',error:'Sem confirmação de envio. Conferir na Meta antes de repetir.'};}
+  await coordinateState(()=>{const provider=readProvider(),campaign=(provider.marketingCampaigns||[]).find(c=>c.id===claimed.campaign.id),row=campaign?.recipients.find(r=>r.automationKey===claimed.row.automationKey);if(row){Object.assign(row,result,{processedAt:new Date().toISOString()});if(!campaign.recipients.some(r=>['Pendente','Processando'].includes(r.status)))campaign.status='Finalizada';writeProvider(provider);}});
+ }
+ }catch(error){console.error('[CRM automático]',error.message);}finally{crmAutomationRunning=false;}
+}
+
 let server;
 
 async function startServer() {
   await initializePersistence();
+  if(["central","network","all"].includes(appSurface))setInterval(runCrmAutomation,60000).unref();
   setInterval(async () => {
     try {
       await coordinateState(async () => {
