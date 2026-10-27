@@ -4,7 +4,8 @@ function create(body,existing=[],now=new Date()){
  const result={code:code(body.code),type:body.type,value:Number(body.value),validFrom:String(body.validFrom||businessDay(now)),validTo:String(body.validTo||''),maxUses:Number(body.maxUses),perCustomerLimit:Number(body.perCustomerLimit||1),audience:body.audience,documents:[...new Set((body.documents||[]).map(doc).filter(Boolean))],active:true,createdAt:now.toISOString()};
  if(!/^[A-Z0-9_-]{4,30}$/.test(result.code)||existing.some(c=>c.code===result.code))throw Error('Código inválido ou já cadastrado. Use 4 a 30 letras, números, hífen ou sublinhado.');
  if(!['percent','fixed'].includes(result.type)||!Number.isFinite(result.value)||result.value<=0||(result.type==='percent'&&result.value>100))throw Error('Informe um percentual de até 100% ou um valor fixo positivo.');
- if(!/^\d{4}-\d{2}-\d{2}$/.test(result.validFrom)||!/^\d{4}-\d{2}-\d{2}$/.test(result.validTo)||result.validTo<result.validFrom||!Number.isFinite(Date.parse(result.validTo))||new Date(result.validTo).toISOString().slice(0,10)!==result.validTo||!Number.isFinite(Date.parse(result.validFrom))||new Date(result.validFrom).toISOString().slice(0,10)!==result.validFrom)throw Error('Confira as datas de validade do cupom.');
+ const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+ if(!validDate(result.validFrom)||(result.validTo&&(!validDate(result.validTo)||result.validTo<result.validFrom)))throw Error('Confira as datas de validade do cupom.');
  if(!Number.isInteger(result.maxUses)||result.maxUses<1||!Number.isInteger(result.perCustomerLimit)||result.perCustomerLimit<1)throw Error('Informe limites de uso inteiros maiores que zero.');
  if(!['all','selected'].includes(result.audience)||result.audience==='selected'&&(!result.documents.length||result.documents.some(d=>![11,14].includes(d.length))))throw Error('Selecione ao menos um cliente com CPF/CNPJ para este cupom.');
  return result;
@@ -18,7 +19,7 @@ function update(existing,body,ledger=[],now=new Date()){
 function preview(state,body,now=new Date(),ledger=state.couponRedemptions||[]){
  const c=(state.coupons||[]).find(c=>c.code===code(body.code)),date=businessDay(now),customer=doc(body.customerDocument),base=round(body.base);
  if(!c||!c.active)throw Error('Cupom não encontrado ou desativado.');
- if(date<c.validFrom||date>c.validTo)throw Error('Cupom fora do prazo de validade.');
+ if(date<c.validFrom||(c.validTo&&date>c.validTo))throw Error('Cupom fora do prazo de validade.');
  if(!customer||c.audience==='selected'&&!c.documents.includes(customer))throw Error('Cupom não autorizado para este cliente.');
  const uses=ledger.filter(r=>r.code===c.code);if(uses.length>=c.maxUses)throw Error('Limite de usos do cupom atingido.');
  if(uses.filter(r=>r.customerDocument===customer).length>=c.perCustomerLimit)throw Error('Este cliente já atingiu o limite de uso do cupom.');
