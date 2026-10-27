@@ -1,3 +1,4 @@
+const couponService = require("./src/server/coupons");
 const stockReplenishment = require("./src/server/stock-replenishment");
 const deliveryArea = require("./src/server/delivery-area");
 const deliveryGeocoder = deliveryArea.createGeocoder();
@@ -394,7 +395,7 @@ function readTenantState(tenantCode) {
   return withTenantStateDefaults(state, code);
 }
 
-function writeTenantState(tenantCode, state, allowTerminalSettings = false, allowDataReset = false) {
+function writeTenantState(tenantCode, state, allowTerminalSettings = false, allowDataReset = false, allowCouponSettings = false) {
   const code = normalizeTenantCode(tenantCode);
   const current = readTenantState(code);
   const stripped = stripProvider(state);
@@ -403,6 +404,8 @@ function writeTenantState(tenantCode, state, allowTerminalSettings = false, allo
     ...stripped,
     users: (stripped.users || current.users || initialTenantState.users).map(user => ({...user, passwordHash: user.passwordHash || current.users.find(existing => existing.id === user.id)?.passwordHash}))
   }, code);
+  if (!allowCouponSettings) normalized.coupons=structuredClone(current.coupons||[]);
+  normalized.couponRedemptions=allowDataReset?structuredClone(current.couponRedemptions||[]):couponService.applySales(current,normalized);
   if (!allowTerminalSettings) normalized.settings.pdvTerminals = structuredClone(current.settings.pdvTerminals || []);
   normalized._meta = {
     ...(current._meta || {}),
@@ -3328,6 +3331,23 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const couponsMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/coupons(?:\/(preview|toggle))?$/);
+  if(couponsMatch && ["GET","POST"].includes(req.method)){
+    const tenantCode=normalizeTenantCode(couponsMatch[1]),action=couponsMatch[2]||'',provider=readProvider(),access=tenantAccessOrProvider(req,provider,tenantCode,action==='preview'?'pdv':'people');if(access.error)return deny(res,access);
+    if(access.session.provider&&!permissionsFor(providerAccess(req)).includes('customers'))return sendJson(res,403,{ok:false,error:'Sem acesso ao CRM'});
+    const tenantState=readTenantState(tenantCode);
+    if(req.method==='GET'&&!action)return sendJson(res,200,{ok:true,coupons:(tenantState.coupons||[]).map(c=>({...c,uses:(tenantState.couponRedemptions||[]).filter(r=>r.code===c.code).length}))});
+    if(req.method!=='POST')return sendJson(res,405,{error:'Operação inválida'});
+    const body=await readBody(req);
+    try{
+      if(action==='preview')return sendJson(res,200,{ok:true,...couponService.preview(tenantState,body)});
+      if(action==='toggle'){const c=(tenantState.coupons||[]).find(c=>c.code===couponService.code(body.code));if(!c)throw Error('Cupom não encontrado');c.active=Boolean(body.active);}
+      else{const c=couponService.create(body,tenantState.coupons||[]);if(c.audience==='selected'&&c.documents.some(d=>!(tenantState.people||[]).some(p=>p.type==='Cliente'&&String(p.document||'').replace(/[^a-z0-9]/gi,'').toUpperCase()===d)))throw Error('Cliente selecionado não pertence a esta unidade');(tenantState.coupons||=[]).push(c);}
+      writeTenantState(tenantCode,tenantState,false,false,true);appendTenantAudit(tenantCode,action==='toggle'?'Situação de cupom alterada':'Cupom criado',couponService.code(body.code),access.session.user);
+      return sendJson(res,200,{ok:true});
+    }catch(error){return sendJson(res,422,{ok:false,error:error.message});}
+  }
+
   const automaticItemMatch=urlPath.match(/^\/api\/tenant\/([^/]+)\/products\/(\d+)\/automatic-sale-item$/);
   if(automaticItemMatch && req.method==="POST"){
     const access=providerAccess(req);if(!access)return sendJson(res,401,{ok:false,error:"Sessão da Central obrigatória"});
@@ -3795,6 +3815,8 @@ async function handleApi(req, res, urlPath) {
     catch(error){return sendJson(res,422,{error:error.message});}
     try { assertPdvCashWrite(currentState,incoming); }
     catch(error){return sendJson(res,423,{ok:false,error:error.message});}
+    try { couponService.applySales(currentState,incoming); }
+    catch(error){return sendJson(res,422,{ok:false,code:"COUPON_INVALID",error:error.message,state:publicTenantState(currentState)});}
     incoming.users = currentState.users;
     writeTenantState(tenantCode, incoming);
     writeProvider(provider);

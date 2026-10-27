@@ -369,6 +369,7 @@ function renderScreenPermissionMatrix(user = {}) {
   `;
 }
 let syncChain = Promise.resolve();
+let lastCouponSyncError = "";
 
 function load() {
   const stored = localStorage.getItem("tortelaplus-state-v1");
@@ -473,7 +474,7 @@ function save() {
       for (let attempt = 0; attempt < 3; attempt++) {
       const localPending = structuredClone(state);
       try {
-        const { provider, users, ...tenantState } = state;
+        const { provider, users, coupons, couponRedemptions, ...tenantState } = state;
         const result = await api(`/api/tenant/${tenantCode}/state`, {
           method: "POST",
           headers: { "X-Pegma-Permission": permission },
@@ -484,6 +485,11 @@ function save() {
         localStorage.removeItem("tortelaplus-pending-sync");
         return true;
       } catch (error) {
+        if(error.payload?.code === "COUPON_INVALID"){
+          lastCouponSyncError=error.message;
+          state=withDefaults({...error.payload.state,provider:state.provider,settings:{...error.payload.state.settings,user:state.settings.user}});
+          localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.removeItem("tortelaplus-pending-sync");return false;
+        }
         if (error.payload?.code === "DATA_RESET") {
           state=withDefaults({...error.payload.state,provider:state.provider});saleItems=[];lastPdvSaleId=0;
           localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.removeItem("tortelaplus-pending-sync");
@@ -1455,6 +1461,7 @@ function peopleTable() {
       <button class="btn" type="button" id="customer-mark-filtered">Marcar clientes filtrados para mensagem</button>
       <button class="btn" type="button" id="customer-clear-selection">Limpar seleção de mensagens</button>
       <button class="btn primary" type="button" id="customer-message-group">Preparar mensagens selecionadas (${customerMessageIds.size})</button>
+      <button class="btn primary" type="button" id="open-crm-coupons">Cupons de desconto</button>
       <button class="btn" type="button" id="print-people">Exportar lista / Excel</button>
     </div></div>
   `;
@@ -3816,6 +3823,9 @@ function bindCurrentModule() {
   if (newPerson) newPerson.addEventListener("click", newPersonRecord);
   document.querySelectorAll("[data-new-person-type]").forEach((button) => {
     button.addEventListener("click", () => newPersonRecord(button.dataset.newPersonType || "Cliente"));
+  });
+  byId("open-crm-coupons")?.addEventListener("click",()=>{
+    const dialog=document.createElement("dialog");dialog.className="crm-coupon-dialog";dialog.innerHTML='<button class="btn" data-close type="button">Fechar</button><div data-coupons></div>';dialog.querySelector('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove());document.body.appendChild(dialog);dialog.showModal();CouponPanel.mount(dialog.querySelector('[data-coupons]'),api,[{code:state.settings.tenantCode,name:state.settings.company}],state.people.filter(p=>p.type==='Cliente').map(p=>({...p,unitCode:state.settings.tenantCode})));
   });
   const applyCustomerFilters=()=>{personSearch=byId("person-search")?.value || personSearch; customerPeriod=Number(byId("customer-period")?.value || 30);customerFrequency=byId("customer-frequency")?.value || "all";customerRegion=byId("customer-region")?.value || "";customerMinTotal=Math.max(0,Number(byId("customer-min-total")?.value || 0));customerMessageIds.clear();renderShell();};
   byId("apply-customer-insights")?.addEventListener("click",applyCustomerFilters);
@@ -7740,7 +7750,8 @@ async function finalizePdvSaleRecord() {
     return;
   }
   const subtotal = saleItems.reduce((sum, item) => sum + item.qty * item.price, 0);
-  const discount = Number(byId("pdv-discount")?.value || 0);
+  let discount = Number(byId("pdv-discount")?.value || 0);
+  const manualDiscount=discount;
   if (discount > authorizedDiscountValue) {
     const authorization = await authorizePdvOperation("discount", "Autorizar desconto");
     if (!authorization) return;
@@ -7748,15 +7759,21 @@ async function finalizePdvSaleRecord() {
     audit("Desconto PDV autorizado", `${money(discount)} por ${authorization.authorizedBy}`);
   }
   const addition = Number(byId("pdv-addition")?.value || 0);
-  const exchangeCredit = Math.min(pendingExchangeCredit, Math.max(0, subtotal - discount + addition));
-  const total = Math.max(0, subtotal - discount + addition - exchangeCredit);
-  const chosenPayment=await choosePdvPayment(total);
+  let exchangeCredit = Math.min(pendingExchangeCredit, Math.max(0, subtotal - discount + addition));
+  let total = Math.max(0, subtotal - discount + addition - exchangeCredit);
+  const chosenPayment=await choosePdvPayment(total,{subtotal,manualDiscount,addition,pendingCredit:pendingExchangeCredit,customerDocument:saleClubCpf});
   if(!chosenPayment)return;
-  const paymentInfo = pdvPaymentBreakdown(total,chosenPayment);
+  if(chosenPayment.couponCode&&(!apiOnline||!sessionId||!navigator.onLine)){alert("Conecte-se ao servidor para concluir uma venda com cupom.");return;}
+  const couponDiscount=Number(chosenPayment.couponDiscount||0);
+  discount=manualDiscount+couponDiscount;
+  exchangeCredit=Math.min(pendingExchangeCredit,Math.max(0,subtotal-discount+addition));
+  total=Math.max(0,subtotal-discount+addition-exchangeCredit);
+  const paymentInfo = pdvPaymentBreakdown(total,chosenPayment.raw||chosenPayment);
   if (paymentInfo.paid < total) {
     alert("O valor pago nao cobre o total da venda.");
     return;
   }
+  const saleRollback={items:structuredClone(saleItems),credit:pendingExchangeCredit,lastSale:lastPdvSaleId};
   const sale = {
     id: nextId(state.sales),
     date: cashBusinessDay(),
@@ -7786,6 +7803,9 @@ async function finalizePdvSaleRecord() {
     change: paymentInfo.change,
     cashRegisterOpenedAt: state.cashRegister.openedAt,
     discount,
+    manualDiscount,
+    couponCode:chosenPayment.couponCode||"",
+    couponDiscount,
     addition,
     exchangeCredit,
     total,
@@ -7853,7 +7873,9 @@ async function finalizePdvSaleRecord() {
   saleClubCpf = "";
   pdvSelectedCustomer = null;
   authorizedDiscountValue = 0;
+  lastCouponSyncError="";
   const persisted=await save();
+  if(persisted===false&&lastCouponSyncError){saleItems=saleRollback.items;pendingExchangeCredit=saleRollback.credit;lastPdvSaleId=saleRollback.lastSale;saleClubCpf=sale.customerDocument;pdvSelectedCustomer=identifiedCustomer;authorizedDiscountValue=manualDiscount;alert("Cupom não aplicado. "+lastCouponSyncError+" A venda voltou para edição, sem gravação.");renderShell();return;}
   if(persisted===false){alert("A venda ainda nao foi confirmada no servidor. Os dados locais ficaram pendentes de sincronizacao. Nao refaca a venda antes de conferir Vendas na retaguarda.");renderShell();return;}
   await createConfiguredSaleCharges(sale);
   pdvCompletionMessage = `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
@@ -7895,7 +7917,7 @@ function renderNonFiscalReceipt(sale) {
   const logo = new URL("./assets/tortela/logo-tortela.gif?v=1", window.location.href).href;
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Recibo Tortela — Venda ${e(sale.id)}</title><style>
   *{box-sizing:border-box}body{margin:0;background:#eef0f2;color:#111;font:12px Arial,sans-serif}.toolbar{padding:16px;text-align:center}.toolbar button{background:#15803d;color:white;border:0;border-radius:8px;padding:12px 24px;font-weight:bold;cursor:pointer}.ticket{width:80mm;margin:0 auto 24px;padding:5mm;background:white}header{text-align:center}header img{width:40mm;max-height:23mm;object-fit:contain}h1{font-size:15px;margin:8px 0}h2{font-size:13px;margin:12px 0;padding:8px 0;border-top:1px dashed;border-bottom:1px dashed}p{margin:5px 0}.meta{padding:9px 0;border-bottom:1px dashed}.pair{display:flex;justify-content:space-between;gap:10px}table{width:100%;border-collapse:collapse;margin-top:10px}th{text-align:left;font-size:10px;border-bottom:1px solid;padding:6px 0}th:last-child,td:last-child{text-align:right;white-space:nowrap}td{padding:8px 0;vertical-align:top}td:first-child{padding-right:8px}small{display:block;font-size:10px;margin-top:4px}.complement td{padding-top:0;font-size:11px}.totals{border-top:1px dashed;padding:10px 0}.total{font-size:19px;font-weight:bold;margin:10px 0}.footer{text-align:center;border-top:1px dashed;padding-top:12px;font-size:11px}@page{size:80mm auto;margin:0}@media print{body{background:white}.toolbar{display:none}.ticket{margin:0;width:80mm;padding:4mm}tr{break-inside:avoid}}
-  </style></head><body><div class="toolbar"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div><article class="ticket"><header><img src="${e(logo)}" alt="Tortela"><h1>${e(state.settings.company || "Tortela")}</h1><h2>RECIBO NÃO FISCAL</h2></header><div class="meta"><div class="pair"><b>VENDA ${e(sale.id)}</b><span>${e(sale.date)}</span></div><p>Cliente: ${e(sale.customer || "Consumidor Final")}</p><p>Operador: ${e(sale.seller)} · ${e(sale.terminalName || "PDV")}</p></div><table><thead><tr><th>DESCRIÇÃO / QTD. × VALOR</th><th>VALOR</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div class="pair"><span>Desconto</span><span>${e(money(sale.discount || 0))}</span></div><div class="pair"><span>Acréscimo</span><span>${e(money(sale.addition || 0))}</span></div><div class="pair total"><span>TOTAL</span><span>${e(money(sale.total))}</span></div><div class="pair"><span>Pagamento</span><span>${e(sale.payment)}</span></div><div class="pair"><span>Troco</span><span>${e(money(sale.change || 0))}</span></div></div><div class="footer"><b>RECIBO NÃO FISCAL</b><p>Não substitui documento fiscal.</p><p>Obrigado pela preferência!</p></div></article></body></html>`;
+  </style></head><body><div class="toolbar"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div><article class="ticket"><header><img src="${e(logo)}" alt="Tortela"><h1>${e(state.settings.company || "Tortela")}</h1><h2>RECIBO NÃO FISCAL</h2></header><div class="meta"><div class="pair"><b>VENDA ${e(sale.id)}</b><span>${e(sale.date)}</span></div><p>Cliente: ${e(sale.customer || "Consumidor Final")}</p><p>Operador: ${e(sale.seller)} · ${e(sale.terminalName || "PDV")}</p></div><table><thead><tr><th>DESCRIÇÃO / QTD. × VALOR</th><th>VALOR</th></tr></thead><tbody>${rows}</tbody></table><div class="totals">${sale.couponCode?`<div class="pair"><span>Cupom ${e(sale.couponCode)} (incluído no desconto)</span><span>${e(money(sale.couponDiscount||0))}</span></div>`:""}<div class="pair"><span>Desconto</span><span>${e(money(sale.discount || 0))}</span></div><div class="pair"><span>Acréscimo</span><span>${e(money(sale.addition || 0))}</span></div><div class="pair total"><span>TOTAL</span><span>${e(money(sale.total))}</span></div><div class="pair"><span>Pagamento</span><span>${e(sale.payment)}</span></div><div class="pair"><span>Troco</span><span>${e(money(sale.change || 0))}</span></div></div><div class="footer"><b>RECIBO NÃO FISCAL</b><p>Não substitui documento fiscal.</p><p>Obrigado pela preferência!</p></div></article></body></html>`;
 }
 
 // A same-origin print frame works after asynchronous persistence without popup permissions.
@@ -8128,13 +8150,21 @@ async function startPdvSerialReader() {
   }
 }
 
-function choosePdvPayment(total) {
+function choosePdvPayment(total, context = {}) {
  return new Promise(resolve=>{
  const dialog=document.createElement('dialog');dialog.className='pdv-customer-dialog pdv-payment-dialog';dialog.setAttribute('aria-labelledby','pdv-payment-title');
- dialog.innerHTML=`<form><header><small>CONCLUIR VENDA</small><h2 id="pdv-payment-title">Como o cliente vai pagar?</h2><p>Total: <strong>${money(total)}</strong></p></header><div class="pdv-customer-fields"><label>Forma de pagamento<select name="method" required><option value="">Selecione uma forma</option><option value="Dinheiro">Dinheiro</option><option value="Cartao credito">Credito</option><option value="Cartao debito">Debito</option><option value="PIX">PIX</option><option value="iFood">iFood</option></select></label><label>Valor recebido<input name="amount" type="number" min="0" step="0.01" value="${total.toFixed(2)}" required></label></div><p role="status" data-payment-status>Escolha uma forma para continuar. A venda ainda nao foi gravada.</p><footer><button class="btn danger" type="button" data-cancel>Voltar a venda</button><button class="btn primary" type="submit">Confirmar pagamento e concluir</button></footer></form>`;
- const form=dialog.querySelector('form'),status=form.querySelector('[data-payment-status]');const finish=value=>{dialog.close();dialog.remove();resolve(value);};
- const preview=()=>{if(!form.elements.method.value)return;form.elements.amount.readOnly=form.elements.method.value!=='Dinheiro';if(form.elements.amount.readOnly)form.elements.amount.value=total.toFixed(2);try{const payment=window.PdvPayments.calculate(total,{[form.elements.method.value]:Number(form.elements.amount.value)},true);status.textContent='Troco: '+money(payment.change)+(form.elements.method.value==='iFood'?' · Registra o recebimento pela plataforma; nao faz cobranca no iFood.':'');}catch(error){status.textContent=error.message;}};
- form.elements.method.addEventListener('change',preview);form.elements.amount.addEventListener('input',preview);form.addEventListener('submit',event=>{event.preventDefault();if(!form.elements.method.value)return;try{const raw={[form.elements.method.value]:Number(form.elements.amount.value)};window.PdvPayments.calculate(total,raw,true);finish(raw);}catch(error){status.textContent=error.message;}});form.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();form.elements.method.focus();
+ dialog.innerHTML=`<form><header><small>CONCLUIR VENDA</small><h2 id="pdv-payment-title">Como o cliente vai pagar?</h2><p>Total: <strong data-total>${money(total)}</strong></p></header><div class="pdv-coupon-entry"><label>Cupom de desconto<input name="coupon" placeholder="Digite o código do CRM" autocomplete="off" maxlength="30"></label><button class="btn" type="button" data-apply>Aplicar cupom</button><button class="btn" type="button" data-remove hidden>Remover cupom</button><p role="status" data-coupon-status></p></div><div class="pdv-customer-fields"><label>Forma de pagamento<select name="method" required><option value="">Selecione uma forma</option><option value="Dinheiro">Dinheiro</option><option value="Cartao credito">Credito</option><option value="Cartao debito">Debito</option><option value="PIX">PIX</option><option value="iFood">iFood</option></select></label><label>Valor recebido<input name="amount" type="number" min="0" step="0.01" value="${total.toFixed(2)}" required></label></div><p role="status" data-payment-status>Escolha uma forma para continuar. A venda ainda não foi gravada.</p><footer><button class="btn danger" type="button" data-cancel>Voltar à venda</button><button class="btn primary" type="submit">Confirmar pagamento e concluir</button></footer></form>`;
+ const form=dialog.querySelector('form'),status=form.querySelector('[data-payment-status]'),couponStatus=form.querySelector('[data-coupon-status]');let applied=null,busy=false;
+ const finish=value=>{dialog.close();dialog.remove();resolve(value);};
+ const net=()=>{if(!applied)return total;const goods=Math.max(0,context.subtotal-context.manualDiscount-applied.discount+context.addition);return Math.max(0,goods-Math.min(context.pendingCredit||0,goods));};
+ const preview=()=>{if(!form.elements.method.value)return;form.elements.amount.readOnly=form.elements.method.value!=='Dinheiro';if(form.elements.amount.readOnly)form.elements.amount.value=net().toFixed(2);try{const payment=window.PdvPayments.calculate(net(),{[form.elements.method.value]:Number(form.elements.amount.value)},true);status.textContent='Troco: '+money(payment.change);}catch(error){status.textContent=error.message;}};
+ const refresh=()=>{form.querySelector('[data-total]').textContent=money(net());form.elements.amount.value=net().toFixed(2);form.querySelector('[data-remove]').hidden=!applied;preview();};
+ form.querySelector('[data-apply]').onclick=async()=>{if(busy)return;busy=true;form.querySelector('[type=submit]').disabled=true;try{if(!apiOnline||!sessionId)throw Error('Conecte-se ao servidor para aplicar o cupom.');const code=form.elements.coupon.value.trim().toUpperCase();if(!code)throw Error('Digite o código do cupom.');applied=await api(`/api/tenant/${state.settings.tenantCode}/coupons/preview`,{method:'POST',timeoutMs:45000,body:JSON.stringify({code,customerDocument:context.customerDocument,base:context.subtotal-context.manualDiscount})});form.elements.coupon.value=applied.code;couponStatus.textContent='Cupom '+applied.code+' aplicado: -'+money(applied.discount)+'. O uso será confirmado na conclusão da venda.';refresh();}catch(error){applied=null;couponStatus.textContent=error.message;refresh();}finally{busy=false;form.querySelector('[type=submit]').disabled=false;}};
+ form.querySelector('[data-remove]').onclick=()=>{applied=null;form.elements.coupon.value='';couponStatus.textContent='Cupom removido.';refresh();};
+ form.elements.coupon.oninput=()=>{if(applied){applied=null;couponStatus.textContent='Código alterado. Clique em Aplicar cupom.';refresh();}};
+ form.elements.method.addEventListener('change',preview);form.elements.amount.addEventListener('input',preview);
+ form.addEventListener('submit',event=>{event.preventDefault();if(busy||!form.elements.method.value)return;if(form.elements.coupon.value.trim()&&!applied){couponStatus.textContent='Aplique o cupom ou apague o código para continuar.';return;}try{const raw={[form.elements.method.value]:Number(form.elements.amount.value)};window.PdvPayments.calculate(net(),raw,true);finish({raw,couponCode:applied?.code||'',couponDiscount:applied?.discount||0});}catch(error){status.textContent=error.message;}});
+ form.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();form.elements.method.focus();
  });
 }
 function pdvPaymentBreakdown(total, chosen = null) {
