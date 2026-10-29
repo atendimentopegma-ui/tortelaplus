@@ -1077,7 +1077,7 @@ function renderShell() {
   const modules = visibleModules();
 
   app(`
-    <main class="app-shell ${currentMode === "pdv" ? "pdv-shell"+(window.PdvTouch?.enabled()?" pdv-touch-shell":"") : ""}">
+    <main class="app-shell ${currentMode === "pdv" ? "pdv-shell"+(window.PdvTouch?.enabled()?" pdv-touch-shell":" pdv-normal-shell") : ""}">
       <header class="topbar">
         <div class="top-left">
           ${brandMarkup()}
@@ -3672,8 +3672,8 @@ function renderSettings() {
 
 function renderPdv() {
   const subtotal = saleItems.reduce((sum, item) => sum + item.qty * item.price, 0);
-  const discount = window.PdvTouch?.enabled()&&!saleItems.length?0:Number(byId("pdv-discount")?.value || 0);
-  const addition = window.PdvTouch?.enabled()&&!saleItems.length?0:Number(byId("pdv-addition")?.value || 0);
+  const discount = (window.PdvTouch?.enabled()||window.PdvNormal)&&!saleItems.length?0:Number(byId("pdv-discount")?.value || 0);
+  const addition = (window.PdvTouch?.enabled()||window.PdvNormal)&&!saleItems.length?0:Number(byId("pdv-addition")?.value || 0);
   const total = Math.max(0, subtotal - discount + addition - pendingExchangeCredit);
   const register = state.cashRegister || {};
   const terminal = currentPdvTerminal();
@@ -3765,8 +3765,8 @@ function renderPdv() {
             <div class="field"><label>Entregador</label><input id="pdv-delivery-driver" placeholder="Nome do entregador" /></div>
             <div class="field"><label>Telefone entrega</label><input id="pdv-delivery-phone" /></div>
             <div class="field pdv-wide"><label>Endereco entrega</label><input id="pdv-delivery-address" /></div>
-            <div class="field"><label>Desconto</label><input id="pdv-discount" type="number" step="0.01" value="${window.PdvTouch?.enabled()?discount:0}" /></div>
-            <div class="field"><label>Acrescimo</label><input id="pdv-addition" type="number" step="0.01" value="${window.PdvTouch?.enabled()?addition:0}" /></div>
+            <div class="field"><label>Desconto</label><input id="pdv-discount" type="number" step="0.01" value="${window.PdvTouch?.enabled()||window.PdvNormal?discount:0}" /></div>
+            <div class="field"><label>Acrescimo</label><input id="pdv-addition" type="number" step="0.01" value="${window.PdvTouch?.enabled()||window.PdvNormal?addition:0}" /></div>
             <div class="field"><label>Credito de troca</label><input readonly value="${money(pendingExchangeCredit)}" /></div>
             <p class="helper pdv-wide">A forma de pagamento sera escolhida ao finalizar a venda.</p><div class="pdv-options-balance"><span>Saldo atual do caixa</span><strong>${money(balance)}</strong></div>
             <div class="field"><label>Valor do movimento</label><input id="cash-move-value" type="number" step="0.01" value="0" /></div>
@@ -4496,6 +4496,7 @@ function bindCurrentModule() {
       renderShell();
     });
   });
+  if(currentMode==='pdv'&&!window.PdvTouch?.enabled())window.PdvNormal?.mount({products:state.products,preparation:ItemPreparation,price:p=>effectiveProductPrice(p,1),add:async id=>{byId('sale-price').value='0';await addSaleItem(id);},online:apiOnline,operator:state.settings.user,items:saleItems,exchangeCredit:pendingExchangeCredit,render:renderShell});
 }
 
 function cashBusinessDay(value = new Date()) {
