@@ -17,7 +17,8 @@
   for(const parent of items.filter(isTortela)){
    result.push(parent);used.add(parent);
    const children=items.filter(row=>parent.lineId&&row.parentLineId===parent.lineId);
-   children.sort((a,b)=>((role(a)||a.preparationRole)==='Calda / cobertura'?0:1)-((role(b)||b.preparationRole)==='Calda / cobertura'?0:1));
+   const priority=row=>row.upsellShake||row.preparationRole==='Bebida agregada'?0:(role(row)||row.preparationRole)==='Calda / cobertura'?1:2;
+   children.sort((a,b)=>priority(a)-priority(b));
    for(const child of children){result.push(child);used.add(child);}
   }
   return result.concat(items.filter(row=>!used.has(row)));
