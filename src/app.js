@@ -3672,8 +3672,8 @@ function renderSettings() {
 
 function renderPdv() {
   const subtotal = saleItems.reduce((sum, item) => sum + item.qty * item.price, 0);
-  const discount = Number(byId("pdv-discount")?.value || 0);
-  const addition = Number(byId("pdv-addition")?.value || 0);
+  const discount = window.PdvTouch?.enabled()&&!saleItems.length?0:Number(byId("pdv-discount")?.value || 0);
+  const addition = window.PdvTouch?.enabled()&&!saleItems.length?0:Number(byId("pdv-addition")?.value || 0);
   const total = Math.max(0, subtotal - discount + addition - pendingExchangeCredit);
   const register = state.cashRegister || {};
   const terminal = currentPdvTerminal();
@@ -3690,7 +3690,7 @@ function renderPdv() {
         </aside>
         <section class="pdv-main">
           <div class="form-card cash-open-card">
-            <h2>Abertura de caixa</h2>${window.PdvTouch?.toolbar()||''}
+            <h2>Abertura de caixa</h2>${window.PdvTouch?.toolbar({online:apiOnline})||''}
             <div class="grid four">
               <div class="field"><label>Valor inicial</label><input id="cash-open-amount" type="number" step="0.01" value="0" /></div>
               <div class="field"><label>Terminal</label><input id="cash-open-terminal" value="${register.terminal || "SERIE 1"}" /></div>
@@ -3729,28 +3729,30 @@ function renderPdv() {
         </div>
       </aside>
       <section class="pdv-main">
-        <div class="pdv-main-title"><div><small>${window.PdvTouch?.enabled()?"PDV TOUCH · ATENDIMENTO":"ATENDIMENTO"}</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div>${window.PdvTouch?.toolbar()||''}</div>
+        <div class="pdv-main-title"><div><small>${window.PdvTouch?.enabled()?"PDV TOUCH · ATENDIMENTO":"ATENDIMENTO"}</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div>${window.PdvTouch?.toolbar({online:apiOnline,operator:state.settings.user})||''}</div>
         <div class="sale-inputs">
           <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" />${window.PdvTouch?.enabled()?'<button class="btn pdv-touch-key" type="button" data-touch-key="pdv-club-cpf" aria-label="Digitar CPF no teclado da tela">123</button>':''}</div>
           <div class="field pdv-product-search"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Digite para buscar ou leia o código de barras" autocomplete="off" aria-controls="pdv-product-results" aria-expanded="false" /><div id="pdv-product-results" class="pdv-product-results" hidden></div></div>
-          <div class="field"><label for="sale-qty">Quantidade</label><input id="sale-qty" type="number" min="0" step="any" inputmode="decimal" value="1" />${window.PdvTouch?.enabled()?'<button class="btn pdv-touch-key" type="button" data-touch-key="sale-qty" aria-label="Digitar quantidade no teclado da tela">123</button>':''}</div>
+          <div class="field"><label for="sale-qty">Quantidade</label>${window.PdvTouch?.enabled()?`<div class="pt-entry-qty"><button type="button" data-touch-entry-minus aria-label="Diminuir quantidade">−</button><input id="sale-qty" type="number" min="0" step="any" inputmode="decimal" value="1"><button type="button" data-touch-entry-plus aria-label="Aumentar quantidade">+</button></div>`:'<input id="sale-qty" type="number" min="0" step="any" inputmode="decimal" value="1">'}</div>
           <div class="field"><label for="sale-price">Preço unitário</label><input id="sale-price" type="number" step="0.01" value="0" /></div>
           <div class="field"><label for="sale-item-total">Total do item</label><input id="sale-item-total" readonly value="0,00" /></div>
         </div>
         <div class="pdv-touch-workspace">${window.PdvTouch?.enabled()?'<section class="pdv-touch-catalog" id="pdv-touch-catalog" aria-label="Catálogo para toque"></section>':''}
-        <div class="table-wrap pdv-table">
+        ${window.PdvTouch?.enabled()?window.PdvTouch.cart(saleItems,{products:state.products,total,subtotal,discount,addition,preparation:ItemPreparation}):`        <div class="table-wrap pdv-table">
           <table>
             <thead><tr><th>Item</th><th>Codigo</th><th>Descricao</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead>
             <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole==='Calda / cobertura'?'Cobertura':item.preparationRole==='Acompanhamento'?'Topping':item.preparationRole)+': ':''}${escapeHtml(item.description)}<small class="pdv-touch-line-meta">Cód. ${escapeHtml(item.id)} · ${escapeHtml(item.unit)} · ${money(item.price)} / un.</small>${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">${item.parentLineId?"Remover":item.comboGroupId?"Remover combo":"Remover"}</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Informe o CPF do cliente e adicione um produto pelo código, leitor de barras ou botão Buscar produto.</span></td></tr>'}</tbody>
           </table>
         </div>
-        </div><div class="pdv-checkout"><div class="totals">
+`}
+        </div>${window.PdvTouch?.enabled()?window.PdvTouch.checkout({subtotal,discount,addition}):`<div class="pdv-checkout"><div class="totals">
           <div class="total-box"><span>Desconto</span><strong>${money(discount)}</strong></div>
           <div class="total-box"><span>Acrescimo</span><strong>${money(addition)}</strong></div>
           <div class="total-box"><span>Subtotal</span><strong>${money(subtotal)}</strong></div>
           <div class="total-box grand-total"><span>Total</span><strong>${money(total)}</strong></div>
         </div>
         <button class="btn primary pdv-finish" id="finish-sale"><strong>Finalizar venda</strong><span>Pagamento · F7</span></button></div>
+`}
         <div class="pdv-options" id="pdv-options" aria-hidden="true">
           <div class="pdv-options-head"><h2>Opcoes do caixa</h2><button class="btn" id="close-pdv-options">Fechar</button></div>
           <div class="pdv-options-grid">
@@ -3763,8 +3765,8 @@ function renderPdv() {
             <div class="field"><label>Entregador</label><input id="pdv-delivery-driver" placeholder="Nome do entregador" /></div>
             <div class="field"><label>Telefone entrega</label><input id="pdv-delivery-phone" /></div>
             <div class="field pdv-wide"><label>Endereco entrega</label><input id="pdv-delivery-address" /></div>
-            <div class="field"><label>Desconto</label><input id="pdv-discount" type="number" step="0.01" value="0" /></div>
-            <div class="field"><label>Acrescimo</label><input id="pdv-addition" type="number" step="0.01" value="0" /></div>
+            <div class="field"><label>Desconto</label><input id="pdv-discount" type="number" step="0.01" value="${window.PdvTouch?.enabled()?discount:0}" /></div>
+            <div class="field"><label>Acrescimo</label><input id="pdv-addition" type="number" step="0.01" value="${window.PdvTouch?.enabled()?addition:0}" /></div>
             <div class="field"><label>Credito de troca</label><input readonly value="${money(pendingExchangeCredit)}" /></div>
             <p class="helper pdv-wide">A forma de pagamento sera escolhida ao finalizar a venda.</p><div class="pdv-options-balance"><span>Saldo atual do caixa</span><strong>${money(balance)}</strong></div>
             <div class="field"><label>Valor do movimento</label><input id="cash-move-value" type="number" step="0.01" value="0" /></div>
@@ -4304,6 +4306,17 @@ function bindCurrentModule() {
   document.body.classList?.toggle('pdv-touch-active',currentMode==='pdv'&&window.PdvTouch?.enabled()===true);
   document.querySelectorAll('[data-touch-key]').forEach(button=>button.onclick=()=>window.PdvTouch.keypad(byId(button.dataset.touchKey),button.dataset.touchKey==='pdv-club-cpf'?'CPF do cliente':'Quantidade do produto'));
   if(window.PdvTouch&&byId('pdv-touch-catalog'))window.PdvTouch.mount(byId('pdv-touch-catalog'),{products:state.products,preparation:ItemPreparation,price:p=>effectiveProductPrice(p,1),add:async id=>{byId('sale-price').value='0';await addSaleItem(id);}});
+  if(window.PdvTouch?.enabled()&&currentMode==='pdv'){
+    window.PdvTouch.decorate(document);
+    document.querySelectorAll('[data-touch-settings]').forEach(b=>b.onclick=()=>byId('toggle-pdv-options')?.click());
+    document.querySelectorAll('[data-touch-clear]').forEach(b=>b.onclick=()=>byId('cancel-sale')?.click());
+    document.querySelectorAll('[data-touch-payments]').forEach(b=>b.onclick=()=>byId('finish-sale')?.click());
+    document.querySelectorAll('[data-touch-numeric]').forEach(b=>b.onclick=()=>window.PdvTouch.keypad(byId(saleClubCpf.length===11?'sale-qty':'pdv-club-cpf'),saleClubCpf.length===11?'Quantidade do produto':'CPF do cliente'));
+    document.querySelectorAll('[data-touch-entry-minus],[data-touch-entry-plus]').forEach(b=>b.onclick=()=>{const input=byId('sale-qty'),value=Number(input.value)||1;input.value=String(b.hasAttribute('data-touch-entry-plus')?value+1:Math.max(1,value-1));input.dispatchEvent(new Event('input',{bubbles:true}));});
+    document.querySelectorAll('[data-touch-adjust]').forEach(b=>b.onclick=()=>{const id=b.dataset.touchAdjust;window.PdvTouch.keypad(byId(id),id==='pdv-discount'?'Desconto em reais':'Acréscimo em reais',()=>renderShell());});
+    document.querySelectorAll('[data-touch-line-plus],[data-touch-line-minus]').forEach(b=>b.onclick=async()=>{const plus=b.hasAttribute('data-touch-line-plus'),index=Number(plus?b.dataset.touchLinePlus:b.dataset.touchLineMinus),item=saleItems[index];if(!item)return;if(plus){b.disabled=true;byId('sale-qty').value='1';byId('sale-price').value='0';try{await addSaleItem(item.id);}finally{if(b.isConnected)b.disabled=false;}}else if(item.qty<=1){document.querySelector('[data-remove-sale-item="'+index+'"]')?.click();}else{const before=item.qty;item.qty=Math.max(0,item.qty-1);saleItems.filter(row=>row.parentLineId===item.lineId).forEach(row=>row.qty=row.qty/before*item.qty);renderShell();}});
+    document.querySelectorAll('[data-touch-note]').forEach(b=>b.onclick=()=>{const dialog=document.createElement('dialog');dialog.className='pdv-customer-dialog';dialog.innerHTML='<form><h2>Observação do item</h2><label>Produto<select name="line">'+saleItems.map((item,index)=>'<option value="'+index+'">'+escapeHtml(item.description)+'</option>').join('')+'</select></label><label>Observação<textarea name="note" maxlength="240" rows="3"></textarea></label><footer><button type="button" class="btn danger" data-cancel>Cancelar</button><button type="submit" class="btn primary">Salvar observação</button></footer></form>';const form=dialog.querySelector('form');form.elements.note.value=saleItems[0]?.note||'';form.elements.line.onchange=()=>form.elements.note.value=saleItems[Number(form.elements.line.value)]?.note||'';form.onsubmit=e=>{e.preventDefault();const item=saleItems[Number(form.elements.line.value)];if(item)item.note=form.elements.note.value.trim();dialog.close();renderShell();};dialog.querySelector('[data-cancel]').onclick=()=>dialog.close();dialog.onclose=()=>dialog.remove();document.body.appendChild(dialog);dialog.showModal();});
+  }
   const saleSearch = byId("sale-search");
   const productResults = byId("pdv-product-results");
   let searchMatches = [];
@@ -4411,6 +4424,7 @@ function bindCurrentModule() {
     saleClubCpf = "";
     pdvSelectedCustomer = null;
     authorizedDiscountValue = 0;
+    if(window.PdvTouch?.enabled()){if(byId('pdv-discount'))byId('pdv-discount').value='0';if(byId('pdv-addition'))byId('pdv-addition').value='0';}
     save();
     renderShell();
   });
@@ -7778,7 +7792,7 @@ async function finalizePdvSaleRecord() {
     authorizedDiscountValue = discount;
     audit("Desconto PDV autorizado", `${money(discount)} por ${authorization.authorizedBy}`);
   }
-  const addition = Number(byId("pdv-addition")?.value || 0);
+  const addition = window.PdvTouch?.enabled()&&!saleItems.length?0:Number(byId("pdv-addition")?.value || 0);
   let exchangeCredit = Math.min(pendingExchangeCredit, Math.max(0, subtotal - discount + addition));
   let total = Math.max(0, subtotal - discount + addition - exchangeCredit);
   const chosenPayment=await choosePdvPayment(total,{subtotal,manualDiscount,addition,pendingCredit:pendingExchangeCredit,customerDocument:saleClubCpf});
