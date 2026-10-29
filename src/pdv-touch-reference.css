@@ -41,3 +41,7 @@
 .pdv-touch-shell .pdv-brand small{color:#29435b}
 
 .pdv-touch-shell .pt-stock{position:absolute;bottom:4px;left:4px;max-width:calc(100% - 8px);padding:3px 6px;border-radius:5px;background:#fffef2f2;color:#153b2c;font-size:11px;font-weight:750;line-height:1.2;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Touch uses the catalog and cart; keep the optional customer identification. */
+.pdv-touch-shell .sale-inputs{grid-template-columns:minmax(180px,360px)!important}
+.pdv-touch-shell .sale-inputs>.field:not(:first-child){display:none!important}
