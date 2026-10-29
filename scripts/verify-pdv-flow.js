@@ -268,6 +268,17 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   assert(drink.stock===18,"Combo nao baixou a bebida separadamente.");
   test.cancelClosedSale(comboSale.id);
   assert(Math.abs(flour.stock-comboBefore.flour)<0.00001&&Math.abs(oil.stock-comboBefore.oil)<0.00001&&drink.stock===20,"Cancelamento do combo nao restituiu componentes.");
+  for(const mode of ['receipt','nfce']){
+    state.settings.pdvTerminals[0].emissionMode=mode;
+    const beforeAnonymous={sales:state.sales.length,queue:state.fiscalQueue.length,stock:drink.stock};
+    test.setField('pdv-club-cpf','');test.setField('sale-search','99001');test.setField('sale-qty','1');test.setField('sale-price','0');test.setField('pay-money','1');
+    await test.addSaleItem();await test.finishSaleRecord();
+    const anonymous=state.sales.at(-1);
+    assert(state.sales.length===beforeAnonymous.sales+1&&anonymous.customer==='Consumidor Final'&&!anonymous.customerDocument&&!anonymous.clubCpf&&anonymous.customerId===null,'Venda sem CPF herdou identificação de cliente anterior.');
+    assert(anonymous.total===1&&drink.stock===beforeAnonymous.stock-1,'Venda sem CPF não gravou valor e estoque corretamente.');
+    assert(state.fiscalQueue.length===beforeAnonymous.queue+(mode==='nfce'?1:0),'Venda sem CPF não respeitou o modo fiscal/recibo.');
+    test.cancelClosedSale(anonymous.id);
+  }
   const retry=await test.verifyConflictRetry();
   assert(retry.saved===true&&retry.calls===2&&retry.revision===51,"Conflito nao aguardou a gravacao confirmada.");
   assert(retry.renders===0,"Conciliacao refez a tela e interrompeu o formulario em uso.");

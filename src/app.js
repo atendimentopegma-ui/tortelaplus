@@ -3709,7 +3709,7 @@ function renderPdv() {
         <div class="pdv-side-head">
           <div class="pdv-title">CAIXA ABERTO</div>
           <div class="pdv-meta"><strong>Venda ${nextId(state.sales)}</strong><span>${new Date().toLocaleString("pt-BR")}</span></div>
-          <div class="pdv-client"><strong>Cliente:</strong> <span id="pdv-client-label">${escapeHtml(pdvSelectedCustomer?.name || "Identifique pelo CPF")}</span></div>
+          <div class="pdv-client"><strong>Cliente:</strong> <span id="pdv-client-label">${escapeHtml(pdvSelectedCustomer?.name || "Consumidor Final")}</span></div>
         </div>
         <div class="pdv-brand">
           ${brandMarkup()}
@@ -3731,7 +3731,7 @@ function renderPdv() {
       <section class="pdv-main">
         <div class="pdv-main-title"><div><small>${window.PdvTouch?.enabled()?"PDV TOUCH · ATENDIMENTO":"ATENDIMENTO"}</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div>${window.PdvTouch?.toolbar({online:apiOnline,operator:state.settings.user})||''}</div>
         <div class="sale-inputs">
-          <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" />${window.PdvTouch?.enabled()?'<button class="btn pdv-touch-key" type="button" data-touch-key="pdv-club-cpf" aria-label="Digitar CPF no teclado da tela">123</button>':''}</div>
+          <div class="field"><label for="pdv-club-cpf">CPF do cliente (opcional)</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="CPF opcional" />${window.PdvTouch?.enabled()?'<button class="btn pdv-touch-key" type="button" data-touch-key="pdv-club-cpf" aria-label="Digitar CPF no teclado da tela">123</button>':''}</div>
           <div class="field pdv-product-search"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Digite para buscar ou leia o código de barras" autocomplete="off" aria-controls="pdv-product-results" aria-expanded="false" /><div id="pdv-product-results" class="pdv-product-results" hidden></div></div>
           <div class="field"><label for="sale-qty">Quantidade</label>${window.PdvTouch?.enabled()?`<div class="pt-entry-qty"><button type="button" data-touch-entry-minus aria-label="Diminuir quantidade">−</button><input id="sale-qty" type="number" min="0" step="any" inputmode="decimal" value="1"><button type="button" data-touch-entry-plus aria-label="Aumentar quantidade">+</button></div>`:'<input id="sale-qty" type="number" min="0" step="any" inputmode="decimal" value="1">'}</div>
           <div class="field"><label for="sale-price">Preço unitário</label><input id="sale-price" type="number" step="0.01" value="0" /></div>
@@ -3741,7 +3741,7 @@ function renderPdv() {
         ${window.PdvTouch?.enabled()?window.PdvTouch.cart(saleItems,{products:state.products,total,subtotal,discount,addition,preparation:ItemPreparation}):`        <div class="table-wrap pdv-table">
           <table>
             <thead><tr><th>Item</th><th>Codigo</th><th>Descricao</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead>
-            <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole==='Calda / cobertura'?'Cobertura':item.preparationRole==='Acompanhamento'?'Topping':item.preparationRole)+': ':''}${escapeHtml(item.description)}<small class="pdv-touch-line-meta">Cód. ${escapeHtml(item.id)} · ${escapeHtml(item.unit)} · ${money(item.price)} / un.</small>${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">${item.parentLineId?"Remover":item.comboGroupId?"Remover combo":"Remover"}</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Informe o CPF do cliente e adicione um produto pelo código, leitor de barras ou botão Buscar produto.</span></td></tr>'}</tbody>
+            <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole==='Calda / cobertura'?'Cobertura':item.preparationRole==='Acompanhamento'?'Topping':item.preparationRole)+': ':''}${escapeHtml(item.description)}<small class="pdv-touch-line-meta">Cód. ${escapeHtml(item.id)} · ${escapeHtml(item.unit)} · ${money(item.price)} / un.</small>${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">${item.parentLineId?"Remover":item.comboGroupId?"Remover combo":"Remover"}</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Adicione um produto pelo código, leitor de barras ou botão Buscar produto. O CPF é opcional.</span></td></tr>'}</tbody>
           </table>
         </div>
 `}
@@ -3757,7 +3757,7 @@ function renderPdv() {
           <div class="pdv-options-head"><h2>Opcoes do caixa</h2><button class="btn" id="close-pdv-options">Fechar</button></div>
           <div class="pdv-options-grid">
             ${staleRegister ? `<div class="alert danger-alert pdv-all-columns"><strong>Operacao bloqueada:</strong> este caixa foi aberto em ${new Date(register.openedAt).toLocaleString("pt-BR")}. Realize a conferencia e o fechamento antes de iniciar as vendas de hoje.</div>` : ""}
-            <div class="field"><label>Cliente</label><input id="sale-customer" readonly value="${escapeAttr(pdvSelectedCustomer?.name || "Identifique pelo CPF")}" /></div>
+            <div class="field"><label>Cliente</label><input id="sale-customer" readonly value="${escapeAttr(pdvSelectedCustomer?.name || "Consumidor Final")}" /></div>
             <div class="field"><label>Vendedor</label><input readonly value="${state.settings.user}" /></div>
             <div class="field"><label>Vendas em espera</label><input readonly value="${(state.heldSales || []).length}" /></div>
             <div class="field"><label>Operacao</label><select id="pdv-operation"><option>Balcao</option><option>Mesa</option><option>Delivery</option><option>Retirada</option></select></div>
@@ -7555,7 +7555,7 @@ function validPdvCpf(value) {
  return digit(cpf.slice(0,9))===Number(cpf[9])&&digit(cpf.slice(0,10))===Number(cpf[10]);
 }
 function updatePdvCustomerLabel(){
- const name=pdvSelectedCustomer?.name||'Identifique pelo CPF';
+ const name=pdvSelectedCustomer?.name||'Consumidor Final';
  if(byId('pdv-client-label'))byId('pdv-client-label').textContent=name;
  if(byId('sale-customer'))byId('sale-customer').value=name;
 }
@@ -7574,7 +7574,8 @@ function registerPdvCustomer(cpf, existing = null) {
  });
 }
 async function ensurePdvCustomer() {
- const cpf=digits(byId('pdv-club-cpf')?.value||saleClubCpf);saleClubCpf=cpf;
+ const field=byId('pdv-club-cpf'),cpf=digits(field?field.value:saleClubCpf);saleClubCpf=cpf;
+ if(!cpf){pdvSelectedCustomer=null;updatePdvCustomerLabel();return {id:null,name:'Consumidor Final',document:'',city:'',uf:'',district:'',cep:''};}
  if(!validPdvCpf(cpf)){alert('CPF invalido. Confira os 11 numeros antes de continuar.');byId('pdv-club-cpf')?.focus();return null;}
  if(pdvSelectedCustomer&&digits(pdvSelectedCustomer.document)===cpf)return pdvSelectedCustomer;
  if(pdvCustomerRequest){await pdvCustomerRequest;return digits(pdvSelectedCustomer?.document)===cpf?pdvSelectedCustomer:null;}
@@ -7679,11 +7680,6 @@ async function addSaleItem(productId) {
     return;
   }
   saleClubCpf = digits(byId("pdv-club-cpf")?.value);
-  if (saleClubCpf.length !== 11) {
-    alert("Informe o CPF do Clube Tortela antes de iniciar a venda.");
-    byId("pdv-club-cpf")?.focus();
-    return;
-  }
   if(!await ensurePdvCustomer())return;
   const query = byId("sale-search").value.trim().toLowerCase();
   const product = state.products.find((item) => item.active !== false && (productId !== undefined ? String(item.id) === String(productId) :
@@ -7765,11 +7761,6 @@ async function finalizePdvSaleRecord() {
     return;
   }
   saleClubCpf = digits(byId("pdv-club-cpf")?.value);
-  if (saleClubCpf.length !== 11) {
-    alert("Informe o CPF do Clube Tortela antes de finalizar a venda.");
-    byId("pdv-club-cpf")?.focus();
-    return;
-  }
   if (isCashRegisterStale()) {
     alert("Feche o caixa do dia anterior antes de registrar novas vendas.");
     return;
@@ -8198,7 +8189,7 @@ function choosePdvPayment(total, context = {}) {
  const refresh=()=>{form.querySelector('[data-total]').textContent=money(net());form.elements.amount.value=net().toFixed(2);form.querySelector('[data-remove]').hidden=!applied;preview();};
  form.querySelector('[data-apply]').onclick=async()=>{if(busy)return;busy=true;form.querySelector('[type=submit]').disabled=true;try{if(!apiOnline||!sessionId)throw Error('Conecte-se ao servidor para aplicar o cupom.');const code=form.elements.coupon.value.trim().toUpperCase();if(!code)throw Error('Digite o código do cupom.');loyalty=null;form.elements.points.value=0;applied=await api(`/api/tenant/${state.settings.tenantCode}/coupons/preview`,{method:'POST',timeoutMs:45000,body:JSON.stringify({code,customerDocument:context.customerDocument,base:context.subtotal-context.manualDiscount})});form.elements.coupon.value=applied.code;couponStatus.textContent='Cupom '+applied.code+' aplicado: -'+money(applied.discount)+'. O uso será confirmado na conclusão da venda.';refresh();}catch(error){applied=null;couponStatus.textContent=error.message;refresh();}finally{busy=false;form.querySelector('[type=submit]').disabled=false;}};
  const loyaltyStatus=form.querySelector('[data-loyalty-status]');
- const loyaltyPreview=async(points=0)=>{if(!apiOnline||!sessionId)throw Error('Conecte-se ao servidor para usar pontos.');return api(`/api/tenant/${state.settings.tenantCode}/loyalty/preview`,{method:'POST',timeoutMs:45000,body:JSON.stringify({document:context.customerDocument,points,base:context.subtotal-context.manualDiscount-(applied?.discount||0)})});};
+ const loyaltyPreview=async(points=0)=>{if(!context.customerDocument)throw Error('Informe o CPF para consultar ou resgatar pontos. A venda pode continuar sem CPF.');if(!apiOnline||!sessionId)throw Error('Conecte-se ao servidor para usar pontos.');return api(`/api/tenant/${state.settings.tenantCode}/loyalty/preview`,{method:'POST',timeoutMs:45000,body:JSON.stringify({document:context.customerDocument,points,base:context.subtotal-context.manualDiscount-(applied?.discount||0)})});};
  loyaltyPreview().then(account=>{if(dialog.isConnected)loyaltyStatus.textContent=`Saldo: ${account.balance} pontos · ${account.scope==='network'?'Válido em toda a rede':'Válido nesta loja'}. A compra atual gera pontos após a conclusão.`;}).catch(error=>{loyaltyStatus.textContent=error.message;});
  form.querySelector('[data-loyalty-apply]').onclick=async()=>{if(busy)return;busy=true;form.querySelector('[type=submit]').disabled=true;try{loyalty=await loyaltyPreview(Number(form.elements.points.value));loyaltyStatus.textContent=`${loyalty.points} pontos aplicados: -${money(loyalty.discount)}. Saldo atual: ${loyalty.balance}.`;refresh();}catch(error){loyalty=null;form.elements.points.value=0;loyaltyStatus.textContent=error.message;refresh();}finally{busy=false;form.querySelector('[type=submit]').disabled=false;}};
  form.querySelector('[data-loyalty-remove]').onclick=()=>{if(busy)return;loyalty=null;form.elements.points.value=0;loyaltyStatus.textContent='Resgate removido.';refresh();};
