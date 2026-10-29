@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict'),offer=require('../src/pdv-shake-offer'),preparation=require('../src/item-preparation');
+const classic={id:55,description:'SHAKE CLASSICO',price:6,unit:'UN',active:true},special={id:56,description:'SHAKE ESPECIAL',price:7,unit:'UN',active:true};
+for(const flavor of ['LIMÃO','MORANGO','BANOFFE','BANOFFEE'])assert.equal(offer.resolve({description:'TORTELA '+flavor},[classic,special]).id,55);
+for(const flavor of ['NINHO COM NUTELLA','NINHO COM NUTELA','KINDER BUENO','PISTACHE','DUPLO CHOCOLATE'])assert.equal(offer.resolve({description:'TORTELA '+flavor},[classic,special]).id,56);
+for(const description of ['TORTELA OREO','AGUA','SEM TOPPING','Combo duas Tortelas'])assert.equal(offer.resolve({description},[classic,special]),null);
+assert.equal(offer.resolve({description:'TORTELA LIMÃO'},[{...classic,active:false}]),null);
+assert.equal(offer.resolve({description:'TORTELA LIMÃO',tenantCode:'a'},[{...classic,tenantCode:'b'}]),null);
+const lines=[],parent=preparation.attach(lines,{id:16,description:'TORTELA LIMÃO',qty:2,price:20});offer.append(lines,null,parent,preparation,p=>p.price);assert.equal(lines.length,1,'Não não pode incluir shake.');offer.append(lines,classic,parent,preparation,p=>p.price);assert.equal(lines.length,2);assert.equal(lines[1].qty,2);assert.equal(lines[1].price,6);assert.equal(lines[1].parentLineId,parent.lineId);assert.equal(lines[1].preparationRole,'Bebida agregada');offer.append(lines,classic,parent,preparation,p=>p.price);assert.equal(lines.length,2,'Não pode duplicar o mesmo shake agregado.');assert.equal(lines.reduce((sum,p)=>sum+p.qty*p.price,0),52);
+const combo=[],flavor=preparation.attach(combo,{id:15,description:'TORTELA PISTACHE',price:23,qty:1,comboGroupId:'combo-1',comboTemplateId:62});offer.append(combo,special,flavor,preparation,p=>p.price);assert.equal(combo[1].comboGroupId,'combo-1','Retirar o combo deve retirar o shake junto.');assert.equal(combo[1].price,7);
+console.log('OK oferta de shake: todos os sabores, Sim/Não, preços, quantidades, isolamento, inativos, duplicação e vínculo ao combo.');

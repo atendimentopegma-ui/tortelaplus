@@ -7609,18 +7609,20 @@ function addAutomaticSaleProduct(target,product,parent) {
   const linked=state.products.find(p=>Number(p.id)===Number(product.automaticSaleProductId)&&p.active!==false&&p.allowsSale!==false);
   const factor=Number(product.automaticSaleQty||1);
   if(!linked||linked.id===product.id||ItemPreparation.isTortela(linked)||!Number.isFinite(factor)||factor<=0)throw Error("Confira o item automático no cadastro da Tortela.");
-  if(target.some(row=>row.parentLineId===parent.lineId&&row.automaticLinked))return;
+  if(target.some(row=>row.parentLineId===parent.lineId&&row.automaticLinked&&Number(row.id)===Number(linked.id)))return;
   const qty=Number(parent.qty||1)*factor;
   ItemPreparation.attach(target,{id:linked.id,description:linked.description,qty,unit:linked.unit,price:effectiveProductPrice(linked,qty),automaticLinked:true,...(parent.comboGroupId?{comboGroupId:parent.comboGroupId,comboTemplateId:parent.comboTemplateId,comboName:parent.comboName,comboRole:'preparation'}:{})},parent.lineId);
 }
 
 async function preparedTortela(target, product, price, metadata={}, position='') {
+ const offeredShake=window.PdvShakeOffer?await window.PdvShakeOffer.offer(product,state.products,p=>effectiveProductPrice(p,1)):null;
  const preparation=await chooseSalePreparation(product,position);if(!preparation)return false;
  const split=ItemPreparation.split(product,preparation,1,state.products);
  const omitted=ItemPreparation.omissionPricing(product,preparation,state.products,p=>effectiveProductPrice(p,1));
  const parent=ItemPreparation.attach(target,{id:product.id,description:product.description,qty:1,unit:product.unit,price:price+omitted.total,...split.preparation,...metadata,omittedCoveragePrice:omitted.omittedCoveragePrice,omittedToppingPrice:omitted.omittedToppingPrice,note:[split.preparation.note,metadata.comboName?'Combo: '+metadata.comboName:''].filter(Boolean).join(' · ')});
  for(const component of split.components)ItemPreparation.attach(target,{id:component.id,description:component.description,qty:1,unit:component.unit,price:effectiveProductPrice(component,1),...(metadata.comboGroupId?{comboGroupId:metadata.comboGroupId,comboTemplateId:metadata.comboTemplateId,comboName:metadata.comboName,comboRole:'preparation'}:{})},parent.lineId);
  if(product.automaticSaleProductId){try{addAutomaticSaleProduct(target,product,parent);}catch(error){alert(error.message);return false;}}
+ window.PdvShakeOffer?.append(target,offeredShake,parent,ItemPreparation,effectiveProductPrice);
  return true;
 }
 function commitPreparedPdvItems(items){
@@ -7645,6 +7647,7 @@ async function editTortelaPreparation(item) {
   const product=state.products.find(row=>Number(row.id)===Number(parent.id));
   if(!product)return alert("Não foi possível localizar o cadastro desta Tortela.");
   const children=saleItems.filter(row=>row.parentLineId===parent.lineId);
+  const retainedShakes=children.filter(row=>row.upsellShake);
   const coverage=children.find(row=>(ItemPreparation.role(row)||row.preparationRole)==='Calda / cobertura');
   const toppings=children.filter(row=>(ItemPreparation.role(row)||row.preparationRole)==='Acompanhamento');
   const initial={coverage:coverage?.description||parent.coverage||'',extras:toppings.length?toppings.map(row=>row.description):ItemPreparation.options(parent.extras)};
@@ -7658,6 +7661,7 @@ async function editTortelaPreparation(item) {
   staged.splice(saleItems.indexOf(parent),0,replacement);
   for(const component of split.components)ItemPreparation.attach(staged,{id:component.id,description:component.description,qty:Number(parent.qty||1),unit:component.unit,price:effectiveProductPrice(component,Number(parent.qty||1)),...(parent.comboGroupId?{comboGroupId:parent.comboGroupId,comboTemplateId:parent.comboTemplateId,comboName:parent.comboName,comboRole:'preparation'}:{})},parent.lineId);
   if(product.automaticSaleProductId){try{addAutomaticSaleProduct(staged,product,replacement);}catch(error){alert(error.message);return;}}
+  for(const shake of retainedShakes){const kept=ItemPreparation.attach(staged,{...shake},parent.lineId);kept.preparationRole='Bebida agregada';}
   ItemPreparation.validateSale(staged);saleItems=ItemPreparation.ordered(staged);
   audit('Preparo alterado no PDV',`${parent.description} por ${state.settings.user}`);save();renderShell();
 }
@@ -7714,6 +7718,7 @@ async function addSaleItem(productId) {
     commitPreparedPdvItems(staged);return;
   }
 
+  const offeredShake=window.PdvShakeOffer?await window.PdvShakeOffer.offer(product,state.products,p=>effectiveProductPrice(p,1)):null;
   const preparation = await chooseSalePreparation(product);
   if (!preparation) return;
   const beforeItems=structuredClone(saleItems);
@@ -7726,6 +7731,7 @@ async function addSaleItem(productId) {
     const parent=ItemPreparation.attach(saleItems,{id:product.id,description:product.description,qty,unit:product.unit,price:effectivePrice+omitted.total,...split.preparation,omittedCoveragePrice:omitted.omittedCoveragePrice,omittedToppingPrice:omitted.omittedToppingPrice},preparation.parentLineId);
     for(const component of split.components)ItemPreparation.attach(saleItems,{id:component.id,description:component.description,qty,unit:component.unit,price:effectiveProductPrice(component,qty)},parent.lineId);
     if(product.automaticSaleProductId)addAutomaticSaleProduct(saleItems,product,parent);
+    window.PdvShakeOffer?.append(saleItems,offeredShake,parent,ItemPreparation,effectiveProductPrice);
   }
   ItemPreparation.validateSale(saleItems);
   saleItems=ItemPreparation.ordered(saleItems);
