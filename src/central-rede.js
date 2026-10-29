@@ -207,6 +207,7 @@ function render() {
         <section class="network-stage">${renderCurrentModule()}</section>
       </div>
     </main>`;
+  window.CentralModern?.decorate();
   bindRender();
 }
 
