@@ -55,3 +55,21 @@
 
 .pdv-touch-shell .pt-checkout{grid-template-columns:repeat(3,minmax(65px,1fr)) minmax(145px,1.3fr) minmax(95px,.9fr)}
 @media(max-width:900px){.pdv-touch-shell .pt-checkout{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* Give the current sale nearly half the workspace and reserve height for its items. */
+@media(min-width:901px){
+ .pdv-touch-shell .pdv-touch-workspace{grid-template-columns:minmax(0,1.08fr) minmax(360px,1fr)}
+ .pdv-touch-shell .pdv-touch-catalog nav{flex-wrap:wrap;gap:6px}
+ .pdv-touch-shell .pdv-touch-catalog nav button{min-height:44px;padding:7px;font-size:12px;gap:5px}
+ .pdv-touch-shell .pdv-touch-catalog nav button .pt-icon{width:23px;height:23px}
+ .pdv-touch-shell .pdv-touch-catalog nav .pdv-touch-search{flex-basis:100%}
+}
+.pdv-touch-shell .pt-sale-panel{gap:6px}
+.pdv-touch-shell .pt-note{min-height:34px;padding:5px 9px;font-size:11px}
+.pdv-touch-shell .pt-sale-breakdown{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:3px 2px}
+.pdv-touch-shell .pt-sale-breakdown p,.pdv-touch-shell .pt-sale-breakdown button{display:flex;flex-wrap:wrap;align-content:center;gap:4px;margin:0;padding:2px;font-size:11px}
+.pdv-touch-shell .pt-sale-breakdown button>span{gap:4px}
+.pdv-touch-shell .pt-sale-breakdown i{width:22px;height:22px;font-size:17px}
+.pdv-touch-shell .pt-sale-total{min-height:52px;padding:8px 12px}
+.pdv-touch-shell .pt-sale-total b{font-size:29px}
+.pdv-touch-shell .pt-sale-item strong{font-size:12px}
