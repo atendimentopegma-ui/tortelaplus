@@ -45,3 +45,10 @@
 /* Touch uses the catalog and cart; keep the optional customer identification. */
 .pdv-touch-shell .sale-inputs{grid-template-columns:minmax(180px,360px)!important}
 .pdv-touch-shell .sale-inputs>.field:not(:first-child){display:none!important}
+
+.pdv-touch-shell .sale-inputs{display:none!important}
+.pdv-touch-shell .pdv-main{grid-template-rows:auto minmax(0,1fr) auto!important}
+.pdv-touch-shell .pt-customer-entry{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:6px;padding:10px;border:1px solid #375b81;border-left:4px solid #ffe500;border-radius:12px;background:#0b2236;min-width:0}
+.pdv-touch-shell .pt-customer-entry label{grid-column:1/-1;color:#fff;font-size:12px;font-weight:700}
+.pdv-touch-shell .pt-customer-entry input{width:100%;min-width:0;min-height:44px;padding:8px;border-radius:8px;border:1px solid #cbd8e7;font-size:14px;background:white;color:#142640}
+.tortela-theme .pdv-touch-shell .shortcut-grid .pt-customer-entry .pdv-touch-key{width:44px;min-height:44px;margin:0;padding:4px;justify-content:center;font-size:13px}
