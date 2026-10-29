@@ -73,3 +73,5 @@
 .pdv-touch-shell .pt-sale-total{min-height:52px;padding:8px 12px}
 .pdv-touch-shell .pt-sale-total b{font-size:29px}
 .pdv-touch-shell .pt-sale-item strong{font-size:12px}
+
+.pdv-touch-shell .pt-sale-panel{grid-template-rows:auto minmax(0,1fr) auto auto}
