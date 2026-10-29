@@ -51,5 +51,15 @@
   const extras=options(preparation.extras).filter(name=>{const extra=match(name,'Acompanhamento');if(extra)components.push({...extra,qty});return !extra;});
   return {preparation:{...preparation,coverage:coverage?'':preparation.coverage||'',extras},components};
  }
- return {ordered,validateSale,lines,options,isTortela,role,attach,choices,split,text:item=>lines(item).join('; '),html:item=>lines(item).map(line=>'<small style="display:block;padding-left:8px">'+escape(line)+'</small>').join(''),same:(a,b)=>JSON.stringify(lines(a))===JSON.stringify(lines(b))};
+ function omissionPricing(product,preparation,products,priceOf=p=>Number(p.price||0),previous={}){
+  if(!isTortela(product))return {omittedCoveragePrice:0,omittedToppingPrice:0,total:0};
+  const available=products.filter(p=>p.active!==false&&(!product.tenantCode||p.tenantCode===product.tenantCode)),none=name=>/^sem\s+(?:topping|acompanhamento)$/i.test(clean(name));
+  const coverages=available.filter(p=>role(p)==='Calda / cobertura'),toppings=available.filter(p=>role(p)==='Acompanhamento'&&!none(p.description));
+  const emptyTopping=available.find(p=>none(p.description)),selected=options(preparation.extras),noCoverage=/^sem\s+cobertura$/i.test(clean(preparation.coverage)),noTopping=!selected.length||selected.every(none);
+  const omittedCoveragePrice=noCoverage?Math.max(0,Number(previous.coveragePrice??(coverages.length?priceOf(coverages[0]):0))):0;
+  const markerPrice=selected.length&&emptyTopping?Number(priceOf(emptyTopping)):0;
+  const omittedToppingPrice=noTopping?Math.max(0,Number(previous.toppingPrice??(emptyTopping?priceOf(emptyTopping):toppings.length?priceOf(toppings[0]):0))-markerPrice):0;
+  return {omittedCoveragePrice,omittedToppingPrice,total:Math.round((omittedCoveragePrice+omittedToppingPrice)*100)/100};
+ }
+ return {ordered,validateSale,lines,options,isTortela,role,attach,choices,split,omissionPricing,text:item=>lines(item).join('; '),html:item=>lines(item).map(line=>'<small style="display:block;padding-left:8px">'+escape(line)+'</small>').join(''),same:(a,b)=>JSON.stringify(lines(a))===JSON.stringify(lines(b))};
 });
