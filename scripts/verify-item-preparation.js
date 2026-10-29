@@ -8,6 +8,9 @@ assert.deepEqual(ItemPreparation.lines(items[1]),[]);assert(!ItemPreparation.sam
 const skuProducts=[{id:15,description:'TORTELA LIMAO',price:20,unit:'UN'},{id:26,description:'COBERTURA - CHOCOLATE',price:1.5,unit:'UN'},{id:20,description:'GRANULADO - TOPPING',price:0.5,unit:'UN'},{id:31,description:'AGUA',price:3.5,unit:'UN'}];
 const skuChoice=ItemPreparation.choices(skuProducts[0],skuProducts);assert.equal(skuChoice.coverage[0],skuProducts[1].description);assert.equal(ItemPreparation.choices(skuProducts[3],skuProducts).coverage.length,0);
 const split=ItemPreparation.split(skuProducts[0],{coverage:skuChoice.coverage[0],extras:skuChoice.extras},1,skuProducts);assert.equal(split.preparation.coverage,'');assert.equal(split.preparation.extras.length,0);assert.equal(split.components.length,2);
+const noToppingProduct={id:38,description:'SEM TOPPING',price:0.5,unit:'UN',active:true};
+const without=[...skuProducts,noToppingProduct];assert.equal(ItemPreparation.choices(skuProducts[0],without).extras.filter(v=>/sem topping/i.test(v)).length,0,'Sem topping não deve duplicar a opção única do PDV.');
+const noToppingSplit=ItemPreparation.split(skuProducts[0],{coverage:skuChoice.coverage[0],extras:[noToppingProduct.description]},1,without);assert.deepEqual(noToppingSplit.components.map(p=>p.id),[26,38]);assert.equal(noToppingSplit.components[1].price,0.5);
 const grouped=[];const parent=ItemPreparation.attach(grouped,{...skuProducts[0],qty:1});ItemPreparation.attach(grouped,{...skuProducts[3],qty:1});for(const component of split.components)ItemPreparation.attach(grouped,component,parent.lineId);assert.deepEqual(grouped.map(i=>i.id),[15,26,20,31]);assert.equal(grouped.reduce((sum,i)=>sum+i.qty*i.price,0),25.5);assert.equal(grouped[3].parentLineId,undefined);
 assert.throws(()=>ItemPreparation.split(skuProducts[0],{extras:['A','B']},1,skuProducts),/apenas 1/);
 assert.throws(()=>ItemPreparation.validateSale([...grouped,{...grouped[2]}]),/apenas 1/);
