@@ -1077,7 +1077,7 @@ function renderShell() {
   const modules = visibleModules();
 
   app(`
-    <main class="app-shell ${currentMode === "pdv" ? "pdv-shell" : ""}">
+    <main class="app-shell ${currentMode === "pdv" ? "pdv-shell"+(window.PdvTouch?.enabled()?" pdv-touch-shell":"") : ""}">
       <header class="topbar">
         <div class="top-left">
           ${brandMarkup()}
@@ -3690,7 +3690,7 @@ function renderPdv() {
         </aside>
         <section class="pdv-main">
           <div class="form-card cash-open-card">
-            <h2>Abertura de caixa</h2>
+            <h2>Abertura de caixa</h2>${window.PdvTouch?.toolbar()||''}
             <div class="grid four">
               <div class="field"><label>Valor inicial</label><input id="cash-open-amount" type="number" step="0.01" value="0" /></div>
               <div class="field"><label>Terminal</label><input id="cash-open-terminal" value="${register.terminal || "SERIE 1"}" /></div>
@@ -3729,21 +3729,22 @@ function renderPdv() {
         </div>
       </aside>
       <section class="pdv-main">
-        <div class="pdv-main-title"><div><small>ATENDIMENTO</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div></div>
+        <div class="pdv-main-title"><div><small>${window.PdvTouch?.enabled()?"PDV TOUCH · ATENDIMENTO":"ATENDIMENTO"}</small><strong>Nova venda</strong>${pdvCompletionMessage ? `<small class="pdv-sale-success" role="status">${escapeHtml(pdvCompletionMessage)}</small>` : ''}</div>${window.PdvTouch?.toolbar()||''}</div>
         <div class="sale-inputs">
-          <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" /></div>
+          <div class="field"><label for="pdv-club-cpf">CPF do cliente</label><input id="pdv-club-cpf" inputmode="numeric" maxlength="14" value="${escapeAttr(saleClubCpf)}" placeholder="Informe o CPF" />${window.PdvTouch?.enabled()?'<button class="btn pdv-touch-key" type="button" data-touch-key="pdv-club-cpf" aria-label="Digitar CPF no teclado da tela">123</button>':''}</div>
           <div class="field pdv-product-search"><label for="sale-search">Produto: código, barras ou nome</label><input id="sale-search" placeholder="Digite para buscar ou leia o código de barras" autocomplete="off" aria-controls="pdv-product-results" aria-expanded="false" /><div id="pdv-product-results" class="pdv-product-results" hidden></div></div>
-          <div class="field"><label for="sale-qty">Quantidade</label><input id="sale-qty" type="number" value="1" /></div>
+          <div class="field"><label for="sale-qty">Quantidade</label><input id="sale-qty" type="number" min="0" step="any" inputmode="decimal" value="1" />${window.PdvTouch?.enabled()?'<button class="btn pdv-touch-key" type="button" data-touch-key="sale-qty" aria-label="Digitar quantidade no teclado da tela">123</button>':''}</div>
           <div class="field"><label for="sale-price">Preço unitário</label><input id="sale-price" type="number" step="0.01" value="0" /></div>
           <div class="field"><label for="sale-item-total">Total do item</label><input id="sale-item-total" readonly value="0,00" /></div>
         </div>
+        <div class="pdv-touch-workspace">${window.PdvTouch?.enabled()?'<section class="pdv-touch-catalog" id="pdv-touch-catalog" aria-label="Catálogo para toque"></section>':''}
         <div class="table-wrap pdv-table">
           <table>
             <thead><tr><th>Item</th><th>Codigo</th><th>Descricao</th><th>Qtd</th><th>Un.</th><th>Preco</th><th>Total</th><th>Acao</th></tr></thead>
-            <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole==='Calda / cobertura'?'Cobertura':item.preparationRole==='Acompanhamento'?'Topping':item.preparationRole)+': ':''}${escapeHtml(item.description)}${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">${item.parentLineId?"Remover":item.comboGroupId?"Remover combo":"Remover"}</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Informe o CPF do cliente e adicione um produto pelo código, leitor de barras ou botão Buscar produto.</span></td></tr>'}</tbody>
+            <tbody>${saleItems.length?saleItems.map((item, index) => `<tr><td>${index + 1}</td><td>${item.id}</td><td style="${item.parentLineId?'padding-left:28px':''}">${item.parentLineId?escapeHtml(item.preparationRole==='Calda / cobertura'?'Cobertura':item.preparationRole==='Acompanhamento'?'Topping':item.preparationRole)+': ':''}${escapeHtml(item.description)}<small class="pdv-touch-line-meta">Cód. ${escapeHtml(item.id)} · ${escapeHtml(item.unit)} · ${money(item.price)} / un.</small>${ItemPreparation.html(item)}</td><td>${item.qty}</td><td>${item.unit}</td><td>${money(item.price)}</td><td>${money(item.qty * item.price)}</td><td><button class="btn danger" data-remove-sale-item="${index}" type="button">${item.parentLineId?"Remover":item.comboGroupId?"Remover combo":"Remover"}</button></td></tr>`).join(""):'<tr class="pdv-empty-row"><td colspan="8"><strong>Sua venda começa aqui</strong><span>Informe o CPF do cliente e adicione um produto pelo código, leitor de barras ou botão Buscar produto.</span></td></tr>'}</tbody>
           </table>
         </div>
-        <div class="pdv-checkout"><div class="totals">
+        </div><div class="pdv-checkout"><div class="totals">
           <div class="total-box"><span>Desconto</span><strong>${money(discount)}</strong></div>
           <div class="total-box"><span>Acrescimo</span><strong>${money(addition)}</strong></div>
           <div class="total-box"><span>Subtotal</span><strong>${money(subtotal)}</strong></div>
@@ -4298,6 +4299,11 @@ function bindCurrentModule() {
     button.addEventListener("click", () => toggleFiscalRuleRecord(Number(button.dataset.toggleFiscalRule)));
   });
 
+  byId('toggle-pdv-touch')?.addEventListener('click',()=>{const fields=[...document.querySelectorAll('.pdv-options input,.pdv-options select,.sale-inputs input')].filter(input=>input.id).map(input=>[input.id,input.value]);window.PdvTouch.setEnabled(!window.PdvTouch.enabled());renderShell();for(const [id,value] of fields)if(byId(id))byId(id).value=value;});
+  byId('pdv-fullscreen')?.addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{alert('Use F11 no Windows para ativar a tela cheia.');}});
+  document.body.classList?.toggle('pdv-touch-active',currentMode==='pdv'&&window.PdvTouch?.enabled()===true);
+  document.querySelectorAll('[data-touch-key]').forEach(button=>button.onclick=()=>window.PdvTouch.keypad(byId(button.dataset.touchKey),button.dataset.touchKey==='pdv-club-cpf'?'CPF do cliente':'Quantidade do produto'));
+  if(window.PdvTouch&&byId('pdv-touch-catalog'))window.PdvTouch.mount(byId('pdv-touch-catalog'),{products:state.products,preparation:ItemPreparation,price:p=>effectiveProductPrice(p,1),add:async id=>{byId('sale-price').value='0';await addSaleItem(id);}});
   const saleSearch = byId("sale-search");
   const productResults = byId("pdv-product-results");
   let searchMatches = [];
@@ -4321,7 +4327,7 @@ function bindCurrentModule() {
     }));
   };
   if (saleSearch) {
-    saleSearch.focus();
+    if(!window.PdvTouch?.enabled())saleSearch.focus();
     saleSearch.addEventListener("input", showProductSearch);
     saleSearch.addEventListener("keydown", (event) => {
       if (["ArrowDown", "ArrowUp"].includes(event.key)) {
@@ -8185,7 +8191,7 @@ function choosePdvPayment(total, context = {}) {
  form.elements.coupon.oninput=()=>{if(applied){applied=null;couponStatus.textContent='Código alterado. Clique em Aplicar cupom.';refresh();}};
  form.elements.method.addEventListener('change',preview);form.elements.amount.addEventListener('input',preview);
  form.addEventListener('submit',event=>{event.preventDefault();if(busy||!form.elements.method.value)return;if(Number(form.elements.points.value)!==Number(loyalty?.points||0)){status.textContent='Aplique os pontos ou remova o resgate para continuar.';return;}if(form.elements.coupon.value.trim()&&!applied){couponStatus.textContent='Aplique o cupom ou apague o código para continuar.';return;}try{const raw={[form.elements.method.value]:Number(form.elements.amount.value)};window.PdvPayments.calculate(net(),raw,true);finish({raw,couponCode:applied?.code||'',couponDiscount:applied?.discount||0,loyaltyPoints:loyalty?.points||0,loyaltyDiscount:loyalty?.discount||0});}catch(error){status.textContent=error.message;}});
- form.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});document.body.appendChild(dialog);dialog.showModal();form.elements.method.focus();
+ form.querySelector('[data-cancel]').addEventListener('click',()=>finish(null));dialog.addEventListener('cancel',event=>{event.preventDefault();finish(null);});if(window.PdvTouch?.enabled())window.PdvTouch.payment(dialog);document.body.appendChild(dialog);dialog.showModal();if(!window.PdvTouch?.enabled())form.elements.method.focus();
  });
 }
 function pdvPaymentBreakdown(total, chosen = null) {
