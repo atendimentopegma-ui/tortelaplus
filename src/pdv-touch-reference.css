@@ -16,3 +16,21 @@
 
 .pt-sale-item small[style]{padding-left:0!important}.pt-sale-scroll td{padding-top:9px;padding-bottom:9px}.pt-sale-scroll .pt-complement td{padding-top:5px;padding-bottom:5px}
 @media(max-height:780px) and (min-width:901px){.tortela-theme .pdv-touch-shell .shortcut-grid .btn{padding:7px 10px;min-height:46px}.pdv-touch-shell .shortcut-grid .pt-icon{width:25px;height:25px}.pdv-touch-shell .shortcut-grid{gap:8px}.pt-sale-item small{font-size:9px}.pt-sale-item small[style]{line-height:1.2}}
+
+/* Catálogo compacto: fotos menores, duas ou três fileiras sem cortar cartões. */
+.pdv-touch-shell .pdv-touch-catalog{min-width:0;grid-template-rows:auto minmax(0,1fr) auto auto}
+.pdv-touch-shell .pdv-touch-catalog nav{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:8px;min-width:0}
+.pdv-touch-shell .pdv-touch-catalog nav button{flex:1 1 85px;min-width:0;min-height:44px;padding:7px;font-size:12px;gap:5px}
+.pdv-touch-shell .pdv-touch-catalog nav button .pt-icon{width:22px;height:22px}
+.pdv-touch-shell .pdv-touch-catalog .pdv-touch-search{flex:1 1 145px;min-width:0}
+.pdv-touch-shell .pdv-touch-search input{min-height:40px;height:40px}
+.pdv-touch-shell .pdv-touch-search>.pt-icon{top:10px}
+.pdv-touch-shell .pdv-touch-products{min-width:0;min-height:0;gap:8px;padding:0 0 4px;align-content:stretch;grid-template-columns:repeat(var(--touch-cols,4),minmax(0,1fr));grid-template-rows:repeat(var(--touch-rows,2),minmax(0,1fr))}
+.pdv-touch-shell .pdv-touch-product{min-width:0;min-height:0;padding:0;gap:0}
+.pdv-touch-shell .pt-card-photo{height:clamp(48px,45%,100px);min-height:0}
+.pdv-touch-shell .pdv-touch-product>strong{padding:6px 7px 0;font-size:12px;line-height:1.15;min-height:28px}
+.pdv-touch-shell .pdv-touch-product-bottom{padding:5px 7px 7px;gap:3px;margin-top:auto}
+.pdv-touch-shell .pdv-touch-product-bottom>small{font-size:10px}
+.pdv-touch-shell .pdv-touch-product-bottom>b{font-size:16px;white-space:nowrap}
+.pdv-touch-shell .pt-card-plus{width:29px;height:29px;font-size:25px;border-width:2px}
+.pdv-touch-shell .pt-single-page .pdv-touch-pages{display:none}
