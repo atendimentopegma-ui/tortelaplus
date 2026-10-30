@@ -1,7 +1,7 @@
 const clone = value => JSON.parse(JSON.stringify(value));
 const round = value => Math.round(Number(value || 0) * 100) / 100;
 function saleDetail(sale) {
-  const fields = ['id','date','soldAt','createdAt','terminalId','terminalName','seller','customer','customerId','customerDocument','customerCity','customerUf','customerDistrict','customerCep','customerRegion','status','emissionMode','cashRegisterOpenedAt','total','discount','addition','exchangeCredit','payment','change','items','payments','returns'];
+  const fields = ['id','date','soldAt','createdAt','terminalId','terminalName','seller','customer','customerId','customerDocument','customerCity','customerUf','customerDistrict','customerCep','customerRegion','status','emissionMode','cashRegisterOpenedAt','total','discount','addition','exchangeCredit','payment','paidAmount','change','items','payments','returns'];
   return clone(Object.fromEntries(fields.filter(key=>sale[key]!==undefined).map(key=>[key,sale[key]])));
 }
 function snapshot(state, register) {
