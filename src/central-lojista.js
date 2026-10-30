@@ -370,6 +370,7 @@ function render() {
         <section class="network-stage">${renderCurrentModule()}</section>
       </div>
     </main>`;
+  window.FranchiseModern?.decorate({state,tenantCode,currentModule,allowed:allowedStoreModule,onProduct:id=>{if(!allowedStoreModule('products'))return;currentModule='products';sessionStorage.setItem('tortela-lojista-module',currentModule);render();const row=[...document.querySelectorAll('.network-stage tbody tr')].find(r=>Number(r.cells[0]?.textContent)===Number(id));if(row){row.classList.add('fs-selected-product');row.scrollIntoView({block:'center'});}}});
   bind();
 }
 
