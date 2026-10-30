@@ -3859,7 +3859,7 @@ async function handleApi(req, res, urlPath) {
       writeTenantState(tenantCode, tenantState, true);
       appendTenantAudit(tenantCode, "Emissao do terminal alterada", `${body.terminalId}: ${body.emissionMode}`, access.session.user);
     }
-    writeProvider(provider);
+    if(req.method === "POST") writeProvider(provider);
     sendJson(res, 200, { ok: true, terminals: listTerminals(readTenantState(tenantCode), access.tenant) });
     return;
   }

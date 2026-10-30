@@ -7773,7 +7773,7 @@ async function finishSaleRecord() {
 
 async function finalizePdvSaleRecord() {
   let terminal;
-  try { await refreshCashRegister(); terminal = await refreshPdvEmission(); }
+  try { [,terminal] = await Promise.all([refreshCashRegister(),refreshPdvEmission()]); }
   catch (error) { alert(`Venda nao finalizada. ${error.message}`); return; }
   if (!state.cashRegister?.open) {
     alert("Abra o caixa antes de vender.");
