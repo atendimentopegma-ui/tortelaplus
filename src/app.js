@@ -3721,9 +3721,9 @@ function renderPdv() {
           <p class="pdv-actions-label">Ações da venda</p><button class="btn" id="focus-sale-search">Buscar produto <kbd>F2</kbd></button>
           <button class="btn" id="focus-sale-customer">Cliente <kbd>F9</kbd></button>
           <button class="btn" id="hold-sale">Colocar em espera <kbd>F12</kbd></button>
-          <button class="btn" id="recover-sale">Recuperar venda</button>
+          ${window.PdvTouch?.enabled()?'<button class="btn" id="daily-sales-summary">Resumo de vendas do dia</button>':'<button class="btn" id="recover-sale">Recuperar venda</button>'}
           <button class="btn" id="toggle-pdv-options">Opções do caixa <kbd>F1</kbd></button>
-          <button class="btn" id="print-last-sale">Reimprimir recibo</button>${window.PdvTouch?.enabled()?'<button class="btn" id="daily-sales-summary">Resumo de vendas do dia</button>':''}
+          <button class="btn" id="print-last-sale">Reimprimir recibo</button>${window.PdvTouch?.enabled()?'<button class="btn" id="recover-sale">Recuperar venda</button>':''}
           <button class="btn danger" id="cancel-sale">Cancelar venda</button>
           <button class="btn danger" id="close-cash-register-main">Fechar caixa do dia</button>
         </div>
