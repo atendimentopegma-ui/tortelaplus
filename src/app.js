@@ -289,6 +289,7 @@ let customerRegion = "";
 let customerMinTotal = 0;
 let customerMessageIds = new Set();
 let productSearch = "";
+let productWorkspaceType = "Mercadoria para revenda";
 let productStatusFilter = "all";
 let sessionId = sessionStorage.getItem("tortelaplus-session-id") || "";
 let heartbeatTimer = 0;
@@ -2144,7 +2145,7 @@ async function copyPublicTerminalToken() {
 
 function productsTable() {
   const query = productSearch.trim().toLowerCase();
-  const rows = state.products.filter((product) => (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
+  const rows = state.products.filter((product) => (currentTab !== "dados" || !product.type || product.type === productWorkspaceType) && (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
   const selected = rows.find(product => Number(product.id) === Number(selectedProductId));
   return `
     <p class="helper" role="status">${rows.length} produto(s) encontrado(s). Selecione um produto e escolha uma ação abaixo da lista.</p><div class="table-wrap erp-table product-catalog-scroll" tabindex="0" aria-label="Lista de produtos com rolagem">
@@ -3178,6 +3179,7 @@ function applyInternalRoute() {
     currentModule = route.module;
   }
   if (route.tab) currentTab = route.tab;
+  if (route.productType) productWorkspaceType = route.productType;
   if (route.fiscal) currentFiscalTab = route.fiscal;
   if (route.stock) currentStockTab = route.stock;
   if (route.people) currentPeopleTab = route.people;
@@ -3883,7 +3885,7 @@ function bindCurrentModule() {
   document.querySelectorAll("[data-edit-person]").forEach((button) => button.addEventListener("click", () => editPersonRecord(Number(button.dataset.editPerson))));
   document.querySelectorAll("[data-toggle-person]").forEach((button) => button.addEventListener("click", () => togglePersonRecord(Number(button.dataset.togglePerson))));
 
-  byId("open-product-link")?.addEventListener("click",()=>{const section=byId("product-automatic-link");if(section){section.open=true;section.scrollIntoView({block:"center",behavior:"smooth"});byId("product-auto-sale-item")?.focus({preventScroll:true});}});
+  byId("open-product-link")?.addEventListener("click",()=>{const section=byId("product-automatic-link");if(section){const area=[...document.querySelectorAll(".pm-form-navigation button")].find(button=>button.textContent.includes("Produto agregado"));area?.click();section.hidden=false;section.open=true;section.scrollIntoView({block:"center",behavior:"smooth"});byId("product-auto-sale-item")?.focus({preventScroll:true});}});
   const automaticPreview=()=>{const select=byId('product-auto-sale-item'),preview=byId('product-auto-sale-preview');if(!select||!preview)return;const linked=state.products.find(p=>Number(p.id)===Number(select.value)),qty=Number(byId('product-auto-sale-qty')?.value||1),name=byId('product-description')?.value||'Esta Tortela';preview.textContent=linked?`${name} → ${qty} ${linked.unit||'UN'} de ${linked.description} por Tortela. Agregado: ${money(Number(linked.price||0)*qty)}. Salve o produto para confirmar.`:'Nenhum produto agregado selecionado. A Tortela será vendida sem item automático.';};
   byId('product-auto-sale-item')?.addEventListener('change',automaticPreview);byId('product-auto-sale-qty')?.addEventListener('input',automaticPreview);byId('product-description')?.addEventListener('input',automaticPreview);automaticPreview();
   const saveProduct = byId("save-product");
@@ -5091,13 +5093,14 @@ function newProductRecord(type = "") {
   selectedProductId = 0;
   pendingProductPhoto = "";
   pendingComposition = [];
-  pendingProductDraft = type ? { type, manufactured: type === "Produto fabricado" } : {};
+  productWorkspaceType = typeof type === "string" && type ? type : productWorkspaceType;
+  pendingProductDraft = {type:productWorkspaceType,manufactured:productWorkspaceType === "Produto fabricado"};
   currentTab = "dados";
   currentMode = "backoffice";
   currentModule = "products";
-  setInternalRoute({ module: "products", tab: currentTab, fiscal: "", stock: "", people: "", settings: "" });
+  setInternalRoute({ module: "products", tab: currentTab, productType:productWorkspaceType, fiscal: "", stock: "", people: "", settings: "" });
   renderShell();
-  document.querySelector(".product-edit-panel")?.scrollIntoView({block:"start"});
+  window.scrollTo(0,0);
   byId("product-description")?.focus({preventScroll:true});
 }
 
@@ -5316,7 +5319,7 @@ function editProductRecord(id) {
   pendingProductPhoto = product.photo || "";
   currentTab = "dados";
   renderShell();
-  document.querySelector(".product-edit-panel")?.scrollIntoView({block:"start", behavior:"smooth"});
+  window.scrollTo(0,0);
   byId("product-description")?.focus({preventScroll:true});
 }
 
@@ -6092,7 +6095,7 @@ function convertQuoteToOrder(id) {
 
 function printProductsList() {
   const query = (byId("product-search")?.value ?? productSearch).trim().toLowerCase();
-  const rows = state.products.filter((product) => (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
+  const rows = state.products.filter((product) => (currentTab !== "dados" || !product.type || product.type === productWorkspaceType) && (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
   const report = window.open("", "_blank");
   if (!report) return alert("Permita a janela de impressão e tente novamente.");
   report.opener = null;
@@ -6103,7 +6106,7 @@ function printProductsList() {
 
 function exportProductsList() {
   const query = (byId("product-search")?.value ?? productSearch).trim().toLowerCase();
-  const rows = state.products.filter((product) => (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
+  const rows = state.products.filter((product) => (currentTab !== "dados" || !product.type || product.type === productWorkspaceType) && (productStatusFilter === "all" || (productStatusFilter === "active" ? product.active !== false : product.active === false)) && (!query || [product.id, product.description, product.barcode, product.brand, product.group, product.ncm].some((value) => String(value || "").toLowerCase().includes(query))));
   downloadText(`produtos-${today()}.csv`, [
     "Codigo;Referencia;SKU;Descricao;Tipo;NCM;CFOP;CST;Preco;Estoque;Minimo;Fiscal;Ecommerce;Cozinha;Status",
     ...rows.map((product) => [product.id, product.reference || "", product.sku || "", product.description, product.type, product.ncm || "", product.cfop || "", product.cst || "", product.price || 0, product.stock || 0, product.minStock || 0, product.fiscalStatus || "Conferir", product.ecommerceIntegration ? "Sim" : "Nao", product.kitchenRequest ? "Sim" : "Nao", product.active === false ? "Inativo" : "Ativo"].map(csvCell).join(";"))
