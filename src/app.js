@@ -884,6 +884,7 @@ function ensureAllowedModule() {
 
 function app(html) {
   byId("app").innerHTML = html;
+  window.ProductModern?.decorate();
 }
 
 function icon(text) {
