@@ -8623,11 +8623,12 @@ async function openDailySalesSummary(){
   await syncChain;if(localStorage.getItem('tortelaplus-pending-sync')){alert('Sincronize as vendas pendentes antes de consultar o resumo.');return;}
   if(apiOnline&&sessionId)await loadTenantState(state.settings.tenantCode);
   const date=cashBusinessDay(),reportState=structuredClone({settings:state.settings,products:state.products,sales:state.sales}),report=window.DailySalesReport,dialog=document.createElement('dialog');dialog.className='pdv-daily-summary';dialog.setAttribute('aria-label','Resumo de vendas do dia');dialog.innerHTML=report.dashboardContent(reportState,date);
+  let summaryMode='details';dialog.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{summaryMode=button.dataset.view;dialog.querySelector('[data-flavors]').hidden=summaryMode!=='flavors';dialog.querySelector('.ds-sales').hidden=summaryMode==='flavors';dialog.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));});
   const close=()=>{dialog.close();dialog.remove();};dialog.querySelector('[data-close]').onclick=close;dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
   const download=(content,type,extension)=>{const url=URL.createObjectURL(new Blob([content],{type})),link=document.createElement('a');link.href=url;link.download='resumo-vendas-'+state.settings.tenantCode+'-'+date+'.'+extension;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-  dialog.querySelector('[data-pdf]').onclick=()=>download(report.pdf(reportState,date),'application/pdf','pdf');
+  dialog.querySelector('[data-pdf]').onclick=()=>download(report.pdf(reportState,date,summaryMode),'application/pdf','pdf');
   dialog.querySelector('[data-excel]').onclick=()=>download(report.spreadsheet(reportState,date),'application/vnd.ms-excel;charset=utf-8','xml');
-  dialog.querySelector('[data-print]').onclick=()=>{document.getElementById('daily-sales-print-frame')?.remove();const frame=document.createElement('iframe');frame.id='daily-sales-print-frame';frame.style.cssText='position:fixed;left:-10000px;top:0;width:80mm;height:1px;border:0';frame.onload=()=>{frame.contentWindow.focus();frame.contentWindow.print();};frame.srcdoc=report.documentHtml(reportState,date);document.body.appendChild(frame);};
+  dialog.querySelector('[data-print]').onclick=()=>{document.getElementById('daily-sales-print-frame')?.remove();const frame=document.createElement('iframe');frame.id='daily-sales-print-frame';frame.style.cssText='position:fixed;left:-10000px;top:0;width:80mm;height:1px;border:0';frame.onload=()=>{frame.contentWindow.focus();frame.contentWindow.print();};frame.srcdoc=report.documentHtml(reportState,date,summaryMode);document.body.appendChild(frame);};
   document.body.appendChild(dialog);dialog.showModal();
  }catch(error){alert('Não foi possível consultar o resumo. '+error.message);}finally{if(button?.isConnected)button.disabled=false;}
 }
