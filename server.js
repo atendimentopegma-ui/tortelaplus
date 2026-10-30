@@ -4824,6 +4824,9 @@ async function handleApi(req, res, urlPath) {
       deny(res, access);
       return;
     }
+    if (body.baseRevision !== undefined && Number(body.baseRevision) !== Number(readTenantState(tenantCode)._meta?.revision || 0)) {
+      return sendJson(res, 409, { ok: false, error: "Dados atualizados em outro terminal. Releia antes de gravar." });
+    }
     try {
       assertTenantPayload(tenantCode, body.state || body);
     } catch (error) {
