@@ -4593,7 +4593,7 @@ async function closeCashRegister() {
   try{
     const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/close`,{timeoutMs:45000,method:"POST",body:JSON.stringify({user,password,countedAmount,responsible,closingNote})});
     state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});saleItems=[];
-    localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));printCashClosure(result.closure);renderShell();alert("Caixa fechado. Relatorio detalhado disponivel em Financeiro > Caixa e na Central > Vendas.");
+    localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));printCashClosure(result.closure);pdvCompletionMessage="Caixa fechado. Fechamento enviado para impressão; relatório salvo em Financeiro > Caixa e Central > Vendas.";renderShell();
   }catch(error){alert(error.message);await refreshCashRegister().catch(()=>{});renderShell();}
 }
 
@@ -4681,8 +4681,20 @@ function printCurrentCashSummary() {
   save();
 }
 
+function renderCashClosure(closure) {
+  const e=escapeHtml, totals=closure.paymentTotals||{}, labels={'Dinheiro':'Dinheiro','Cartao debito':'Débito','Cartao credito':'Crédito','PIX':'Pix','iFood':'iFood','Crediario':'Crediário'};
+  const methods=[...new Set([...Object.keys(labels),...Object.keys(totals)])];
+  const pair=(label,value)=>`<div class="pair"><span>${e(label)}</span><b>${e(money(value||0))}</b></div>`;
+  const date=value=>value?new Date(value).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}):'-';
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Fechamento do caixa ${e(closure.id)}</title><style>@page{size:80mm auto;margin:3mm}*{box-sizing:border-box}body{width:72mm;margin:0 auto;color:#000;font:11px Arial,sans-serif}header{text-align:center;border-bottom:1px dashed #000;padding-bottom:8px}img{width:36mm;height:auto}h1{font-size:15px;margin:6px 0}h2{font-size:12px;margin:10px 0 6px}p{margin:4px 0;overflow-wrap:anywhere}.pair{display:flex;justify-content:space-between;gap:8px;padding:4px 0}.pair b{white-space:nowrap}section{border-bottom:1px dashed #000;padding:7px 0}.total{font-size:14px;font-weight:bold}footer{text-align:center;padding:12px 0}section,header{break-inside:avoid}</style></head><body><header><img src="${e(new URL('./assets/tortela/logo-tortela.gif?v=1',window.location.href).href)}" onerror="this.style.display='none'" alt="Tortela"><h1>FECHAMENTO DO CAIXA</h1><p>RELATÓRIO NÃO FISCAL</p><p>${e(closure.report?.unit||state.settings.company||'Tortela')}</p></header><section><p>Unidade: ${e(closure.report?.tenantCode||state.settings.tenantCode)}</p><p>Caixa: ${e(closure.terminal||'PDV')} · Nº ${e(closure.id)}</p><p>Dia: ${e(closure.businessDate||'')}</p><p>Abertura: ${e(date(closure.openedAt))}</p><p>Fechamento: ${e(date(closure.closedAt))}</p><p>Operador: ${e(closure.openedBy||closure.closedBy||'')}</p><p>Conferência: ${e(closure.responsible||closure.authorizedBy||'')}</p></section><section><h2>VENDAS POR FORMA DE PAGAMENTO</h2>${methods.map(method=>pair(labels[method]||method,totals[method])).join('')}${pair('Total recebido (sem troco)',Object.values(totals).reduce((sum,value)=>sum+Number(value||0),0))}${pair('Devoluções / trocas', (closure.report?.sales||[]).flatMap(sale=>sale.returns||[]).reduce((sum,row)=>sum+Number(row.value||0),0))}<p>Dinheiro acima já desconta o troco. Devoluções são demonstradas separadamente.</p><p>Quantidade de vendas: ${e(closure.salesCount||0)}</p><div class="total">${pair('TOTAL DE VENDAS LÍQUIDAS',closure.salesTotal)}</div></section><section><h2>CONFERÊNCIA DO DINHEIRO</h2>${pair('Fundo inicial',closure.initialAmount)}${pair('Suprimentos',closure.supplies)}${pair('Sangrias',closure.withdrawals)}${pair('Saldo esperado em dinheiro',closure.expectedAmount)}${pair('Dinheiro contado',closure.closedAmount)}${pair('Diferença (sobra / falta)',closure.difference)}<p>Cartões, Pix e iFood não compõem o dinheiro físico.</p></section>${closure.closingNote?`<section><p>Observação: ${e(closure.closingNote)}</p></section>`:''}<footer><p>________________________________</p><p>Responsável pela conferência</p><p>FECHAMENTO DO CAIXA · NÃO FISCAL</p></footer></body></html>`;
+}
 function printCashClosure(closure) {
-  downloadText(`fechamento-caixa-${closure.terminal}-${today()}.txt`, cashSummaryDocument(state.cashRegister, closure));
+  try {
+    document.getElementById('cash-closure-print-frame')?.remove();
+    const frame=document.createElement('iframe');frame.id='cash-closure-print-frame';frame.title='Fechamento do caixa';frame.style.cssText='position:fixed;left:-10000px;top:0;width:80mm;height:1px;border:0';
+    frame.onload=()=>{try{frame.contentWindow.focus();frame.contentWindow.print();}catch(error){alert('Caixa fechado e salvo. Não foi possível imprimir; reimprima em Financeiro > Caixa.');}};
+    frame.srcdoc=renderCashClosure(closure);document.body.appendChild(frame);
+  } catch(error){alert('Caixa fechado e salvo. Reimprima o fechamento em Financeiro > Caixa.');}
 }
 
 function holdCurrentSale() {
