@@ -520,7 +520,7 @@ function withTenantStateDefaults(state, tenantCode) {
     ...structuredClone(initialTenantState),
     ...(state || {}),
     users: normalizeUsers(state?.users || initialTenantState.users),
-    products: state?.products || [],
+    products: (state?.products || []).map(require("./src/server/tortela-images").apply),
     settings: {
       ...initialTenantState.settings,
       ...(state?.settings || {}),
