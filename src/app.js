@@ -1790,6 +1790,7 @@ function productForm() {
 }
 
 function productTab() {
+  const draft = pendingProductDraft || {};
   if (currentTab === "impostos") {
     const fiscal = pendingProductDraft.fiscal || {};
     const reform = pendingProductDraft.reform || {};
@@ -5096,6 +5097,8 @@ function newProductRecord(type = "") {
   currentModule = "products";
   setInternalRoute({ module: "products", tab: currentTab, fiscal: "", stock: "", people: "", settings: "" });
   renderShell();
+  document.querySelector(".product-edit-panel")?.scrollIntoView({block:"start"});
+  byId("product-description")?.focus({preventScroll:true});
 }
 
 function renderComboBuilder() {
