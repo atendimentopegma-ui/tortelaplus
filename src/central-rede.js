@@ -4,6 +4,7 @@ let customerCrmView = "sales";
 let currentModule = sessionStorage.getItem("tortela-central-module") || "overview";
 
 const modules = [
+  ["reports", "Relatorios", "Vendas e desempenho"],
   ["overview", "Painel", "Visao geral"],
   ["company", "Dados da empresa", "Empresa franqueadora"],
   ["franchisees", "Franqueados", "Cadastros e poderes"],
@@ -20,8 +21,7 @@ const modules = [
   ["fiscal", "Fiscal", "NF-e, NFC-e e cancelamentos"],
   ["terminals", "Terminais PDV", "Recibo ou NFC-e"],
   ["production", "Producao", "Capacidade"],
-  ["deployment", "Implantacao", "Banco e seguranca"],
-  ["reports", "Relatorios", "Consultas"]
+  ["deployment", "Implantacao", "Banco e seguranca"]
 ];
 
 function byId(id) {
@@ -758,6 +758,8 @@ function renderReports() {
   ]);
   return `<div class="network-module compact">
     ${moduleTitle("Relatorios da Central", "Visao consolidada para saber quanto cada loja vendeu, para quem vendeu e quais pontos precisam de acao.")}
+    <section id="central-reports-dashboard"></section>
+    <details class="cr-existing"><summary>Demais relatórios e indicadores gerais — todo o histórico</summary><p>As informações abaixo foram preservadas. Os filtros de período acima aplicam-se ao painel de vendas.</p>
     <div class="network-grid four">
       ${kpi("Vendas da rede", money((summary.totals || {}).salesTotal || 0), `${amount((summary.totals || {}).salesCount || 0)} venda(s)`)}
       ${kpi("Estoque baixo", amount((summary.lowStockItems || []).length), "itens nas unidades")}
@@ -816,10 +818,11 @@ function renderReports() {
         amount(row.suggested || 0)
       ]), "Nenhum produto abaixo do minimo.")}
     </section>
-  </div>`;
+  </details></div>`;
 }
 
 function bindRender() {
+  if(byId("central-reports-dashboard")&&window.CentralReportsDashboard)window.CentralReportsDashboard.mount(byId("central-reports-dashboard"),{api});
   document.querySelectorAll('[data-customer-view]').forEach(button=>button.onclick=()=>{customerCrmView=button.dataset.customerView;render();});
   if(byId('customer-web-leads'))StoreLeadsPanel.mount(byId('customer-web-leads'),api).catch(error=>{const panel=byId('customer-web-leads');if(panel)panel.textContent=error.message;});
   if(byId('customer-sales-panel'))CustomerSalesPanel.mount(byId('customer-sales-panel'),api).catch(error=>{const panel=byId('customer-sales-panel');if(panel)panel.textContent=error.message;});

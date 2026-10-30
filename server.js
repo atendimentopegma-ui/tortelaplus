@@ -3796,7 +3796,7 @@ async function handleApi(req, res, urlPath) {
   if(req.method==='GET' && (urlPath==='/api/network/sales-reports'||closureReportMatch)){
     const provider=readProvider(),network=!closureReportMatch;
     let clients;
-    if(network){const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessao da Central obrigatoria.'});if(!permissionsFor(access).includes('sales'))return sendJson(res,403,{error:'Sem permissao para vendas da rede.'});clients=provider.clients||[];}
+    if(network){const access=providerAccess(req);if(!access)return sendJson(res,401,{error:'Sessao da Central obrigatoria.'});if(!permissionsFor(access).includes('sales')&&!permissionsFor(access).includes('reports'))return sendJson(res,403,{error:'Sem permissao para relatorios da rede.'});clients=provider.clients||[];}
     else{const code=normalizeTenantCode(closureReportMatch[1]),access=tenantAccessOrProvider(req,provider,code,'finance');if(access.error)return deny(res,access);clients=[access.tenant];}
     const params=new URL(req.url,'http://localhost').searchParams,from=params.get('from')||'',to=params.get('to')||'',unit=params.get('unit')||'';
     if((from&&!/^\d{4}-\d{2}-\d{2}$/.test(from))||(to&&!/^\d{4}-\d{2}-\d{2}$/.test(to))||(from&&to&&from>to))return sendJson(res,400,{error:'Periodo invalido.'});
