@@ -75,3 +75,12 @@
 .pdv-touch-shell .pt-sale-item strong{font-size:12px}
 
 .pdv-touch-shell .pt-sale-panel{grid-template-rows:auto minmax(0,1fr) auto auto}
+
+/* Customer identification uses the full sidebar width; keypad sits underneath. */
+.pdv-touch-shell .pt-customer-entry{grid-template-columns:minmax(0,1fr);gap:7px;padding:10px 8px}
+.pdv-touch-shell .pt-customer-entry label{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:12px;line-height:1.35}
+.pdv-touch-shell .pt-customer-entry label small{font-size:9px;font-weight:400;color:#bacde0}
+.pdv-touch-shell .pt-customer-entry input{height:44px;min-height:44px;font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:-.3px;padding:8px}
+.tortela-theme .pdv-touch-shell .shortcut-grid .pt-customer-entry .pdv-touch-key{width:100%;min-height:40px;padding:8px;font-size:12px;justify-content:center;text-align:center}
+@media(min-width:901px) and (max-width:1100px){.tortela-theme .pdv-touch-shell .pdv.pdv-operational{grid-template-columns:190px minmax(0,1fr)}}
+@media(max-width:900px){.pdv-touch-shell .shortcut-grid .pt-customer-entry{grid-column:span 2}}
