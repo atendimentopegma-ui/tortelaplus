@@ -18,7 +18,7 @@ const net = require("net");
 const { spawn } = require("child_process");
 const { PostgresStore, tenantSchema } = require("./src/server/postgres-store");
 const { businessDay, cashRegisterStale, openRegister, closeRegister, assertPdvCashWrite } = require("./src/server/cash-register");
-const { resetTestData } = require("./src/server/reset-test-data");
+const { resetTestData, resetSalesHistory } = require("./src/server/reset-test-data");
 const { tenantModuleAllowed } = require("./src/server/tenant-modules");
 const { assertTenantWriteScope } = require("./src/server/tenant-write-scope");
 const { centralPermissions, permissionsFor, fullAccess, centralRouteAllowed, scopedSummary } = require("./src/server/central-permissions");
@@ -411,8 +411,8 @@ function writeTenantState(tenantCode, state, allowTerminalSettings = false, allo
   }, code);
   if(!allowCrmTags)normalized.people=normalized.people.map(p=>{const old=current.people.find(o=>String(o.id)===String(p.id));return old?{...p,crmTags:old.crmTags||[],marketingOptOut:old.marketingOptOut===true}:{...p,crmTags:[],marketingOptOut:false};});
   if (!allowCouponSettings) normalized.coupons=structuredClone(current.coupons||[]);
-  normalized.loyaltyLedger=allowDataReset?structuredClone(current.loyaltyLedger||[]):loyaltyService.apply(current,normalized,loyaltyStates(),code,readProvider().loyalty);
-  normalized.couponRedemptions=allowDataReset?structuredClone(current.couponRedemptions||[]):couponService.applySales(current,normalized);
+  normalized.loyaltyLedger=allowDataReset?structuredClone(normalized.loyaltyLedger||[]):loyaltyService.apply(current,normalized,loyaltyStates(),code,readProvider().loyalty);
+  normalized.couponRedemptions=allowDataReset?structuredClone(normalized.couponRedemptions||[]):couponService.applySales(current,normalized);
   if (!allowTerminalSettings) normalized.settings.pdvTerminals = structuredClone(current.settings.pdvTerminals || []);
   normalized._meta = {
     ...(current._meta || {}),
@@ -3775,10 +3775,10 @@ async function handleApi(req, res, urlPath) {
     const backup=await completeTenantBackup(code,"antes-limpeza-testes");
     if(postgresStore)await postgresStore.writeProviderBackup("antes-limpeza-testes",{product:"Tortela Plus",type:"backup-geral-central-saas",clients:[backup]});
     const directory=path.join(backupsDir,code);fs.mkdirSync(directory,{recursive:true});writeJson(path.join(directory,`${Date.now()}-antes-limpeza-testes.json`),backup);
-    const state=readTenantState(code),epoch=crypto.randomUUID(),removed=resetTestData(state,epoch);
+    const state=readTenantState(code),epoch=crypto.randomUUID(),salesOnly=body.scope==="sales",removed=salesOnly?resetSalesHistory(state,epoch):resetTestData(state,epoch);
     writeTenantState(code,state,false,true);
-    provider.whatsappGroupQueue=(provider.whatsappGroupQueue||[]).filter(row=>row.tenantCode!==code);writeProvider(provider);
-    appendTenantAudit(code,"Dados de teste removidos","Vendas, produtos e movimentos associados zerados apos backup completo",access.username);
+    if(!salesOnly){provider.whatsappGroupQueue=(provider.whatsappGroupQueue||[]).filter(row=>row.tenantCode!==code);writeProvider(provider);}
+    appendTenantAudit(code,"Dados de teste removidos",salesOnly?"Historico de vendas e caixa zerado apos backup; cadastros e estoque preservados":"Vendas, produtos e movimentos associados zerados apos backup completo",access.username);
     appendProviderAudit("Dados de teste removidos",code,access.username,requestIp(req));
     return sendJson(res,200,{ok:true,tenantCode:code,dataEpoch:epoch,removed,backupCreated:true});
   }
