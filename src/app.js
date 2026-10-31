@@ -887,6 +887,7 @@ function app(html) {
   byId("app").innerHTML = html;
   window.ProductModern?.decorate();
   window.SettingsModern?.decorate();
+  window.BackofficeTheme?.decorate();
 }
 
 function icon(text) {
