@@ -888,6 +888,7 @@ function app(html) {
   window.ProductModern?.decorate();
   window.SettingsModern?.decorate();
   window.BackofficeTheme?.decorate();
+  window.ActionIcons?.decorate();
 }
 
 function icon(text) {
