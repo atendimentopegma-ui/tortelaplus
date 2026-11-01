@@ -476,7 +476,9 @@ function preservePendingLocalState(reason) {
   try{localStorage.setItem(key,JSON.stringify(rows.slice(0,3)));}catch{ /* Keep the primary pending state if backup storage is full. */ }
 }
 let reconnectInFlight=false;
+function pdvDaySalesCount(){return (state.sales||[]).filter(s=>s.type==='PDV'&&String(s.date).slice(0,10)===cashBusinessDay()&&['Fechado','Parcialmente devolvido','Devolvido','Trocado'].includes(s.status)).length;}
 function showConnectionStatus(){
+  document.querySelectorAll('[data-pdv-today-count]').forEach(node=>node.textContent=String(pdvDaySalesCount()));
   const shell=document.querySelector('.app-shell');if(!shell)return;
   const pending=hasPendingLocalChanges();
   const indicator=document.querySelector('.pt-status');if(indicator){indicator.classList.toggle('online',apiOnline);indicator.classList.toggle('offline',!apiOnline);for(const node of indicator.childNodes)if(node.nodeType===3)node.textContent=apiOnline?'Online':'Offline';}
@@ -3779,7 +3781,7 @@ function renderPdv() {
       <aside class="pdv-side">
         <div class="pdv-side-head">
           <div class="pdv-title">CAIXA ABERTO</div>
-          <div class="pdv-meta"><strong>Venda ${nextId(state.sales)}</strong><span>${new Date().toLocaleString("pt-BR")}</span></div>
+          <div class="pdv-meta"><strong>Próxima venda: nº ${nextId(state.sales)}</strong><span>${new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</span><div class="pdv-day-counter" aria-label="Contagem de vendas concluídas hoje na loja"><span>Vendas concluídas hoje</span><b data-pdv-today-count>${pdvDaySalesCount()}</b><small>Nesta loja · canceladas não incluídas</small></div></div>
           <div class="pdv-client"><strong>Cliente:</strong> <span id="pdv-client-label">${escapeHtml(pdvSelectedCustomer?.name || "Consumidor Final")}</span></div>
         </div>
         <div class="pdv-brand">
