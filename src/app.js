@@ -253,6 +253,8 @@ const seed = {
 
 window.TORTELA_BUILD = "settings-tabs-cleanup-v11";
 
+let primaryLocalDamaged=false;
+const hadPrimaryLocalState=!!localStorage.getItem("tortelaplus-state-v1");
 let state = load();
 let apiOnline = false;
 const licenseGateDisabled = false;
@@ -375,10 +377,9 @@ let lastCouponSyncError = "";
 function load() {
   const stored = localStorage.getItem("tortelaplus-state-v1");
   if (stored) {
-    const parsed = JSON.parse(stored);
-    return withDefaults(parsed);
+    try{const parsed=JSON.parse(stored);if(!parsed||typeof parsed!=='object'||!parsed.settings)throw Error('Cópia principal inválida');return withDefaults(parsed);}catch{primaryLocalDamaged=true;try{localStorage.setItem('tortelaplus-corrupt-primary-backup',stored);}catch{}return structuredClone(seed);}
   }
-  localStorage.setItem("tortelaplus-state-v1", JSON.stringify(seed));
+  try{localStorage.setItem("tortelaplus-state-v1", JSON.stringify(seed));}catch{}
   return structuredClone(seed);
 }
 
@@ -477,7 +478,7 @@ function preservePendingLocalState(reason) {
 let reconnectInFlight=false;
 function showConnectionStatus(){
   const shell=document.querySelector('.app-shell');if(!shell)return;
-  const pending=localStorage.getItem('tortelaplus-pending-sync')==='1';
+  const pending=hasPendingLocalChanges();
   const indicator=document.querySelector('.pt-status');if(indicator){indicator.classList.toggle('online',apiOnline);indicator.classList.toggle('offline',!apiOnline);for(const node of indicator.childNodes)if(node.nodeType===3)node.textContent=apiOnline?'Online':'Offline';}
   const badge=document.querySelector('.top-right>.badge');if(badge){badge.textContent=apiOnline?'API online':'modo local';badge.classList.toggle('ok',apiOnline);badge.classList.toggle('warn',!apiOnline);}
   let box=document.getElementById('pending-sync-status');
@@ -485,7 +486,7 @@ function showConnectionStatus(){
   if(!box){box=document.createElement('div');box.id='pending-sync-status';box.setAttribute('role','status');box.style.cssText='flex:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:#fff0c2;color:#6e3900;font:13px Arial;border-bottom:1px solid #e6bf63;z-index:5';shell.prepend(box);}
   box.innerHTML='<strong>'+(pending?'Há dados salvos neste computador aguardando envio à central.':'Conexão com o servidor interrompida.')+'</strong><span>Não limpe os dados do navegador.</span><button type="button" data-retry-sync>Reconectar e sincronizar</button><button type="button" data-local-copy>Salvar cópia local</button>';
   box.querySelector('[data-retry-sync]').onclick=()=>reconnectPendingState();
-  box.querySelector('[data-local-copy]').onclick=()=>{const blob=new Blob([JSON.stringify({savedAt:new Date().toISOString(),tenantCode:state.settings.tenantCode,state},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tortela-pendentes-'+state.settings.tenantCode+'-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  box.querySelector('[data-local-copy]').onclick=async()=>{const protectedData=await window.DurableStore?.exportAll();const blob=new Blob([JSON.stringify({savedAt:new Date().toISOString(),tenantCode:state.settings.tenantCode,state,protectedData},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tortela-pendentes-'+state.settings.tenantCode+'-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 }
 async function reconnectPendingState(){
  if(reconnectInFlight||!sessionId||!navigator.onLine)return false;
@@ -494,38 +495,46 @@ async function reconnectPendingState(){
   const health=await api('/api/health',{timeoutMs:8000});if(health.ok!==true)throw Error('Servidor indisponível');
   await api('/api/auth/ping',{method:'POST',timeoutMs:8000,body:JSON.stringify({tenantCode:state.settings.tenantCode,sessionId})});
   apiOnline=true;
-  if(localStorage.getItem('tortelaplus-pending-sync')==='1')await save();
+  if(hasPendingLocalChanges())await save();
   showConnectionStatus();return apiOnline;
  }catch(error){apiOnline=false;showConnectionStatus();return false;}finally{reconnectInFlight=false;}
 }
-setInterval(()=>{if(!apiOnline||localStorage.getItem('tortelaplus-pending-sync')==='1')reconnectPendingState();},30000);
+setInterval(()=>{if(!apiOnline||hasPendingLocalChanges())reconnectPendingState();},30000);
 
+let pendingLocalMemory=false;
+function hasPendingLocalChanges(){return pendingLocalMemory||localStorage.getItem('tortelaplus-pending-sync')==='1';}
 function save() {
-  localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
-  localStorage.setItem("tortelaplus-pending-sync", "1");
+  const durableCheckpoint=window.DurableStore?window.DurableStore.checkpoint(state):Promise.resolve(true);
+  durableCheckpoint.catch(()=>{});
+  pendingLocalMemory=true;
+  try{localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.setItem("tortelaplus-pending-sync","1");}catch(error){if(!window.DurableStore)throw error;}
   if (apiOnline) {
     const tenantCode = normalizeTenantCode(state.settings.tenantCode || "cliente-exemplo");
     const permission = currentMode === "pdv" ? "pdv" : currentModule;
     syncChain = syncChain.catch(() => false).then(async () => {
+      let durableVersion;try{durableVersion=await durableCheckpoint;}catch(error){showConnectionStatus();alert("Não foi possível proteger a cópia local: "+error.message);return false;}
       for (let attempt = 0; attempt < 3; attempt++) {
       const localPending = structuredClone(state);
       try {
-        const { provider, users, coupons, couponRedemptions, loyaltyLedger, ...tenantState } = state;
+        const { provider, users, coupons, couponRedemptions, loyaltyLedger, ...tenantState } = structuredClone(state);
         const result = await api(`/api/tenant/${tenantCode}/state`, {
           method: "POST",
           headers: { "X-Pegma-Permission": permission },
           body: JSON.stringify({ state: tenantState, baseRevision: Number(tenantState._meta?.revision || 0) })
         });
+        const operations=(tenantState.sales||[]).map(s=>s.operationId).filter(Boolean);
+        if(operations.length&&window.DurableStore){const confirmed=new Set(result.confirmedSaleOperations||[]);if(operations.some(id=>!confirmed.has(id)))throw Error('O servidor ainda não confirmou todas as vendas. Pendências mantidas.');}
+        if(window.DurableStore)await window.DurableStore.acknowledge(tenantCode,operations,durableVersion);
         state._meta = { ...(state._meta || {}), revision: result.revision, updatedAt: new Date().toISOString() };
-        localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
-        localStorage.removeItem("tortelaplus-pending-sync");
+        const {provider:ignoreProvider,users:ignoreUsers,coupons:ignoreCoupons,couponRedemptions:ignoreRedemptions,loyaltyLedger:ignoreLoyalty,_meta:ignoreMeta,...currentContent}=state;
+        const {_meta:sentMeta,...sentContent}=tenantState;
+        pendingLocalMemory=JSON.stringify(currentContent)!==JSON.stringify(sentContent);
+        try{localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));if(pendingLocalMemory)localStorage.setItem("tortelaplus-pending-sync","1");else localStorage.removeItem("tortelaplus-pending-sync");}catch{}
         showConnectionStatus();
         return true;
       } catch (error) {
         if(error.payload?.code === "COUPON_INVALID"){
-          lastCouponSyncError=error.message;
-          state=withDefaults({...error.payload.state,provider:state.provider,settings:{...error.payload.state.settings,user:state.settings.user}});
-          localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.removeItem("tortelaplus-pending-sync");return false;
+          lastCouponSyncError='';preservePendingLocalState('Cupom recusado pelo servidor: '+error.message);showConnectionStatus();alert('O servidor recusou um cupom. As vendas foram preservadas neste computador e precisam de conferência antes de sincronizar. Não refaça a venda.');return false;
         }
         if (error.payload?.code === "DATA_RESET") {
           state=withDefaults({...error.payload.state,provider:state.provider});saleItems=[];lastPdvSaleId=0;
@@ -554,7 +563,7 @@ function save() {
     });
     return syncChain;
   }
-  return Promise.resolve(true);
+  return durableCheckpoint.then(()=>true,error=>{showConnectionStatus();alert("Falha na proteção local: "+error.message);return false;});
 }
 
 function mergeConcurrentState(remote, local) {
@@ -619,7 +628,14 @@ async function api(path, options = {}) {
   }
 }
 
+function renderDurableRecovery(error){
+ app('<main style="max-width:760px;margin:40px auto;padding:24px;background:#fff8df;border:1px solid #e6ba50;border-radius:15px;font:16px Arial"><h2>Dados locais protegidos — conferência necessária</h2><p id="recovery-message"></p><p>Não limpe os dados do navegador e não refaça as vendas. Salve a cópia abaixo para recuperação assistida.</p><button id="export-durable-recovery">Salvar cópia de recuperação</button></main>');
+ byId('recovery-message').textContent=error.message;
+ byId('export-durable-recovery').onclick=async()=>{const protectedData=await window.DurableStore.exportAll(),blob=new Blob([JSON.stringify({state,protectedData},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tortela-recuperacao-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+}
 async function boot() {
+  if(window.DurableStore){try{const restored=await window.DurableStore.restore(state,hadPrimaryLocalState&&!primaryLocalDamaged);if(primaryLocalDamaged&&!restored.recovered)throw Error("A cópia principal está inválida. Preserve os dados para recuperação assistida.");state=withDefaults(restored.state);if(restored.pending){pendingLocalMemory=true;try{localStorage.setItem('tortelaplus-pending-sync','1');}catch{}}localStorage.setItem('tortelaplus-state-v1',JSON.stringify(state));window.DurableStore.requestPersistence();}catch(error){renderDurableRecovery(error);return;}}
+
   try {
     const health = await api("/api/health",{timeoutMs:45000});
     if (health.ok !== true || health.product !== "Tortela Plus") throw new Error("Servidor da unidade indisponivel.");
@@ -633,7 +649,8 @@ async function boot() {
 
 async function loadTenantState(tenantCode) {
   customerMessageIds.clear();
-  if(localStorage.getItem('tortelaplus-pending-sync')==='1'){
+  if(hasPendingLocalChanges()){
+    if(normalizeTenantCode(state.settings.tenantCode)!==normalizeTenantCode(tenantCode))throw Error('Existem pendências de outra unidade neste computador. Sincronize a unidade original antes de trocar.');
     preservePendingLocalState('Antes de carregar dados da central');
     if(!apiOnline||await save()===false)throw Error('Há dados pendentes neste computador. Eles foram preservados; reconecte e sincronize antes de carregar dados da central.');
   }
@@ -1012,6 +1029,8 @@ function renderLogin() {
         return;
       }
     }
+    let requestedTenant=normalizeTenantCode(byId('login-tenant').value||state.settings.tenantCode);if(requestedTenant==='tortela-plus')requestedTenant='cliente-exemplo';
+    if(hasPendingLocalChanges()&&requestedTenant!==normalizeTenantCode(state.settings.tenantCode)){const message='Há dados pendentes da unidade '+state.settings.tenantCode+'. Entre nessa unidade e sincronize antes de trocar.';if(feedback)feedback.textContent=message;loginInProgress=false;if(submitButton){submitButton.disabled=false;submitButton.textContent='Entrar';}return;}
     state.settings.user = byId("login-user").value || "Operador";
     state.settings.company = byId("login-company").value || "Minha Empresa";
     state.settings.tenantCode = normalizeTenantCode(byId("login-tenant").value || state.settings.tenantCode);
@@ -7880,8 +7899,9 @@ async function finalizePdvSaleRecord() {
     alert("O valor pago nao cobre o total da venda.");
     return;
   }
-  const saleRollback={items:structuredClone(saleItems),credit:pendingExchangeCredit,lastSale:lastPdvSaleId};
+  const saleRollback={items:structuredClone(saleItems),credit:pendingExchangeCredit,lastSale:lastPdvSaleId,state:structuredClone(state)};
   const sale = {
+    operationId:window.DurableStore?.operationId(),
     id: nextId(state.sales),
     date: cashBusinessDay(),
     soldAt: new Date().toISOString(),
@@ -7979,6 +7999,7 @@ async function finalizePdvSaleRecord() {
   fiscalRow.xml = fiscalXml(fiscalRow);
   state.fiscalQueue.push(fiscalRow);
   }
+  try{if(!window.DurableStore)throw Error('Proteção de armazenamento não carregada. Atualize o sistema antes de vender.');await window.DurableStore.checkpoint(state);}catch(error){state=saleRollback.state;saleItems=saleRollback.items;pendingExchangeCredit=saleRollback.credit;lastPdvSaleId=saleRollback.lastSale;alert('Venda NÃO finalizada. Falha ao gravar a cópia protegida: '+error.message);renderShell();return;}
   saleItems = [];
   saleClubCpf = "";
   pdvSelectedCustomer = null;
@@ -7988,7 +8009,7 @@ async function finalizePdvSaleRecord() {
   if(persisted===false&&lastCouponSyncError){saleItems=saleRollback.items;pendingExchangeCredit=saleRollback.credit;lastPdvSaleId=saleRollback.lastSale;saleClubCpf=sale.customerDocument;pdvSelectedCustomer=identifiedCustomer;authorizedDiscountValue=manualDiscount;alert("Desconto não aplicado. "+lastCouponSyncError+" A venda voltou para edição, sem gravação.");renderShell();return;}
   if(persisted===false){alert("A venda ainda nao foi confirmada no servidor. Os dados locais ficaram pendentes de sincronizacao. Nao refaca a venda antes de conferir Vendas na retaguarda.");renderShell();return;}
   await createConfiguredSaleCharges(sale);
-  pdvCompletionMessage = localStorage.getItem('tortelaplus-pending-sync')==='1' ? `Venda ${sale.id} salva neste computador · ${money(total)} · pendente de envio à central. Não refaça a venda.` : `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
+  pdvCompletionMessage = hasPendingLocalChanges() ? `Venda ${sale.id} salva neste computador · ${money(total)} · pendente de envio à central. Não refaça a venda.` : `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
   renderShell();
   if (sale.emissionMode === "receipt") autoPrintNonFiscalReceipt(sale);
   if (fiscalRow && navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);

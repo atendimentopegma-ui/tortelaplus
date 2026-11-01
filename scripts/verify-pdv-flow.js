@@ -66,6 +66,7 @@ const context = {
   URL,
   process: { env: { NODE_ENV: "test" } },
   window: {
+    DurableStore:{operationId:()=>"test-operation-"+Math.random(),checkpoint:async()=>true,acknowledge:async()=>true},
     location: { href: "https://tortelaplus.com.br/", hash: "", pathname: "/", search: "" },
     addEventListener() {},
     removeEventListener() {},
@@ -127,7 +128,7 @@ context.window.PdvPayments=require("../src/pdv-payments");
 context.window.TortelaFiscalRegimes = require("../src/fiscal-regimes");
 context.ItemPreparation=require('../src/item-preparation');
 vm.createContext(context);
-vm.runInContext(`${source}
+vm.runInContext(`${source.replace(/\nboot\(\);/, "\n// Boot restoration tested separately.")}
 state.products = ${JSON.stringify(JSON.parse(fs.readFileSync(path.join(root, "scripts/fixtures/pdv-products.json"), "utf8")))};
 globalThis.__pdvTest = {
   state,
@@ -146,7 +147,7 @@ globalThis.__pdvTest.verifyConflictRetry = async () => {
   let calls=0,renders=0;
   const remote=structuredClone(state);remote._meta={...(remote._meta||{}),revision:50};
   apiOnline=true;sessionId='isolated-sync-test';renderShell=()=>{renders++;};
-  api=async(path,options)=>{calls++;if(calls===1){const error=new Error('Conflito de teste');error.status=409;error.payload={state:remote};throw error;}const body=JSON.parse(options.body);if(body.baseRevision!==50)throw Error('Retry nao usou revisao conciliada');return {revision:51};};
+  api=async(path,options)=>{calls++;if(calls===1){const error=new Error('Conflito de teste');error.status=409;error.payload={state:remote};throw error;}const body=JSON.parse(options.body);if(body.baseRevision!==50)throw Error('Retry nao usou revisao conciliada');return {revision:51,confirmedSaleOperations:(body.state.sales||[]).map(s=>s.operationId).filter(Boolean)};};
   try{return {saved:await save(),calls,renders,revision:state._meta.revision};}
   finally{api=previousApi;apiOnline=previousOnline;sessionId=previousSession;renderShell=previousRender;}
 };
@@ -279,6 +280,16 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
     assert(state.fiscalQueue.length===beforeAnonymous.queue+(mode==='nfce'?1:0),'Venda sem CPF não respeitou o modo fiscal/recibo.');
     test.cancelClosedSale(anonymous.id);
   }
+  const protectedBefore={sales:state.sales.length,stock:drink.stock};
+  test.setField('pdv-club-cpf','');test.setField('sale-search','99001');test.setField('sale-qty','1');test.setField('sale-price','0');test.setField('pay-money','1');
+  await test.addSaleItem();
+  const checkpoint=context.window.DurableStore.checkpoint,oldAlert=context.alert;let storageMessage='';
+  context.window.DurableStore.checkpoint=async()=>{throw Error('QuotaExceededError de teste');};context.alert=message=>{storageMessage=message;};
+  await test.finishSaleRecord();
+  const live=vm.runInContext('({count:state.sales.length,stock:state.products.find(p=>p.id===99001).stock,cart:saleItems.length})',context);
+  assert(live.count===protectedBefore.sales&&live.stock===protectedBefore.stock&&live.cart>0,'Falha de armazenamento confirmou venda ou perdeu o carrinho.');
+  assert(storageMessage.includes('NÃO finalizada'),'Falha de armazenamento não foi avisada.');
+  context.window.DurableStore.checkpoint=checkpoint;context.alert=oldAlert;
   const retry=await test.verifyConflictRetry();
   assert(retry.saved===true&&retry.calls===2&&retry.revision===51,"Conflito nao aguardou a gravacao confirmada.");
   assert(retry.renders===0,"Conciliacao refez a tela e interrompeu o formulario em uso.");

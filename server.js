@@ -3911,6 +3911,11 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const incoming = body.state || body;
+    const incomingOperations=new Map();
+    for(const sale of incoming.sales||[]){if(!sale.operationId)continue;if(incomingOperations.has(sale.operationId))return sendJson(res,422,{ok:false,error:'Identificador de venda duplicado. Dados locais mantidos para conferência.'});incomingOperations.set(sale.operationId,sale);}
+    const missingProtected=(currentState.sales||[]).some(sale=>sale.operationId&&!incomingOperations.has(sale.operationId));
+    if(missingProtected)return sendJson(res,409,{ok:false,error:'O envio omitiu vendas já protegidas no servidor. É necessário conciliar os dados.',revision:currentRevision,state:publicTenantState(currentState)});
+
     const currentUsers = readTenantState(tenantCode).users.map(publicUser);
     if (incoming.users && JSON.stringify(incoming.users.map(publicUser)) !== JSON.stringify(currentUsers)) return sendJson(res,403,{ok:false,error:"Sem permissao para alterar usuarios"});
     try { assertTenantWriteScope(currentState, incoming, access.session.permissions, allPermissions); }
@@ -3924,7 +3929,8 @@ async function handleApi(req, res, urlPath) {
     incoming.users = currentState.users;
     writeTenantState(tenantCode, incoming);
     writeProvider(provider);
-    sendJson(res, 200, { ok: true, tenantCode, revision: readTenantState(tenantCode)._meta?.revision || 0 });
+    const committed=readTenantState(tenantCode);
+    sendJson(res, 200, { ok: true, tenantCode, revision: committed._meta?.revision || 0, confirmedSaleOperations:(committed.sales||[]).map(sale=>sale.operationId).filter(Boolean) });
     return;
   }
 
