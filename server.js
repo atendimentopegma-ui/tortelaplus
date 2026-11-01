@@ -4620,6 +4620,32 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
+  const recoveryAuditMatch=urlPath.match(/^\/api\/provider\/tenant\/([^/]+)\/recovery-audit$/);
+  if(recoveryAuditMatch&&req.method==='GET'){
+    const access=providerAccess(req);
+    if(!access||!fullAccess(access)){sendJson(res,403,{error:'Administrador da Central obrigatório.'});return;}
+    const code=normalizeTenantCode(recoveryAuditMatch[1]),date=requestUrl.searchParams.get('date');
+    if(!findTenant(readProvider(),code)){sendJson(res,404,{error:'Unidade não encontrada.'});return;}
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date||'')){sendJson(res,400,{error:'Informe a data YYYY-MM-DD.'});return;}
+    const {summarizeSnapshot}=require('./src/server/sales-recovery-audit'),snapshots=[],errors=[];
+    const add=(doc,source)=>{const summary=summarizeSnapshot(doc,code,date,source);if(summary)snapshots.push(summary);};
+    add({tenantCode:code,state:readTenantState(code)},'estado-atual');
+    for(const [directory,prefix] of [[path.join(backupsDir,code),'arquivo-unidade'],[path.join(backupsDir,'provider'),'arquivo-central']]){
+      if(!fs.existsSync(directory))continue;
+      for(const filename of fs.readdirSync(directory).filter(n=>n.endsWith('.json')).sort().reverse().slice(0,150)){
+        try{add(JSON.parse(fs.readFileSync(path.join(directory,filename),'utf8')),prefix+':'+filename);}catch{errors.push(prefix+':'+filename);}
+      }
+    }
+    if(postgresStore){
+      const schema='"'+tenantSchema(code)+'"';
+      const files=await postgresStore.pool.query(`select filename,content from ${schema}.file_objects where category=$1 order by created_at desc limit 150`,['backup']);
+      for(const row of files.rows){try{add(JSON.parse(row.content.toString('utf8')),'banco-unidade:'+row.filename);}catch{errors.push('banco-unidade:'+row.filename);}}
+      const backups=await postgresStore.pool.query('select id,document from provider_backups order by created_at desc limit 30');
+      for(const row of backups.rows)add(row.document,'banco-central:'+row.id);
+    }
+    sendJson(res,200,{tenantCode:code,date,snapshots,errors});return;
+  }
+
   const tenantBackupMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/backup$/);
   if (tenantBackupMatch && req.method === "GET") {
     const tenantCode = normalizeTenantCode(tenantBackupMatch[1]);
