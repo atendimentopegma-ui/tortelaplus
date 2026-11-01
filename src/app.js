@@ -662,10 +662,12 @@ async function loadTenantState(tenantCode) {
   if(hasPendingLocalChanges()){
     if(normalizeTenantCode(state.settings.tenantCode)!==normalizeTenantCode(tenantCode))throw Error('Existem pendências de outra unidade neste computador. Sincronize a unidade original antes de trocar.');
     preservePendingLocalState('Antes de carregar dados da central');
-    if(!apiOnline||await save()===false)throw Error('Há dados pendentes neste computador. Eles foram preservados; reconecte e sincronize antes de carregar dados da central.');
+    if(!apiOnline||await save()===false||hasPendingLocalChanges())throw Error('Há dados pendentes neste computador. Eles foram preservados; reconecte e sincronize antes de carregar dados da central.');
   }
   if (!apiOnline) return;
+  const beforeRemoteRead=JSON.stringify(state);
   const remote = await api(`/api/tenant/${tenantCode}/state`,{timeoutMs:45000});
+  if(hasPendingLocalChanges()||JSON.stringify(state)!==beforeRemoteRead){preservePendingLocalState('Alterações locais durante consulta ao servidor');throw Error('Os dados locais mudaram durante a consulta. Eles foram mantidos e serão sincronizados antes da atualização.');}
   state = withDefaults({
     ...(remote.state || {}),
     provider: remote.provider,
@@ -8006,8 +8008,7 @@ async function finalizePdvSaleRecord() {
   lastCouponSyncError="";
   const persisted=await save();
   if(persisted===false&&lastCouponSyncError){saleItems=saleRollback.items;pendingExchangeCredit=saleRollback.credit;lastPdvSaleId=saleRollback.lastSale;saleClubCpf=sale.customerDocument;pdvSelectedCustomer=identifiedCustomer;authorizedDiscountValue=manualDiscount;alert("Desconto não aplicado. "+lastCouponSyncError+" A venda voltou para edição, sem gravação.");renderShell();return;}
-  if(persisted===false){alert("A venda ainda nao foi confirmada no servidor. Os dados locais ficaram pendentes de sincronizacao. Nao refaca a venda antes de conferir Vendas na retaguarda.");renderShell();return;}
-  await createConfiguredSaleCharges(sale);
+  if(persisted!==false&&!hasPendingLocalChanges())await createConfiguredSaleCharges(sale);
   pdvCompletionMessage = hasPendingLocalChanges() ? `Venda ${sale.id} salva neste computador · ${money(total)} · pendente de envio à central. Não refaça a venda.` : `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
   renderShell();
   if (sale.emissionMode === "receipt") autoPrintNonFiscalReceipt(sale);

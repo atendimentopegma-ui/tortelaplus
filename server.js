@@ -3913,7 +3913,8 @@ async function handleApi(req, res, urlPath) {
     const incoming = body.state || body;
     const incomingOperations=new Map();
     for(const sale of incoming.sales||[]){if(!sale.operationId)continue;if(incomingOperations.has(sale.operationId))return sendJson(res,422,{ok:false,error:'Identificador de venda duplicado. Dados locais mantidos para conferência.'});incomingOperations.set(sale.operationId,sale);}
-    const missingProtected=(currentState.sales||[]).some(sale=>sale.operationId&&!incomingOperations.has(sale.operationId));
+    const {missingCommittedSale,confirmPersistedTenant}=require('./src/server/sales-preservation');
+    const missingProtected=missingCommittedSale(currentState,incoming);
     if(missingProtected)return sendJson(res,409,{ok:false,error:'O envio omitiu vendas já protegidas no servidor. É necessário conciliar os dados.',revision:currentRevision,state:publicTenantState(currentState)});
 
     const currentUsers = readTenantState(tenantCode).users.map(publicUser);
@@ -3929,7 +3930,9 @@ async function handleApi(req, res, urlPath) {
     incoming.users = currentState.users;
     writeTenantState(tenantCode, incoming);
     writeProvider(provider);
-    const committed=readTenantState(tenantCode);
+    let committed;
+    try{committed=await confirmPersistedTenant(postgresStore,tenantCode,readTenantState(tenantCode));}
+    catch(error){return sendJson(res,503,{ok:false,error:error.message});}
     sendJson(res, 200, { ok: true, tenantCode, revision: committed._meta?.revision || 0, confirmedSaleOperations:(committed.sales||[]).map(sale=>sale.operationId).filter(Boolean) });
     return;
   }

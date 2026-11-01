@@ -290,6 +290,9 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   assert(live.count===protectedBefore.sales&&live.stock===protectedBefore.stock&&live.cart>0,'Falha de armazenamento confirmou venda ou perdeu o carrinho.');
   assert(storageMessage.includes('NÃO finalizada'),'Falha de armazenamento não foi avisada.');
   context.window.DurableStore.checkpoint=checkpoint;context.alert=oldAlert;
+  const offlineResult=await vm.runInContext("(async()=>{const oldSave=save;const before={count:state.sales.length,prints:globalThis.__autoPrints||0};state.settings.pdvTerminals[0].emissionMode='receipt';save=async()=>{pendingLocalMemory=true;return false;};try{await finalizePdvSaleRecord();return {before,count:state.sales.length,prints:globalThis.__autoPrints||0,message:pdvCompletionMessage,cart:saleItems.length,pending:hasPendingLocalChanges()};}finally{save=oldSave;}})()",context);
+  assert(offlineResult.count===offlineResult.before.count+1&&offlineResult.cart===0&&offlineResult.pending,'Falha de rede perdeu ou duplicou venda local.');
+  assert(offlineResult.prints===offlineResult.before.prints+1&&offlineResult.message.includes('salva neste computador'),'Venda protegida não mostrou pendência ou não imprimiu recibo após falha no envio.');
   const retry=await test.verifyConflictRetry();
   assert(retry.saved===true&&retry.calls===2&&retry.revision===51,"Conflito nao aguardou a gravacao confirmada.");
   assert(retry.renders===0,"Conciliacao refez a tela e interrompeu o formulario em uso.");
