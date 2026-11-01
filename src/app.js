@@ -465,6 +465,41 @@ function withTenantDefaults(client) {
   };
 }
 
+
+function preservePendingLocalState(reason) {
+  if(localStorage.getItem('tortelaplus-pending-sync')!=='1')return;
+  const code=normalizeTenantCode(state.settings.tenantCode||'cliente-exemplo');
+  const key='tortelaplus-pending-backup-'+code;
+  let rows=[];try{rows=JSON.parse(localStorage.getItem(key)||'[]');if(!Array.isArray(rows))rows=[];}catch{}
+  rows.unshift({savedAt:new Date().toISOString(),reason,state:structuredClone(state)});
+  try{localStorage.setItem(key,JSON.stringify(rows.slice(0,3)));}catch{ /* Keep the primary pending state if backup storage is full. */ }
+}
+let reconnectInFlight=false;
+function showConnectionStatus(){
+  const shell=document.querySelector('.app-shell');if(!shell)return;
+  const pending=localStorage.getItem('tortelaplus-pending-sync')==='1';
+  const indicator=document.querySelector('.pt-status');if(indicator){indicator.classList.toggle('online',apiOnline);indicator.classList.toggle('offline',!apiOnline);for(const node of indicator.childNodes)if(node.nodeType===3)node.textContent=apiOnline?'Online':'Offline';}
+  const badge=document.querySelector('.top-right>.badge');if(badge){badge.textContent=apiOnline?'API online':'modo local';badge.classList.toggle('ok',apiOnline);badge.classList.toggle('warn',!apiOnline);}
+  let box=document.getElementById('pending-sync-status');
+  if(!pending&&apiOnline){box?.remove();return;}
+  if(!box){box=document.createElement('div');box.id='pending-sync-status';box.setAttribute('role','status');box.style.cssText='flex:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:#fff0c2;color:#6e3900;font:13px Arial;border-bottom:1px solid #e6bf63;z-index:5';shell.prepend(box);}
+  box.innerHTML='<strong>'+(pending?'Há dados salvos neste computador aguardando envio à central.':'Conexão com o servidor interrompida.')+'</strong><span>Não limpe os dados do navegador.</span><button type="button" data-retry-sync>Reconectar e sincronizar</button><button type="button" data-local-copy>Salvar cópia local</button>';
+  box.querySelector('[data-retry-sync]').onclick=()=>reconnectPendingState();
+  box.querySelector('[data-local-copy]').onclick=()=>{const blob=new Blob([JSON.stringify({savedAt:new Date().toISOString(),tenantCode:state.settings.tenantCode,state},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tortela-pendentes-'+state.settings.tenantCode+'-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+}
+async function reconnectPendingState(){
+ if(reconnectInFlight||!sessionId||!navigator.onLine)return false;
+ reconnectInFlight=true;
+ try{
+  const health=await api('/api/health',{timeoutMs:8000});if(health.ok!==true)throw Error('Servidor indisponível');
+  await api('/api/auth/ping',{method:'POST',timeoutMs:8000,body:JSON.stringify({tenantCode:state.settings.tenantCode,sessionId})});
+  apiOnline=true;
+  if(localStorage.getItem('tortelaplus-pending-sync')==='1')await save();
+  showConnectionStatus();return apiOnline;
+ }catch(error){apiOnline=false;showConnectionStatus();return false;}finally{reconnectInFlight=false;}
+}
+setInterval(()=>{if(!apiOnline||localStorage.getItem('tortelaplus-pending-sync')==='1')reconnectPendingState();},30000);
+
 function save() {
   localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
   localStorage.setItem("tortelaplus-pending-sync", "1");
@@ -484,6 +519,7 @@ function save() {
         state._meta = { ...(state._meta || {}), revision: result.revision, updatedAt: new Date().toISOString() };
         localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
         localStorage.removeItem("tortelaplus-pending-sync");
+        showConnectionStatus();
         return true;
       } catch (error) {
         if(error.payload?.code === "COUPON_INVALID"){
@@ -498,6 +534,8 @@ function save() {
         }
         if (error.status === 409 && error.payload?.state) {
           const remote = error.payload.state;
+          const collision=(localPending.sales||[]).some(sale=>(remote.sales||[]).some(other=>String(other.id)===String(sale.id)&&other.soldAt&&sale.soldAt&&other.soldAt!==sale.soldAt));
+          if(collision){preservePendingLocalState('Conflito entre vendas diferentes com o mesmo número');showConnectionStatus();return false;}
           state = withDefaults({ ...mergeConcurrentState(remote, localPending), provider: state.provider });
           localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
           localStorage.setItem("tortelaplus-pending-sync", "1");
@@ -506,8 +544,10 @@ function save() {
           alert("Nao foi possivel sincronizar apos tres tentativas. Os dados ficaram salvos neste computador. Aguarde e tente sincronizar novamente; nao repita a venda.");
           return false;
         }
-        if(error.status){await loadTenantState(tenantCode).catch(()=>{});alert(`Operacao nao gravada. ${error.message}`);renderShell();}
-        else apiOnline=false;
+        preservePendingLocalState('Falha no envio: '+error.message);
+        if(!error.status||error.status===401||error.status>=500)apiOnline=false;
+        showConnectionStatus();
+        if(error.status)alert('Dados preservados neste computador. Envio não confirmado: '+error.message);
         return false;
       }
       }
@@ -593,6 +633,10 @@ async function boot() {
 
 async function loadTenantState(tenantCode) {
   customerMessageIds.clear();
+  if(localStorage.getItem('tortelaplus-pending-sync')==='1'){
+    preservePendingLocalState('Antes de carregar dados da central');
+    if(!apiOnline||await save()===false)throw Error('Há dados pendentes neste computador. Eles foram preservados; reconecte e sincronize antes de carregar dados da central.');
+  }
   if (!apiOnline) return;
   const remote = await api(`/api/tenant/${tenantCode}/state`,{timeoutMs:45000});
   state = withDefaults({
@@ -711,8 +755,7 @@ function startHeartbeat() {
       })
     }).catch(() => {
       apiOnline = false;
-      clearInterval(heartbeatTimer);
-      heartbeatTimer = 0;
+      showConnectionStatus();
     });
   }, 60000);
 }
@@ -889,6 +932,7 @@ function app(html) {
   window.SettingsModern?.decorate();
   window.BackofficeTheme?.decorate();
   window.ActionIcons?.decorate();
+  showConnectionStatus();
 }
 
 function icon(text) {
@@ -7944,7 +7988,7 @@ async function finalizePdvSaleRecord() {
   if(persisted===false&&lastCouponSyncError){saleItems=saleRollback.items;pendingExchangeCredit=saleRollback.credit;lastPdvSaleId=saleRollback.lastSale;saleClubCpf=sale.customerDocument;pdvSelectedCustomer=identifiedCustomer;authorizedDiscountValue=manualDiscount;alert("Desconto não aplicado. "+lastCouponSyncError+" A venda voltou para edição, sem gravação.");renderShell();return;}
   if(persisted===false){alert("A venda ainda nao foi confirmada no servidor. Os dados locais ficaram pendentes de sincronizacao. Nao refaca a venda antes de conferir Vendas na retaguarda.");renderShell();return;}
   await createConfiguredSaleCharges(sale);
-  pdvCompletionMessage = `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
+  pdvCompletionMessage = localStorage.getItem('tortelaplus-pending-sync')==='1' ? `Venda ${sale.id} salva neste computador · ${money(total)} · pendente de envio à central. Não refaça a venda.` : `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
   renderShell();
   if (sale.emissionMode === "receipt") autoPrintNonFiscalReceipt(sale);
   if (fiscalRow && navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);
@@ -8427,7 +8471,7 @@ function reverseSaleStock(items, saleId) {
 
 window.addEventListener("online", () => {
   renderShell();
-  if (localStorage.getItem("tortelaplus-pending-sync") === "1") save();
+  reconnectPendingState();
   processPendingFiscalQueue();
 });
 
