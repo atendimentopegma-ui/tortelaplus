@@ -84,3 +84,6 @@
 .tortela-theme .pdv-touch-shell .shortcut-grid .pt-customer-entry .pdv-touch-key{width:100%;min-height:40px;padding:8px;font-size:12px;justify-content:center;text-align:center}
 @media(min-width:901px) and (max-width:1100px){.tortela-theme .pdv-touch-shell .pdv.pdv-operational{grid-template-columns:190px minmax(0,1fr)}}
 @media(max-width:900px){.pdv-touch-shell .shortcut-grid .pt-customer-entry{grid-column:span 2}}
+
+@media(min-width:901px){.tortela-theme .pdv-touch-shell .pdv.pdv-operational{grid-template-columns:190px minmax(0,1fr)}.tortela-theme .pdv-touch-shell .pdv-side{padding-left:10px;padding-right:10px}.pdv-touch-shell .pdv-meta{padding:8px 2px;gap:6px}.pdv-touch-shell .pdv-meta .pdv-next-sale strong{font-size:16px}.pdv-touch-shell .pdv-day-counter>span{font-size:12px}.pdv-touch-shell .pdv-day-counter>small{font-size:10px}}
+@media(min-width:1440px){.tortela-theme .pdv-touch-shell .pdv.pdv-operational{grid-template-columns:210px minmax(0,1fr)}}

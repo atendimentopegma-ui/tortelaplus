@@ -3781,7 +3781,7 @@ function renderPdv() {
       <aside class="pdv-side">
         <div class="pdv-side-head">
           <div class="pdv-title">CAIXA ABERTO</div>
-          <div class="pdv-meta"><strong>Próxima venda: nº ${nextId(state.sales)}</strong><span>${new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</span><div class="pdv-day-counter" aria-label="Contagem de vendas concluídas hoje na loja"><span>Vendas concluídas hoje</span><b data-pdv-today-count>${pdvDaySalesCount()}</b><small>Nesta loja · canceladas não incluídas</small></div></div>
+          <div class="pdv-meta"><div class="pdv-next-sale"><span>Próxima venda</span><strong>nº ${nextId(state.sales)}</strong></div><span>${new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</span><div class="pdv-day-counter" aria-label="Contagem de vendas concluídas hoje na loja"><span>Vendas concluídas hoje</span><b data-pdv-today-count>${pdvDaySalesCount()}</b><small>Nesta loja · sem canceladas</small></div></div>
           <div class="pdv-client"><strong>Cliente:</strong> <span id="pdv-client-label">${escapeHtml(pdvSelectedCustomer?.name || "Consumidor Final")}</span></div>
         </div>
         <div class="pdv-brand">
