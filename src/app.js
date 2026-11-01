@@ -481,38 +481,46 @@ function showConnectionStatus(){
   const pending=hasPendingLocalChanges();
   const indicator=document.querySelector('.pt-status');if(indicator){indicator.classList.toggle('online',apiOnline);indicator.classList.toggle('offline',!apiOnline);for(const node of indicator.childNodes)if(node.nodeType===3)node.textContent=apiOnline?'Online':'Offline';}
   const badge=document.querySelector('.top-right>.badge');if(badge){badge.textContent=apiOnline?'API online':'modo local';badge.classList.toggle('ok',apiOnline);badge.classList.toggle('warn',!apiOnline);}
+  const proofParent=document.querySelector('.pdv-touch-toolbar')||document.querySelector('.top-right');
+  if(proofParent){let proof=document.getElementById('sync-server-proof');if(!proof){proof=document.createElement('span');proof.id='sync-server-proof';proof.style.cssText='font:11px Arial;max-width:220px;line-height:1.4;padding:5px 8px;border:1px solid #d4e1eb;border-radius:8px;background:#fffdf1;color:#35516a';proofParent.append(proof);}const confirmed=localStorage.getItem('tortelaplus-last-confirmed-'+state.settings.tenantCode),last=confirmed?new Date(confirmed).toLocaleTimeString('pt-BR'):'';proof.textContent=(pending?'Envio pendente':apiOnline?'Servidor acessível':'Servidor sem confirmação')+(last?' · Último envio: '+last:'');proof.title=(syncMonitorStatus.checkedAt?'API e sessão verificadas às '+new Date(syncMonitorStatus.checkedAt).toLocaleTimeString('pt-BR')+'. ':'')+(syncMonitorStatus.error||'');}
   let box=document.getElementById('pending-sync-status');
   if(!pending&&apiOnline){box?.remove();return;}
   if(!box){box=document.createElement('div');box.id='pending-sync-status';box.setAttribute('role','status');box.style.cssText='flex:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:#fff0c2;color:#6e3900;font:13px Arial;border-bottom:1px solid #e6bf63;z-index:5';shell.prepend(box);}
   box.innerHTML='<strong>'+(pending?'Há dados salvos neste computador aguardando envio à central.':'Conexão com o servidor interrompida.')+'</strong><span>Não limpe os dados do navegador.</span><button type="button" data-retry-sync>Reconectar e sincronizar</button><button type="button" data-local-copy>Salvar cópia local</button>';
+  const detail=document.createElement('span');detail.textContent=syncMonitorStatus.error||'Nova verificação automática em até 30 segundos.';box.append(detail);
+  if(syncMonitorStatus.phase==='auth-required'){const login=document.createElement('button');login.type='button';login.textContent='Entrar novamente';login.onclick=()=>renderLogin();box.append(login);}
   box.querySelector('[data-retry-sync]').onclick=()=>reconnectPendingState();
   box.querySelector('[data-local-copy]').onclick=async()=>{const protectedData=await window.DurableStore?.exportAll();const blob=new Blob([JSON.stringify({savedAt:new Date().toISOString(),tenantCode:state.settings.tenantCode,state,protectedData},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tortela-pendentes-'+state.settings.tenantCode+'-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 }
-async function reconnectPendingState(){
- if(reconnectInFlight||!sessionId||!navigator.onLine)return false;
- reconnectInFlight=true;
- try{
-  const health=await api('/api/health',{timeoutMs:8000});if(health.ok!==true)throw Error('Servidor indisponível');
-  await api('/api/auth/ping',{method:'POST',timeoutMs:8000,body:JSON.stringify({tenantCode:state.settings.tenantCode,sessionId})});
-  apiOnline=true;
-  if(hasPendingLocalChanges())await save();
-  showConnectionStatus();return apiOnline;
- }catch(error){apiOnline=false;showConnectionStatus();return false;}finally{reconnectInFlight=false;}
+let syncMonitor=null;
+let syncMonitorStatus={phase:'idle',checkedAt:0,confirmedAt:0,error:''};
+function ensureSyncMonitor(){
+ if(syncMonitor||!window.SyncMonitor)return syncMonitor;
+ syncMonitor=window.SyncMonitor.create({
+  sessionReady:()=>!!sessionId,
+  hasPending:hasPendingLocalChanges,
+  check:async()=>{const health=await api('/api/health',{timeoutMs:10000});if(health.ok!==true)throw Error('Servidor indisponível');const ping=await api('/api/auth/ping',{method:'POST',timeoutMs:10000,body:JSON.stringify({tenantCode:state.settings.tenantCode,sessionId})});if(ping.ok!==true)throw Error('O servidor não confirmou a sessão.');apiOnline=true;},
+  send:()=>save({silent:true}),
+  onStatus:status=>{syncMonitorStatus=status;if(['offline','auth-required','access-blocked'].includes(status.phase))apiOnline=false;showConnectionStatus();}
+ });return syncMonitor;
 }
-setInterval(()=>{if(!apiOnline||hasPendingLocalChanges())reconnectPendingState();},30000);
+async function reconnectPendingState(){return await ensureSyncMonitor()?.run(true)||false;}
+window.addEventListener('focus',()=>reconnectPendingState());
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)reconnectPendingState();});
 
 let pendingLocalMemory=false;
 function hasPendingLocalChanges(){return pendingLocalMemory||localStorage.getItem('tortelaplus-pending-sync')==='1';}
-function save() {
+function save(options={}) {
   const durableCheckpoint=window.DurableStore?window.DurableStore.checkpoint(state):Promise.resolve(true);
   durableCheckpoint.catch(()=>{});
   pendingLocalMemory=true;
+  ensureSyncMonitor()?.pending();
   try{localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.setItem("tortelaplus-pending-sync","1");}catch(error){if(!window.DurableStore)throw error;}
   if (apiOnline) {
     const tenantCode = normalizeTenantCode(state.settings.tenantCode || "cliente-exemplo");
     const permission = currentMode === "pdv" ? "pdv" : currentModule;
     syncChain = syncChain.catch(() => false).then(async () => {
-      let durableVersion;try{durableVersion=await durableCheckpoint;}catch(error){showConnectionStatus();alert("Não foi possível proteger a cópia local: "+error.message);return false;}
+      let durableVersion;try{durableVersion=await durableCheckpoint;}catch(error){showConnectionStatus();if(!options.silent)alert("Não foi possível proteger a cópia local: "+error.message);return false;}
       for (let attempt = 0; attempt < 3; attempt++) {
       const localPending = structuredClone(state);
       try {
@@ -530,16 +538,17 @@ function save() {
         const {_meta:sentMeta,...sentContent}=tenantState;
         pendingLocalMemory=JSON.stringify(currentContent)!==JSON.stringify(sentContent);
         try{localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));if(pendingLocalMemory)localStorage.setItem("tortelaplus-pending-sync","1");else localStorage.removeItem("tortelaplus-pending-sync");}catch{}
+        try{localStorage.setItem('tortelaplus-last-confirmed-'+tenantCode,new Date().toISOString());}catch{}
         showConnectionStatus();
         return true;
       } catch (error) {
         if(error.payload?.code === "COUPON_INVALID"){
-          lastCouponSyncError='';preservePendingLocalState('Cupom recusado pelo servidor: '+error.message);showConnectionStatus();alert('O servidor recusou um cupom. As vendas foram preservadas neste computador e precisam de conferência antes de sincronizar. Não refaça a venda.');return false;
+          lastCouponSyncError='';preservePendingLocalState('Cupom recusado pelo servidor: '+error.message);showConnectionStatus();if(!options.silent)alert('O servidor recusou um cupom. As vendas foram preservadas neste computador e precisam de conferência antes de sincronizar. Não refaça a venda.');return false;
         }
         if (error.payload?.code === "DATA_RESET") {
           state=withDefaults({...error.payload.state,provider:state.provider});saleItems=[];lastPdvSaleId=0;
           localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.removeItem("tortelaplus-pending-sync");
-          alert("Dados de teste foram limpos pela administracao. A tela foi atualizada.");renderShell();return false;
+          if(!options.silent)alert("Dados de teste foram limpos pela administracao. A tela foi atualizada.");renderShell();return false;
         }
         if (error.status === 409 && error.payload?.state) {
           const remote = error.payload.state;
@@ -550,20 +559,20 @@ function save() {
           localStorage.setItem("tortelaplus-pending-sync", "1");
           // Aguarde a nova gravacao na mesma fila, sem refazer o formulario em uso.
           if (attempt < 2) continue;
-          alert("Nao foi possivel sincronizar apos tres tentativas. Os dados ficaram salvos neste computador. Aguarde e tente sincronizar novamente; nao repita a venda.");
+          if(!options.silent)alert("Nao foi possivel sincronizar apos tres tentativas. Os dados ficaram salvos neste computador. Aguarde e tente sincronizar novamente; nao repita a venda.");
           return false;
         }
         preservePendingLocalState('Falha no envio: '+error.message);
         if(!error.status||error.status===401||error.status>=500)apiOnline=false;
         showConnectionStatus();
-        if(error.status)alert('Dados preservados neste computador. Envio não confirmado: '+error.message);
+        if(error.status)if(!options.silent)alert('Dados preservados neste computador. Envio não confirmado: '+error.message);
         return false;
       }
       }
     });
     return syncChain;
   }
-  return durableCheckpoint.then(()=>true,error=>{showConnectionStatus();alert("Falha na proteção local: "+error.message);return false;});
+  return durableCheckpoint.then(()=>true,error=>{showConnectionStatus();if(!options.silent)alert("Falha na proteção local: "+error.message);return false;});
 }
 
 function mergeConcurrentState(remote, local) {
@@ -607,6 +616,7 @@ async function api(path, options = {}) {
     const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
     const response = await fetch(path, {
       ...fetchOptions,
+      cache:"no-store",
       headers,
       signal: fetchOptions.signal || controller.signal
     });
@@ -761,20 +771,9 @@ function startHeartbeat() {
   clearInterval(onlineNoticeTimer);onlineNoticeDismissed='';
   if(apiOnline&&sessionId){checkOnlineOrderNotifications();onlineNoticeTimer=setInterval(checkOnlineOrderNotifications,15000);}
 
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  if (!apiOnline || !sessionId) return;
-  heartbeatTimer = setInterval(() => {
-    api("/api/auth/ping", {
-      method: "POST",
-      body: JSON.stringify({
-        tenantCode: state.settings.tenantCode,
-        sessionId
-      })
-    }).catch(() => {
-      apiOnline = false;
-      showConnectionStatus();
-    });
-  }, 60000);
+  if(heartbeatTimer)clearInterval(heartbeatTimer);heartbeatTimer=0;
+  ensureSyncMonitor()?.start();
+  reconnectPendingState();
 }
 
 function money(value) {
@@ -8687,7 +8686,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations?.()
     .then((registrations) => Promise.all(registrations.map((registration) => registration.update?.())))
     .catch(() => undefined);
-  navigator.serviceWorker.register("/sw.js?v=settings-tabs-cleanup-v11").catch(() => undefined);
+  navigator.serviceWorker.register("/sw.js?v=network-api-v14").catch(() => undefined);
 }
 
 boot();

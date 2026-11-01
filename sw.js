@@ -1,4 +1,4 @@
-const CACHE_NAME = "tortelaplus-operacao-v13-regimes";
+const CACHE_NAME = "tortelaplus-operacao-v14-network-api";
 const ASSETS = ["/assets/tortela/logo-tortela.gif"];
 
 self.addEventListener("install", (event) => {
@@ -18,6 +18,7 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  if(url.pathname.startsWith("/api/")){event.respondWith(fetch(event.request,{cache:"no-store"}));return;}
   if (url.pathname.endsWith(".html") || url.pathname.startsWith("/src/") || url.pathname === "/" || url.pathname === "/sw.js") {
     event.respondWith(fetch(event.request));
     return;
