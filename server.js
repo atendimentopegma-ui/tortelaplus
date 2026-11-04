@@ -24,6 +24,7 @@ const { assertTenantWriteScope } = require("./src/server/tenant-write-scope");
 const { centralPermissions, permissionsFor, fullAccess, centralRouteAllowed, scopedSummary } = require("./src/server/central-permissions");
 const { validTerminalId, registerTerminal, updateTerminal, listTerminals } = require("./src/server/pdv-terminals");
 const { createStateCoordinator } = require("./src/server/coordinated-state");
+const { createVersionedStateReader } = require("./src/server/versioned-state-reader");
 const {
   generateFiscalXml,
   generateNfseIni,
@@ -63,17 +64,14 @@ const loginAttempts = new Map();
 const tenantCache = new Map();
 let providerCache = null;
 let postgresStore = null;
+const readVersionedState = createVersionedStateReader(normalizeTenantCode);
 const coordinateState = createStateCoordinator(() => postgresStore, async (store) => {
-  const provider = await store.readProvider();
-  if (!provider) throw new Error("Central da Rede ausente no PostgreSQL.");
-  providerCache = provider;
+  const snapshot = await readVersionedState(store);
   const fresh = new Map();
-  for (const tenant of provider.clients || []) {
-    const code = normalizeTenantCode(tenant.tenantCode);
-    const result = await store.pool.query(`SELECT document FROM "${tenantSchema(code)}".state_document WHERE id = 1`);
-    if (!result.rows[0]?.document) throw new Error("Dados da unidade ausentes no PostgreSQL.");
-    fresh.set(code, withTenantStateDefaults(result.rows[0].document, code));
+  for (const [code, document] of snapshot.tenants) {
+    fresh.set(code, withTenantStateDefaults(document, code));
   }
+  providerCache = snapshot.provider;
   tenantCache.clear();
   for (const [code, state] of fresh) tenantCache.set(code, state);
 });
