@@ -15,6 +15,13 @@ function registerTerminal(state, id, name) {
   terminal.lastSeenAt = new Date().toISOString();
   return terminal;
 }
+function numberCashTerminal(state, terminal) {
+  if (!terminal.cashNumber) {
+    const terminals = state.settings.pdvTerminals || [];
+    terminal.cashNumber = Math.max(0, ...terminals.map(row => Number(row.cashNumber) || 0)) + 1;
+  }
+  return `Caixa ${terminal.cashNumber}`;
+}
 function updateTerminal(state, id, name, emissionMode) {
   if (!["receipt", "nfce"].includes(emissionMode)) throw new Error("Escolha recibo nao fiscal ou NFC-e.");
   const terminal = (state.settings.pdvTerminals || []).find(row => row.id === id);
@@ -27,4 +34,4 @@ function updateTerminal(state, id, name, emissionMode) {
 function listTerminals(state, tenant) {
   return (state.settings.pdvTerminals || []).map(row => ({ ...row, online: (tenant.activeSessions || []).some(session => session.terminalId === row.id) }));
 }
-module.exports = { validTerminalId, legacyEmissionMode, registerTerminal, updateTerminal, listTerminals };
+module.exports = { validTerminalId, legacyEmissionMode, registerTerminal, numberCashTerminal, updateTerminal, listTerminals };

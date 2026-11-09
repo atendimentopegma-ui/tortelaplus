@@ -293,6 +293,21 @@ downloadText = (name, text) => { globalThis.__printedReceipt = text; };`, contex
   const offlineResult=await vm.runInContext("(async()=>{const oldSave=save;const before={count:state.sales.length,prints:globalThis.__autoPrints||0};state.settings.pdvTerminals[0].emissionMode='receipt';save=async()=>{pendingLocalMemory=true;return false;};try{await finalizePdvSaleRecord();return {before,count:state.sales.length,prints:globalThis.__autoPrints||0,message:pdvCompletionMessage,cart:saleItems.length,pending:hasPendingLocalChanges()};}finally{save=oldSave;}})()",context);
   assert(offlineResult.count===offlineResult.before.count+1&&offlineResult.cart===0&&offlineResult.pending,'Falha de rede perdeu ou duplicou venda local.');
   assert(offlineResult.prints===offlineResult.before.prints+1&&offlineResult.message.includes('salva neste computador'),'Venda protegida não mostrou pendência ou não imprimiu recibo após falha no envio.');
+  const concurrent=vm.runInContext(`(() => {
+    const base=structuredClone(state);
+    base.sales=[];base.cash=[];base.stockMovements=[];
+    const local=structuredClone(base),remote=structuredClone(base);
+    const productId=99001, initial=base.products.find(row=>row.id===productId).stock;
+    for(const [snapshot,operationId,qty] of [[local,"local-sale",1],[remote,"remote-sale",2]]){
+      snapshot.sales.push({id:1,operationId,cashRegisterOpenedAt:base.cashRegister.openedAt});
+      snapshot.cash.push({id:1,history:"Venda PDV 1 - Dinheiro"});
+      snapshot.products.find(row=>row.id===productId).stock=initial-qty;
+      snapshot.stockMovements.push({id:1,productId,qty:-qty,balance:initial-qty});
+    }
+    const result=reconcileConcurrentPdvSale(remote,base,local,"local-sale");
+    return {sales:result.sales,stock:result.products.find(row=>row.id===productId).stock,initial,cash:result.cash,movements:result.stockMovements};
+  })()`,context);
+  assert(concurrent.sales.map(row=>row.id).join(",")==="1,2" && concurrent.stock===concurrent.initial-3 && concurrent.movements[1].balance===concurrent.stock && concurrent.cash[1].history==="Venda PDV 2 - Dinheiro","Vendas em dois caixas misturaram IDs, estoque ou financeiro.");
   const retry=await test.verifyConflictRetry();
   assert(retry.saved===true&&retry.calls===2&&retry.revision===51,"Conflito nao aguardou a gravacao confirmada.");
   assert(retry.renders===0,"Conciliacao refez a tela e interrompeu o formulario em uso.");

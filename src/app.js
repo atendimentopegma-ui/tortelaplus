@@ -513,6 +513,7 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)reconnectP
 let pendingLocalMemory=false;
 function hasPendingLocalChanges(){return pendingLocalMemory||localStorage.getItem('tortelaplus-pending-sync')==='1';}
 function save(options={}) {
+  const saleChanges = options.saleBase ? structuredClone(state) : null;
   const durableCheckpoint=window.DurableStore?window.DurableStore.checkpoint(state):Promise.resolve(true);
   durableCheckpoint.catch(()=>{});
   pendingLocalMemory=true;
@@ -554,7 +555,23 @@ function save(options={}) {
         }
         if (error.status === 409 && error.payload?.state) {
           const remote = error.payload.state;
+          if (saleChanges) {
+            try {
+              state = withDefaults(reconcileConcurrentPdvSale(remote, options.saleBase, saleChanges, options.saleOperation));
+              durableVersion = await window.DurableStore.checkpoint(state);
+              preservePendingLocalState("Venda conciliada com outro terminal");
+              if (attempt < 2) continue;
+              return false;
+            } catch (reconciliationError) {
+              state = localPending;
+              preservePendingLocalState(reconciliationError.message);
+              showConnectionStatus();
+              return false;
+            }
+          }
           const collision=(localPending.sales||[]).some(sale=>(remote.sales||[]).some(other=>String(other.id)===String(sale.id)&&other.soldAt&&sale.soldAt&&other.soldAt!==sale.soldAt));
+          const pendingPdvSale=permission==="pdv" && (localPending.sales||[]).some(sale=>sale.type==="PDV" && sale.operationId && !(remote.sales||[]).some(other=>other.operationId===sale.operationId));
+          if(pendingPdvSale && !collision){preservePendingLocalState("Venda pendente com alteração simultânea em outro terminal");showConnectionStatus();return false;}
           if(collision){preservePendingLocalState('Conflito entre vendas diferentes com o mesmo número');showConnectionStatus();return false;}
           state = withDefaults({ ...mergeConcurrentState(remote, localPending), provider: state.provider });
           localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
@@ -575,6 +592,54 @@ function save(options={}) {
     return syncChain;
   }
   return durableCheckpoint.then(()=>true,error=>{showConnectionStatus();if(!options.silent)alert("Falha na proteção local: "+error.message);return false;});
+}
+
+function reconcileConcurrentPdvSale(remote, base, local, operationId) {
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const sales = local.sales.filter(row => !base.sales.some(previous => previous.id === row.id));
+  const sale = sales.find(row => row.operationId === operationId);
+  if (!sale || sales.length !== 1) throw Error("Venda pendente precisa de conferência.");
+  const merged = withDefaults({ ...remote, provider: local.provider, settings: { ...remote.settings, user: local.settings.user } });
+  if (merged.sales.some(row => row.operationId === operationId)) return merged;
+  if (merged.cashRegister.openedAt !== sale.cashRegisterOpenedAt || !merged.cashRegister.open) {
+    throw Error("O caixa da venda pendente mudou.");
+  }
+
+  const originalId = sale.id;
+  const saleId = nextId(merged.sales);
+  const collections = ["sales", "receivables", "cash", "stockMovements", "stockLots", "stockSerials", "pdvTables", "fiscalQueue"];
+  for (const name of collections) {
+    const before = new Map((base[name] || []).map(row => [row.id, row]));
+    const after = local[name] || [];
+    const target = merged[name] || (merged[name] = []);
+    if ([...before.keys()].some(id => !after.some(row => row.id === id))) throw Error("Movimentos simultâneos precisam de conferência.");
+    for (const row of after) {
+      const old = before.get(row.id);
+      if (same(row, old)) continue;
+      const index = target.findIndex(current => current.id === row.id);
+      if (old && !same(target[index], old)) throw Error("Movimentos simultâneos precisam de conferência.");
+      const updated = { ...row, id: old ? row.id : name === "sales" ? saleId : nextId(target) };
+      for (const reference of ["saleId", "lastSaleId", "sourceSaleId"]) {
+        if (updated[reference] === originalId) updated[reference] = saleId;
+      }
+      if (updated.history) updated.history = updated.history.replace(`Venda PDV ${originalId} -`, `Venda PDV ${saleId} -`);
+      if (name === "stockMovements") {
+        const previous = base.products.find(product => product.id === row.productId);
+        const current = merged.products.find(product => product.id === row.productId);
+        if (previous && current) updated.balance = Number(row.balance) + Number(current.stock || 0) - Number(previous.stock || 0);
+      }
+      if (old) target[index] = updated;
+      else target.push(updated);
+    }
+  }
+  for (const product of local.products) {
+    const previous = base.products.find(row => row.id === product.id);
+    if (!previous || same(previous, product)) continue;
+    const current = merged.products.find(row => row.id === product.id);
+    if (!current || !same({...previous, stock: product.stock}, product)) throw Error("Estoque alterado precisa de conferência.");
+    current.stock = Number(current.stock || 0) + Number(product.stock || 0) - Number(previous.stock || 0);
+  }
+  return merged;
 }
 
 function mergeConcurrentState(remote, local) {
@@ -691,7 +756,9 @@ function pdvTerminalId() {
 }
 
 function currentPdvTerminal() {
-  return (state.settings.pdvTerminals || []).find(row => row.id === pdvTerminalId()) || {
+  const registered = (state.settings.pdvTerminals || []).find(row => row.id === pdvTerminalId());
+  if (registered) return { ...registered, name: registered.cashNumber ? `Caixa ${registered.cashNumber}` : registered.name };
+  return {
     id: pdvTerminalId(), name: state.cashRegister?.terminal || "PDV", emissionMode: state.settings.pdvPrintMode === "Recibo simples" ? "receipt" : "nfce"
   };
 }
@@ -3766,7 +3833,7 @@ function renderPdv() {
             <h2>Abertura de caixa</h2>${window.PdvTouch?.toolbar({online:apiOnline})||''}
             <div class="grid four">
               <div class="field"><label>Valor inicial</label><input id="cash-open-amount" type="number" step="0.01" value="0" /></div>
-              <div class="field"><label>Terminal</label><input id="cash-open-terminal" value="${register.terminal || "SERIE 1"}" /></div>
+              <div class="field"><label>Terminal</label><p>${terminal.cashNumber ? escapeHtml(terminal.name) : "Número atribuído ao abrir o caixa"}</p></div>
               <div class="field"><label>Operador</label><input readonly value="${state.settings.user}" /></div>
               <div class="field"><label>Senha do operador</label><input id="cash-open-password" type="password" autocomplete="current-password" /></div>
             </div>
@@ -3780,7 +3847,7 @@ function renderPdv() {
     <div class="pdv pdv-operational">
       <aside class="pdv-side">
         <div class="pdv-side-head">
-          <div class="pdv-title">CAIXA ABERTO</div>
+          <div class="pdv-title">${terminal.cashNumber ? escapeHtml(terminal.name.toUpperCase()) + " ABERTO" : "CAIXA ABERTO"}</div>
           <div class="pdv-meta"><div class="pdv-next-sale"><span>Próxima venda</span><strong>nº ${nextId(state.sales)}</strong></div><span>${new Date().toLocaleString("pt-BR",{timeZone:"America/Sao_Paulo"})}</span><div class="pdv-day-counter" aria-label="Contagem de vendas concluídas hoje na loja"><span>Vendas concluídas hoje</span><b data-pdv-today-count>${pdvDaySalesCount()}</b><small>Nesta loja · sem canceladas</small></div></div>
           <div class="pdv-client"><strong>Cliente:</strong> <span id="pdv-client-label">${escapeHtml(pdvSelectedCustomer?.name || "Consumidor Final")}</span></div>
         </div>
@@ -4619,7 +4686,9 @@ async function openCashRegister() {
   const button=byId("open-cash-register");
   if(button){button.disabled=true;button.textContent="Aguarde, confirmando abertura…";}
   try{
-    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/open`,{timeoutMs:45000,method:"POST",body:JSON.stringify({password,initialAmount:num("cash-open-amount"),terminal:byId("cash-open-terminal").value||currentPdvTerminal().name})});
+    await syncChain;
+    if (hasPendingLocalChanges() && await save() === false) return alert("Sincronize as vendas pendentes antes de abrir o caixa.");
+    const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/open`,{timeoutMs:45000,method:"POST",body:JSON.stringify({password,initialAmount:num("cash-open-amount")})});
     state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});
     saleItems=[];localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));renderShell();
   }catch(error){
@@ -7902,6 +7971,7 @@ async function finalizePdvSaleRecord() {
     alert("O valor pago nao cobre o total da venda.");
     return;
   }
+  const canReconcileSale = !hasPendingLocalChanges();
   const saleRollback={items:structuredClone(saleItems),credit:pendingExchangeCredit,lastSale:lastPdvSaleId,state:structuredClone(state)};
   const sale = {
     operationId:window.DurableStore?.operationId(),
@@ -8008,13 +8078,18 @@ async function finalizePdvSaleRecord() {
   pdvSelectedCustomer = null;
   authorizedDiscountValue = 0;
   lastCouponSyncError="";
-  const persisted=await save();
+  const persisted=await save({ saleBase: canReconcileSale ? saleRollback.state : null, saleOperation: sale.operationId });
+  const savedSale = state.sales.find(row => row.operationId === sale.operationId) || sale;
+  lastPdvSaleId = savedSale.id;
   if(persisted===false&&lastCouponSyncError){saleItems=saleRollback.items;pendingExchangeCredit=saleRollback.credit;lastPdvSaleId=saleRollback.lastSale;saleClubCpf=sale.customerDocument;pdvSelectedCustomer=identifiedCustomer;authorizedDiscountValue=manualDiscount;alert("Desconto não aplicado. "+lastCouponSyncError+" A venda voltou para edição, sem gravação.");renderShell();return;}
-  if(persisted!==false&&!hasPendingLocalChanges())await createConfiguredSaleCharges(sale);
-  pdvCompletionMessage = hasPendingLocalChanges() ? `Venda ${sale.id} salva neste computador · ${money(total)} · pendente de envio à central. Não refaça a venda.` : `Venda ${sale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
+  if(persisted!==false&&!hasPendingLocalChanges())await createConfiguredSaleCharges(savedSale);
+  pdvCompletionMessage = hasPendingLocalChanges() ? `Venda ${savedSale.id} salva neste computador · ${money(total)} · pendente de envio à central. Não refaça a venda.` : `Venda ${savedSale.id} concluída · ${money(total)} · ${terminal.emissionMode === 'receipt' ? 'Recibo não fiscal' : 'NFC-e aguardando transmissão'}. Use Reimprimir recibo para imprimir.`;
   renderShell();
-  if (sale.emissionMode === "receipt") autoPrintNonFiscalReceipt(sale);
-  if (fiscalRow && navigator.onLine && apiOnline && sessionId) setTimeout(() => transmitFiscalRecord(fiscalRow.id), 200);
+  if (sale.emissionMode === "receipt") autoPrintNonFiscalReceipt(savedSale);
+  if (fiscalRow && persisted !== false && !hasPendingLocalChanges() && navigator.onLine && apiOnline && sessionId) {
+    const savedFiscal = state.fiscalQueue.find(row => row.saleId === savedSale.id && row.terminalId === terminal.id);
+    if (savedFiscal) setTimeout(() => transmitFiscalRecord(savedFiscal.id), 200);
+  }
 }
 
 async function createConfiguredSaleCharges(sale) {

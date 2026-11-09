@@ -2,6 +2,7 @@ const resetCollections=["products","sales","receivables","payables","cash","cash
 function resetTestData(state,epoch,now=new Date()) {
   const counts=Object.fromEntries(resetCollections.map(key=>[key,(state[key]||[]).length]));
   for(const key of resetCollections)state[key]=[];
+  state.cashRegisters={};
   state.cashRegister={open:false,openedAt:"",openedBy:"",initialAmount:0,terminal:""};
   state.auditLogs=[];
   state._meta={...state._meta,dataEpoch:epoch};
@@ -15,6 +16,7 @@ function resetSalesHistory(state,epoch,now=new Date()){
  const keys=['sales','receivables','cash','cashClosures','heldSales','pdvTables','fiscalQueue','couponRedemptions','loyaltyLedger'];
  const counts=Object.fromEntries(keys.map(key=>[key,(state[key]||[]).length]));
  for(const key of keys)state[key]=[];
+ state.cashRegisters={};
  state.cashRegister={open:false,openedAt:'',openedBy:'',initialAmount:0,terminal:''};
  state._meta={...state._meta,dataEpoch:epoch};
  state.settings={...state.settings,salesHistoryClearedAt:now.toISOString()};

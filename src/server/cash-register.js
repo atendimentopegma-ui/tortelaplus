@@ -6,6 +6,25 @@ function businessDay(value = new Date(), timeZone = "America/Sao_Paulo") {
   const get=type=>parts.find(part=>part.type===type)?.value;
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
+const closedRegister = {open:false,openedAt:"",openedBy:"",initialAmount:0,terminal:""};
+
+function legacyRegisterTerminalId(state) {
+  const legacy = state.cashRegister;
+  if (!legacy?.open) return legacy?.terminalId || "";
+  return legacy.terminalId ||
+    (state.sales || []).find(sale => sale.cashRegisterOpenedAt === legacy.openedAt && sale.terminalId)?.terminalId ||
+    (state.settings?.pdvTerminals || []).find(terminal => terminal.name === legacy.terminal)?.id ||
+    state.settings?.pdvTerminals?.[0]?.id || "";
+}
+
+function registerForTerminal(state, terminalId = "") {
+  const registers = state.cashRegisters || {};
+  if (Object.hasOwn(registers, terminalId)) return { ...closedRegister, ...registers[terminalId] };
+  const legacy = state.cashRegister || closedRegister;
+  if (legacyRegisterTerminalId(state) === terminalId) return legacy;
+  return closedRegister;
+}
+
 function cashRegisterStale(register, now = new Date()) {
   return Boolean(register?.open && (!businessDay(register.openedAt) || businessDay(register.openedAt)!==businessDay(now)));
 }
@@ -43,7 +62,7 @@ function assertPdvCashWrite(current,incoming,now=new Date()) {
   for(const sale of added){
     if(!current.cashRegister?.open)throw Error("Abra o caixa do dia antes de registrar vendas.");
     if(cashRegisterStale(current.cashRegister,now))throw Error("Feche o caixa do dia anterior antes de registrar vendas de hoje.");
-    if(sale.cashRegisterOpenedAt!==current.cashRegister.openedAt)throw Error("A venda nao pertence ao caixa aberto.");
+    if(sale.cashRegisterOpenedAt!==current.cashRegister.openedAt || (sale.terminalId && current.cashRegister.terminalId && sale.terminalId!==current.cashRegister.terminalId))throw Error("A venda nao pertence ao caixa aberto.");
     if(sale.date!==businessDay(now))throw Error("A data da venda deve corresponder ao dia de operacao do caixa.");
     require("./pdv-customers").identifySale(current,sale);
     require("../item-preparation").validateSale(sale.items||[]);
@@ -52,4 +71,4 @@ function assertPdvCashWrite(current,incoming,now=new Date()) {
     require("../combo-sales").validateSale(sale.items||[],current.products||[]);
   }
 }
-module.exports={businessDay,cashRegisterStale,cashBalance,openRegister,closeRegister,assertPdvCashWrite};
+module.exports={legacyRegisterTerminalId,registerForTerminal,businessDay,cashRegisterStale,cashBalance,openRegister,closeRegister,assertPdvCashWrite};

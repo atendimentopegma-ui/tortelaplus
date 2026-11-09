@@ -17,12 +17,12 @@ const crypto = require("crypto");
 const net = require("net");
 const { spawn } = require("child_process");
 const { PostgresStore, tenantSchema } = require("./src/server/postgres-store");
-const { businessDay, cashRegisterStale, openRegister, closeRegister, assertPdvCashWrite } = require("./src/server/cash-register");
+const { legacyRegisterTerminalId, registerForTerminal, businessDay, cashRegisterStale, openRegister, closeRegister, assertPdvCashWrite } = require("./src/server/cash-register");
 const { resetTestData, resetSalesHistory } = require("./src/server/reset-test-data");
 const { tenantModuleAllowed } = require("./src/server/tenant-modules");
 const { assertTenantWriteScope } = require("./src/server/tenant-write-scope");
 const { centralPermissions, permissionsFor, fullAccess, centralRouteAllowed, scopedSummary } = require("./src/server/central-permissions");
-const { validTerminalId, registerTerminal, updateTerminal, listTerminals } = require("./src/server/pdv-terminals");
+const { validTerminalId, registerTerminal, numberCashTerminal, updateTerminal, listTerminals } = require("./src/server/pdv-terminals");
 const { createStateCoordinator } = require("./src/server/coordinated-state");
 const { createVersionedStateReader } = require("./src/server/versioned-state-reader");
 const {
@@ -1079,9 +1079,11 @@ function validPermissions(permissions, role = "Vendedor") {
   return permissions.filter((permission) => allPermissions.includes(permission));
 }
 
-function publicTenantState(state) {
+function publicTenantState(state, terminalId) {
+  const {cashRegisters, ...visible} = state;
   return {
-    ...state,
+    ...visible,
+    cashRegister: registerForTerminal(state, terminalId),
     users: (state.users || []).map(publicUser)
   };
 }
@@ -3809,20 +3811,40 @@ async function handleApi(req, res, urlPath) {
   if(cashRegisterMatch && ["GET","POST"].includes(req.method)){
     const code=normalizeTenantCode(cashRegisterMatch[1]),provider=readProvider(),access=sessionAccess(req,provider,code,"pdv");
     if(access.error)return deny(res,access);
-    const state=readTenantState(code);
+    const state=readTenantState(code), terminalId=access.session.terminalId||"";
+    const legacyRegister=state.cashRegister;
+    const legacyOwner=legacyRegisterTerminalId(state);
+    state.cashRegister=registerForTerminal(state,terminalId);
     if(req.method==="GET"){writeProvider(provider);return sendJson(res,200,{ok:true,register:state.cashRegister,businessDate:businessDay(),stale:cashRegisterStale(state.cashRegister)});}
     const body=await readBody(req),action=cashRegisterMatch[2];
     const user=findUser(state,action==="open"?access.session.user:body.user);
     if(!user || user.active===false || !verifyPassword(body.password,user.passwordHash) || (action==="close" && !["Administrador","Gerente"].includes(user.role)))return sendJson(res,403,{ok:false,error:"Senha do responsavel invalida para esta operacao"});
     let closure;
     try{
-      if(action==="open")openRegister(state,{user:access.session.user,terminal:body.terminal,terminalId:access.session.terminalId||"",initialAmount:body.initialAmount});
-      else if(action==="close")closure=closeRegister(state,{user:access.session.user,authorizedBy:user.username,countedAmount:body.countedAmount,responsible:body.responsible,closingNote:body.closingNote});
+      const terminal=terminalId ? registerTerminal(state,terminalId,access.session.terminalName) : null;
+      const legacyTerminal=(state.settings.pdvTerminals || []).find(row=>row.id===legacyOwner);
+      if(legacyRegister.open && legacyTerminal)numberCashTerminal(state,legacyTerminal);
+      if(action==="open"){
+        const label=terminal ? numberCashTerminal(state,terminal) : body.terminal;
+        const used = new Set([legacyRegister.openedAt, ...Object.values(state.cashRegisters||{}).map(row=>row.openedAt), ...(state.cashClosures||[]).map(row=>row.openedAt)]);
+        const openedAt = new Date();
+        while(used.has(openedAt.toISOString()))openedAt.setTime(openedAt.getTime()+1);
+        openRegister(state,{user:access.session.user,terminal:label,terminalId,initialAmount:body.initialAmount},openedAt);
+      }
+      else if(action==="close"){
+        if(state.cashRegister.open && terminal)state.cashRegister={...state.cashRegister,terminalId,terminal:numberCashTerminal(state,terminal)};
+        closure=closeRegister(state,{user:access.session.user,authorizedBy:user.username,countedAmount:body.countedAmount,responsible:body.responsible,closingNote:body.closingNote});
+      }
       else return sendJson(res,400,{ok:false,error:"Operacao de caixa invalida"});
     }catch(error){return sendJson(res,409,{ok:false,error:error.message});}
-    writeTenantState(code,state);writeProvider(provider);
-    appendTenantAudit(code,action==="open"?"Caixa aberto":"Caixa fechado",`${state.cashRegister.terminal}: ${businessDay()}`,access.session.user);
-    return sendJson(res,200,{ok:true,register:state.cashRegister,closure,state:publicTenantState(readTenantState(code))});
+    const register=state.cashRegister;
+    if(terminalId){
+      state.cashRegisters={...state.cashRegisters,[terminalId]:register};
+      state.cashRegister=legacyOwner===terminalId ? {...legacyRegister,open:false} : legacyRegister;
+    }
+    writeTenantState(code,state,true);writeProvider(provider);
+    appendTenantAudit(code,action==="open"?"Caixa aberto":"Caixa fechado",`${register.terminal}: ${businessDay()}`,access.session.user);
+    return sendJson(res,200,{ok:true,register,closure,state:publicTenantState(readTenantState(code),terminalId)});
   }
 
   const registerPdvTerminalMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/pdv-terminals\/register$/);
@@ -3833,6 +3855,7 @@ async function handleApi(req, res, urlPath) {
     if (access.error) return deny(res, access);
     const body = await readBody(req);
     const tenantState = readTenantState(tenantCode);
+    if(access.session.terminalId && access.session.terminalId!==body.terminalId)return sendJson(res,409,{ok:false,error:"Este acesso já está vinculado a outro terminal."});
     try { registerTerminal(tenantState, body.terminalId, body.name); }
     catch (error) { return sendJson(res, 400, { ok: false, error: error.message }); }
     access.session.terminalId = body.terminalId;
@@ -3872,7 +3895,7 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     writeProvider(provider);
-    sendJson(res, 200, { state: publicTenantState(readTenantState(tenantCode)), provider: publicProvider({clients:[access.tenant],ownerName:provider.ownerName}) });
+    sendJson(res, 200, { state: publicTenantState(readTenantState(tenantCode),access.session.terminalId), provider: publicProvider({clients:[access.tenant],ownerName:provider.ownerName}) });
     return;
   }
 
@@ -3891,11 +3914,11 @@ async function handleApi(req, res, urlPath) {
     }
     const body = await readBody(req);
     const currentState = readTenantState(tenantCode);
-    if (currentState._meta?.dataEpoch && req.headers["x-tortela-data-epoch"] !== currentState._meta.dataEpoch) return sendJson(res,409,{ok:false,code:"DATA_RESET",error:"Dados de teste foram limpos. Recarregue a tela antes de continuar.",state:publicTenantState(currentState)});
+    if (currentState._meta?.dataEpoch && req.headers["x-tortela-data-epoch"] !== currentState._meta.dataEpoch) return sendJson(res,409,{ok:false,code:"DATA_RESET",error:"Dados de teste foram limpos. Recarregue a tela antes de continuar.",state:publicTenantState(currentState,access.session.terminalId)});
     const baseRevision = Number(body.baseRevision ?? body.state?._meta?.revision ?? 0);
     const currentRevision = Number(currentState._meta?.revision || 0);
     if (baseRevision && baseRevision !== currentRevision) {
-      sendJson(res, 409, { ok: false, error: "Dados atualizados em outro terminal", revision: currentRevision, state: publicTenantState(currentState) });
+      sendJson(res, 409, { ok: false, error: "Dados atualizados em outro terminal", revision: currentRevision, state: publicTenantState(currentState,access.session.terminalId) });
       return;
     }
     if (periodClosed(currentState, body.state || body)) {
@@ -3909,22 +3932,25 @@ async function handleApi(req, res, urlPath) {
       return;
     }
     const incoming = body.state || body;
+    if(Object.hasOwn(incoming,"cashRegisters"))return sendJson(res,403,{ok:false,error:"Use os controles protegidos do caixa."});
+    const register=registerForTerminal(currentState,access.session.terminalId);
     const incomingOperations=new Map();
     for(const sale of incoming.sales||[]){if(!sale.operationId)continue;if(incomingOperations.has(sale.operationId))return sendJson(res,422,{ok:false,error:'Identificador de venda duplicado. Dados locais mantidos para conferência.'});incomingOperations.set(sale.operationId,sale);}
     const {missingCommittedSale,confirmPersistedTenant}=require('./src/server/sales-preservation');
     const missingProtected=missingCommittedSale(currentState,incoming);
-    if(missingProtected)return sendJson(res,409,{ok:false,error:'O envio omitiu vendas já protegidas no servidor. É necessário conciliar os dados.',revision:currentRevision,state:publicTenantState(currentState)});
+    if(missingProtected)return sendJson(res,409,{ok:false,error:'O envio omitiu vendas já protegidas no servidor. É necessário conciliar os dados.',revision:currentRevision,state:publicTenantState(currentState,access.session.terminalId)});
 
     const currentUsers = readTenantState(tenantCode).users.map(publicUser);
     if (incoming.users && JSON.stringify(incoming.users.map(publicUser)) !== JSON.stringify(currentUsers)) return sendJson(res,403,{ok:false,error:"Sem permissao para alterar usuarios"});
-    try { assertTenantWriteScope(currentState, incoming, access.session.permissions, allPermissions); }
+    try { assertTenantWriteScope({...currentState,cashRegister:register}, incoming, access.session.permissions, allPermissions); }
     catch(error) { return sendJson(res,403,{ok:false,error:error.message}); }
     try { for(const product of incoming.products||[]){const previous=(currentState.products||[]).find(p=>String(p.id)===String(product.id));if(product.comboPricing?.enabled&&JSON.stringify(product.comboPricing)!==JSON.stringify(previous?.comboPricing))require('./src/combo-sales').validate(product.comboPricing,incoming.products);} }
     catch(error){return sendJson(res,422,{error:error.message});}
-    try { assertPdvCashWrite(currentState,incoming); }
+    try { assertPdvCashWrite({...currentState,cashRegister:register},incoming); }
     catch(error){return sendJson(res,423,{ok:false,error:error.message});}
     try { loyaltyService.apply(currentState,incoming,loyaltyStates(),tenantCode,readProvider().loyalty); couponService.applySales(currentState,incoming); }
-    catch(error){return sendJson(res,422,{ok:false,code:"COUPON_INVALID",error:error.message,state:publicTenantState(currentState)});}
+    catch(error){return sendJson(res,422,{ok:false,code:"COUPON_INVALID",error:error.message,state:publicTenantState(currentState,access.session.terminalId)});}
+    delete incoming.cashRegister;
     incoming.users = currentState.users;
     writeTenantState(tenantCode, incoming);
     writeProvider(provider);
