@@ -313,14 +313,69 @@ function renderSales() {
 }
 
 function renderProducts() {
-  return `<div class="network-module">
-    ${moduleTitle("Produtos e estoque", "Produtos mais vendidos, menos vendidos e itens abaixo do minimo.")}
-    <div class="network-grid three">
-      <section class="network-card"><h2>Mais vendidos</h2>${table(["Produto", "Unidade", "Qtd."], summary.bestSellers.map((row) => [escapeHtml(row.product), escapeHtml(row.unit), amount(row.value)]))}</section>
-      <section class="network-card"><h2>Menos vendidos</h2>${table(["Produto", "Unidade", "Qtd."], summary.worstSellers.map((row) => [escapeHtml(row.product), escapeHtml(row.unit), amount(row.value)]))}</section>
-      <section class="network-card"><h2>Estoque baixo</h2>${table(["Unidade", "Produto", "Atual", "Minimo"], summary.lowStockItems.map((row) => [escapeHtml(row.unit || row.tenantCode), escapeHtml(row.product || row.description), amount(row.stock), amount(row.minStock)]))}</section>
-    </div>
+  const lowStock = summary.lowStockItems || [];
+  const units = [...new Map(lowStock.map(row => [row.tenantCode, row.unit || row.tenantCode]))]
+    .filter(([code]) => code)
+    .sort((a, b) => String(a[1]).localeCompare(String(b[1]), "pt-BR"));
+  return `<div class="network-module network-products">
+    ${moduleTitle("Produtos e estoque", "Consulte o saldo das unidades e veja quais produtos precisam de reposição.")}
+    <section class="network-card network-stock-guide">
+      <div><h2>Chegou mercadoria?</h2><p>Na Retaguarda, entre com o código da loja, escolha o produto e informe a quantidade recebida. Para nota fiscal em XML, use Compras.</p></div>
+      <a class="btn primary" href="https://tortelaplus.com.br/index.html#module=stock&amp;stock=movimento">Registrar entrada de estoque</a>
+    </section>
+    <section class="network-card">
+      <h2>Estoque para repor</h2>
+      <div class="network-stock-filters">
+        <label>Buscar produto<input id="network-stock-search" type="search" placeholder="Digite o nome do produto"></label>
+        <label>Unidade<select id="network-stock-unit"><option value="">Todas as unidades</option>${units.map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`).join("")}</select></label>
+      </div>
+      <p id="network-stock-count" role="status"></p>
+      <div id="network-stock-results"></div>
+      ${lowStock.length >= 80 ? '<p class="helper">Esta lista exibe até 80 itens sinalizados pela Central. Consulte os saldos completos na Retaguarda da unidade.</p>' : ""}
+    </section>
+    <details class="network-card network-product-ranking">
+      <summary>Ranking de vendas</summary>
+      <div class="network-grid two">
+        <section><h3>Mais vendidos</h3>${table(["Produto", "Unidade", "Qtd."], (summary.bestSellers || []).map(row => [escapeHtml(row.product), escapeHtml(row.unit), amount(row.value)]))}</section>
+        <section><h3>Menos vendidos</h3>${table(["Produto", "Unidade", "Qtd."], (summary.worstSellers || []).map(row => [escapeHtml(row.product), escapeHtml(row.unit), amount(row.value)]))}</section>
+      </div>
+    </details>
   </div>`;
+}
+
+function bindNetworkStockFilters() {
+  const search = byId("network-stock-search");
+  if (!search) return;
+  const unit = byId("network-stock-unit");
+  const normalizeSearch = value => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const lowStock = [...(summary.lowStockItems || [])].sort((a, b) =>
+    Number(a.stock > 0) - Number(b.stock > 0) || Number(b.suggested) - Number(a.suggested)
+  );
+  function update() {
+    const query = normalizeSearch(search.value);
+    const rows = lowStock.filter(row =>
+      (!unit.value || row.tenantCode === unit.value) && normalizeSearch(row.product || row.description).includes(query)
+    );
+    byId("network-stock-count").textContent = rows.length === 1 ? "1 item sinalizado" : `${rows.length} itens sinalizados`;
+    byId("network-stock-results").innerHTML = table(
+      ["Produto", "Unidade", "Saldo", "Mínimo", "Reposição sugerida"],
+      rows.map(row => {
+        const quantity = value => `${amount(value)} ${escapeHtml(row.productUnit || "")}`.trim();
+        const status = Number(row.stock) < 0 ? "Saldo negativo" : Number(row.stock) === 0 ? "Sem estoque" : "Estoque baixo";
+        return [
+          `<strong>${escapeHtml(row.product || row.description)}</strong>`,
+          escapeHtml(row.unit || row.tenantCode),
+          `${quantity(row.stock)} <span class="badge ${Number(row.stock) <= 0 ? "danger" : "warn"}">${status}</span>`,
+          quantity(row.minStock),
+          `<strong>${quantity(row.suggested)}</strong>`
+        ];
+      }),
+      lowStock.length ? "Nenhum produto corresponde aos filtros." : "Nenhum item sinalizado para reposição."
+    );
+  }
+  search.addEventListener("input", update);
+  unit.addEventListener("change", update);
+  update();
 }
 
 function renderOrders() {
@@ -846,6 +901,7 @@ function bindRender() {
     renderLogin();
   });
   byId("refresh").addEventListener("click", boot);
+  bindNetworkStockFilters();
   document.querySelectorAll("[data-network-module]").forEach((button) => button.addEventListener("click", () => {
     currentModule = button.dataset.networkModule;
     sessionStorage.setItem("tortela-central-module", currentModule);

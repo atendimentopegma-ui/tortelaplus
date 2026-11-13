@@ -19,3 +19,26 @@
 @media(max-width:650px){.central-modern #app:has(.network-dashboard){height:auto;min-height:100dvh;overflow:visible;display:flex;flex-direction:column}.central-modern .tortela-topbar{order:0;padding:12px;position:sticky;top:0;z-index:5}.central-modern .top-right{width:100%;flex-wrap:wrap}.central-modern .top-right .btn{flex:1;min-height:39px;padding:7px}.central-modern .network-nav{order:1;display:flex;gap:7px;overflow:auto;padding:9px;border-radius:0;max-height:none;flex:none;scrollbar-gutter:auto}.central-modern .cm-brand{display:none}.central-modern .network-nav button{min-width:145px;width:auto;flex:none;margin:0}.central-modern .network-stage{order:2;overflow:visible;padding:15px 12px}.central-modern .network-card{padding:14px}.central-modern .network-grid{gap:10px}.central-modern .network-card.kpi{grid-template-columns:1fr;gap:6px;min-height:140px}.central-modern .kpi>i{grid-row:auto;grid-column:1;width:34px;height:34px}.central-modern .kpi>small,.central-modern .kpi>strong,.central-modern .kpi>span{grid-column:1}.cm-quick-links{grid-template-columns:repeat(2,minmax(0,1fr))}.cm-unit-tools{gap:10px}.cm-search{flex-basis:100%}}
 
 .central-modern .network-nav .cm-brand small{color:#1c3648;font-weight:500}
+
+.network-products .network-stock-guide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  background: #eef6ff;
+}
+.network-stock-guide > div { flex: 1 1 360px; }
+.network-stock-guide p { margin: 6px 0 0; }
+.network-stock-guide a { text-align: center; }
+.network-stock-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+.network-stock-filters label { display: grid; gap: 6px; font-weight: 600; }
+.network-stock-filters input, .network-stock-filters select { min-width: 0; width: 100%; }
+.network-products .network-table-wrap table { min-width: 620px; }
+.network-products .network-table-wrap .badge { margin: 4px; }
+.network-product-ranking summary { cursor: pointer; font-weight: 700; }
+.network-product-ranking[open] summary { margin-bottom: 16px; }
