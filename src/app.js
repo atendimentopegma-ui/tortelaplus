@@ -2353,12 +2353,12 @@ function renderStock() {
     </div>`;
   const movementPanel = `
     <h3>Histórico de movimentações</h3>
-    <p>Digite a quantidade na coluna <strong>Entrada</strong> e pressione <strong>Enter</strong> para somar ao saldo atual do produto.</p>
+    <p>Digite a quantidade na coluna <strong>Entrada</strong> e clique em <strong>Salvar</strong> para somar ao saldo atual do produto.</p>
     <p id="quick-stock-status" role="status"></p>
-    <div class="table-wrap">
+    <div class="table-wrap stock-movement-table">
       <table>
         <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th><th>Entrada</th></tr></thead>
-        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td><td>${quickStockEntry(row.productId)}</td></tr>`).join("") || `<tr><td colspan="8">Nenhum movimento registrado.</td></tr>`}</tbody>
+        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td class="stock-movement-description">${row.history}</td><td>${quickStockEntry(row.productId)}</td></tr>`).join("") || `<tr><td colspan="8">Nenhum movimento registrado.</td></tr>`}</tbody>
       </table>
     </div>
     <div class="form-card">
@@ -5658,6 +5658,7 @@ function quickStockEntry(productId) {
     <input type="number" min="0.001" max="1000000" step="0.001" required inputmode="decimal"
       aria-label="Entrada de ${escapeAttr(product.description)}" placeholder="Qtd."
       value="${draft?.quantity || ""}" ${draft ? "readonly" : ""}>
+    <button class="btn primary" type="submit">Salvar</button>
     <small></small>
   </form>`;
 }
@@ -5667,6 +5668,7 @@ function bindQuickStockEntries() {
   if (!status) return;
   document.querySelectorAll("[data-quick-stock]").forEach(form => {
     const input = form.querySelector("input");
+    const button = form.querySelector("button");
     const product = state.products.find(item => String(item.id) === form.dataset.quickStock);
     const format = value => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
     const preview = () => {
@@ -5690,6 +5692,7 @@ function bindQuickStockEntries() {
       quickStockOperations.set(key, draft);
       quickStockSaving = true;
       input.readOnly = true;
+      button.disabled = true;
       status.textContent = "Registrando entrada…";
       let message;
       try {
@@ -5714,6 +5717,7 @@ function bindQuickStockEntries() {
         message = error.message;
       } finally {
         quickStockSaving = false;
+        button.disabled = false;
         const currentStatus = byId("quick-stock-status");
         if (currentStatus) currentStatus.textContent = message;
       }
