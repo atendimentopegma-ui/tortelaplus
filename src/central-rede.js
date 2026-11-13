@@ -437,26 +437,48 @@ function bindNetworkStockFilters() {
   update();
 }
 
+function approvalList(rows, approveLabel, empty) {
+  return rows.length ? `<ul class="network-approval-list">${rows.map(row => {
+    const key = `${escapeHtml(row.tenantCode)}:${Number(row.id)}`;
+    return `<li>
+      <div>
+        <strong>${escapeHtml(row.detail || row.title)}</strong>
+        <div>${escapeHtml(row.unit || row.tenantCode)} · ${escapeHtml(row.requestedBy || "-")}</div>
+        ${row.justification ? `<small>${escapeHtml(row.justification)}</small>` : ""}
+      </div>
+      <div class="network-approval-actions">
+        <button type="button" class="btn primary" data-approve-request="${key}">${approveLabel}</button>
+        <button type="button" class="btn danger" data-reject-request="${key}">Negar</button>
+      </div>
+    </li>`;
+  }).join("")}</ul>` : `<p>${empty}</p>`;
+}
+
 function renderOrders() {
   const requests = summary.approvalRequests || [];
-  const isStockEntry = row => row.type === "stock_receipt" ||
-    (row.type === "stock_adjustment" && row.payload?.type === "Entrada");
-  const entries = requests.filter(isStockEntry).sort((a, b) =>
-    Number(b.status === "Pendente") - Number(a.status === "Pendente"));
-  const pendingCount = entries.filter(row => row.status === "Pendente").length;
-  const pendingApprovals = requests.filter(row => row.status === "Pendente" && !isStockEntry(row));
+  const pending = requests.filter(row => row.status === "Pendente");
+  const entries = pending.filter(row => row.type === "stock_receipt");
+  const adjustments = pending.filter(row => row.type === "stock_adjustment");
+  const others = pending.filter(row => !["stock_receipt", "stock_adjustment"].includes(row.type));
+  const resolved = requests.filter(row => row.type === "stock_receipt" && row.status !== "Pendente");
   return `<div class="network-module compact">
-    ${moduleTitle("Pedidos automaticos", "Solicitacoes enviadas pelas unidades com base no estoque minimo.")}
+    ${moduleTitle("Pedidos", "Entradas de mercadoria, ajustes e reposição das unidades.")}
     <section class="network-card">
-      <h2>Entradas informadas pelas lojas</h2>
-      <p>${pendingCount} aguardando aprovação · ${entries.length} na lista</p>
-      ${table(["Unidade", "Produto e quantidade", "Informado por", "Status", "Ações"], entries.map(row => [
-        escapeHtml(row.unit || row.tenantCode), escapeHtml(row.detail),
-        `${escapeHtml(row.requestedBy || "-")}<br><small>${escapeHtml(String(row.requestedAt || "").slice(0, 16).replace("T", " "))}</small>`,
-        row.status === "Pendente" ? "Aguardando aprovação da Central" : escapeHtml(row.status),
-        row.status === "Pendente" ? `<button type="button" class="btn primary" data-approve-request="${escapeHtml(row.tenantCode)}:${row.id}">Aprovar entrada</button> <button type="button" class="btn danger" data-reject-request="${escapeHtml(row.tenantCode)}:${row.id}">Negar</button>` : "—"
-      ]), "Nenhuma entrada informada.")}
+      <h2>Entradas de mercadoria (${entries.length} pendentes)</h2>
+      ${approvalList(entries, "Aprovar entrada", "Nenhuma entrada aguardando aprovação.")}
+      ${resolved.length ? `<details><summary>Histórico de entradas decididas</summary>
+        ${table(["Unidade", "Produto e quantidade", "Status"], resolved.map(row => [
+          escapeHtml(row.unit || row.tenantCode), escapeHtml(row.detail), escapeHtml(row.status)
+        ]))}
+      </details>` : ""}
     </section>
+    <section class="network-card">
+      <h2>Ajustes manuais de estoque (${adjustments.length} pendentes)</h2>
+      ${approvalList(adjustments, "Autorizar ajuste", "Nenhum ajuste aguardando autorização.")}
+    </section>
+    ${others.length ? `<section class="network-card"><h2>Outras aprovações</h2>
+      ${approvalList(others, "Autorizar", "")}
+    </section>` : ""}
     <section class="network-card">
       <h2>QR de remessa da Central</h2>
       <form class="network-form" id="shipment-qr-form">
@@ -465,17 +487,6 @@ function renderOrders() {
         <button class="btn primary full" type="submit">Gerar QR da remessa</button>
       </form>
       <div id="shipment-qr-result" class="network-qr-result"></div>
-    </section>
-    <section class="network-card">
-      <h2>Aprovacoes pendentes da Central</h2>
-      ${table(["Unidade", "Tipo", "Detalhe", "Justificativa", "Solicitado por", "Acoes"], pendingApprovals.map((row) => [
-        escapeHtml(row.unit || row.tenantCode || "-"),
-        escapeHtml(row.title || row.type || "-"),
-        escapeHtml(row.detail || "-"),
-        escapeHtml(row.justification || "-"),
-        `${escapeHtml(row.requestedBy || "-")}<br><small>${escapeHtml(String(row.requestedAt || "").slice(0, 16).replace("T", " "))}</small>`,
-        `<button class="btn primary" data-approve-request="${row.tenantCode}:${row.id}">Autorizar</button> <button class="btn danger" data-reject-request="${row.tenantCode}:${row.id}">Negar</button>`
-      ]), "Nenhuma autorizacao pendente.")}
     </section>
     <section class="network-card">
       ${table(["Unidade", "Data", "Origem", "Itens", "Custo estimado", "Status"], summary.automaticOrders.map((order) => [
@@ -1011,7 +1022,8 @@ function bindRender() {
 
 async function decideApproval(key, decision) {
   const [tenantCode, requestId] = String(key || "").split(":");
-  const note = prompt(decision === "approved" ? "Observacao da autorizacao:" : "Motivo da negativa:") || "";
+  const note = prompt(decision === "approved" ? "Observação da autorização (opcional):" : "Motivo da negativa:");
+  if (note === null) return;
   try {
     await api("/api/network/approvals/decide", {
       method: "POST",

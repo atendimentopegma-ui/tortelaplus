@@ -47,3 +47,16 @@
 .network-stock-receipt input { width: 100%; min-width: 0; }
 .network-stock-receipt small { grid-column: 1 / -1; white-space: normal; }
 #network-stock-feedback:empty { display: none; }
+
+.network-approval-list { list-style: none; padding: 0; margin: 12px 0; }
+.network-approval-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e3ebf4;
+  overflow-wrap: anywhere;
+}
+.network-approval-actions { display: flex; flex-wrap: wrap; gap: 8px; }
