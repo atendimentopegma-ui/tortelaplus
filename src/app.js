@@ -5687,7 +5687,11 @@ function bindQuickStockEntries() {
     preview();
     form.addEventListener("submit", async event => {
       event.preventDefault();
-      if (quickStockSaving || !form.reportValidity()) return;
+      if (quickStockSaving) {
+        form.querySelector("small").textContent = "Aguarde o envio anterior e clique em Salvar novamente.";
+        return;
+      }
+      if (!form.reportValidity()) return;
       if (!apiOnline || !sessionId || hasPendingLocalChanges()) {
         status.textContent = "Conecte-se e aguarde a sincronização antes de registrar a entrada.";
         return;
@@ -5707,14 +5711,9 @@ function bindQuickStockEntries() {
         });
         quickStockOperations.delete(key);
         message = "Entrada enviada. Aguardando aprovação da Central.";
-        try {
-          await loadTenantState(tenantCode);
-          if (currentMode === "backoffice" && currentModule === "stock") renderShell();
-        } catch {
-          message += " · Atualize a página após sincronizar para ver o histórico.";
-        }
         input.value = "";
         input.readOnly = false;
+        form.querySelector("small").textContent = "Enviado à Central";
       } catch (error) {
         if (error.status >= 400 && error.status < 500) {
           quickStockOperations.delete(key);

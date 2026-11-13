@@ -3137,7 +3137,8 @@ async function handleApi(req, res, urlPath) {
       salesDetails: salesDetails.sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 80),
       lowStockItems: lowStockItems.slice(0, 80),
       automaticOrders: automaticOrders.sort((a, b) => String(b.createdAt || b.date).localeCompare(String(a.createdAt || a.date))).slice(0, 80),
-      approvalRequests: approvalRequests.sort((a, b) => String(b.requestedAt || "").localeCompare(String(a.requestedAt || ""))).slice(0, 200),
+      approvalRequests: approvalRequests.sort((a, b) => String(b.requestedAt || "").localeCompare(String(a.requestedAt || "")))
+        .filter((row, index) => row.status === "Pendente" || index < 200),
       promotions: promotions.slice(0, 80),
       whatsapp: {
         accountName: provider.whatsappSettings?.accountName || "",
