@@ -443,9 +443,10 @@ function renderOrders() {
     ${moduleTitle("Pedidos automaticos", "Solicitacoes enviadas pelas unidades com base no estoque minimo.")}
     <section class="network-card">
       <h2>Entradas informadas pelas lojas</h2>
-      ${table(["Unidade", "Produto e quantidade", "Informado por", "Status"], (summary.approvalRequests || []).filter(row => row.type === "stock_receipt").map(row => [
+      ${table(["Unidade", "Produto e quantidade", "Informado por", "Status", "Ações"], (summary.approvalRequests || []).filter(row => row.type === "stock_receipt").map(row => [
         escapeHtml(row.unit || row.tenantCode), escapeHtml(row.detail), escapeHtml(row.requestedBy),
-        row.status === "Aprovado" ? "Aprovada pela loja" : "Aguardando aprovação da loja"
+        row.status === "Pendente" ? "Aguardando aprovação da Central" : escapeHtml(row.status),
+        row.status === "Pendente" ? `<button type="button" class="btn primary" data-approve-request="${escapeHtml(row.tenantCode)}:${row.id}">Aprovar entrada</button> <button type="button" class="btn danger" data-reject-request="${escapeHtml(row.tenantCode)}:${row.id}">Negar</button>` : "—"
       ]), "Nenhuma entrada informada.")}
     </section>
     <section class="network-card">

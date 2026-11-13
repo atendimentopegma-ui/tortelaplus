@@ -3209,7 +3209,7 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
-  const stockReceiptMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/stock-receipts(?:\/(\d+)\/approve)?$/);
+  const stockReceiptMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/stock-receipts$/);
   if (req.method === "POST" && (stockReceiptMatch || urlPath === "/api/network/stock-receipts")) {
     const body = await readBody(req);
     const code = normalizeTenantCode(stockReceiptMatch ? stockReceiptMatch[1] : body.tenantCode);
@@ -3238,7 +3238,7 @@ async function handleApi(req, res, urlPath) {
     const product = state.products.find(row => String(row.id) === String(body.productId));
     if (!product) return sendJson(res, 404, { error: "Produto não encontrado nessa unidade." });
     const movements = state.stockMovements;
-    if (stockReceiptMatch && body.requestApproval === true && !stockReceiptMatch[2]) {
+    if (stockReceiptMatch) {
       const requests = state.approvalRequests ||= [];
       let request = requests.find(row => row.type === "stock_receipt" && row.operationId === operationId);
       if (request && (request.payload.productId !== product.id || request.payload.qty !== quantity)) {
@@ -3264,13 +3264,6 @@ async function handleApi(req, res, urlPath) {
       }
       return sendJson(res, 200, { ok: true, status: request.status });
     }
-    const receipt = stockReceiptMatch && state.approvalRequests.find(row =>
-      row.type === "stock_receipt" && row.operationId === operationId &&
-      row.payload.productId === product.id && row.payload.qty === quantity
-    );
-    if (stockReceiptMatch && (!receipt || String(receipt.id) !== stockReceiptMatch[2])) {
-      return sendJson(res, 409, { error: "Atualize a Retaguarda e aprove a entrada na lista de pendências." });
-    }
     const previous = movements.find(row => row.receiptOperationId === operationId);
     if (previous && (previous.productId !== product.id || previous.qty !== quantity)) {
       return sendJson(res, 409, { error: "Esta entrada já foi registrada com outros dados." });
@@ -3289,11 +3282,10 @@ async function handleApi(req, res, urlPath) {
         type: "Entrada",
         qty: quantity,
         balance: product.stock,
-        history: stockReceiptMatch ? "Entrada de mercadoria pela Retaguarda" : "Entrada de mercadoria pela Central Tortela",
+        history: "Entrada de mercadoria pela Central Tortela",
         requestedBy: operator,
         receiptOperationId: operationId
       });
-      if (receipt) Object.assign(receipt, { status: "Aprovado", decidedAt: new Date().toISOString(), decidedBy: operator });
       writeTenantState(code, state);
     }
     const { confirmPersistedTenant } = require("./src/server/sales-preservation");
@@ -3319,7 +3311,15 @@ async function handleApi(req, res, urlPath) {
     const tenantState = readTenantState(tenantCode);
     const request = (tenantState.approvalRequests || []).find((row) => Number(row.id) === requestId);
     if (!request) return sendJson(res, 404, { ok: false, error: "Solicitacao nao encontrada." });
-    if (request.type === "stock_receipt") return sendJson(res, 403, { error: "A loja confirma essa entrada na Retaguarda." });
+    if (request.type === "stock_receipt" && request.status === decision) {
+      return sendJson(res, 200, { ok: true, status: decision });
+    }
+    if (request.type === "stock_receipt" && request.status === "Pendente" && decision === "Aprovado") {
+      const product = tenantState.products.find(row => row.id === request.payload.productId);
+      if (!product || product.controlsLot || product.controlsSerial) {
+        return sendJson(res, 422, { error: "Confira o cadastro do produto e os requisitos de lote ou série antes de aprovar." });
+      }
+    }
     if (request.status !== "Pendente") return sendJson(res, 409, { ok: false, error: "Solicitacao ja decidida." });
     request.status = decision;
     request.decidedBy = access.username;
@@ -3330,21 +3330,24 @@ async function handleApi(req, res, urlPath) {
         const product = (tenantState.products || []).find((row) => Number(row.id) === Number(request.payload?.productId));
         if (product) product.price = Number(request.payload.newPrice || product.price || 0);
       }
-      if (request.type === "stock_adjustment") {
+      if (["stock_adjustment", "stock_receipt"].includes(request.type)) {
         const product = (tenantState.products || []).find((row) => Number(row.id) === Number(request.payload?.productId));
-        const direction = Number(request.payload?.direction || 0);
+        const isReceipt = request.type === "stock_receipt";
+        const direction = Number((isReceipt ? request.payload.qty : request.payload?.direction) || 0);
         if (product && direction) {
-          product.stock = Number(product.stock || 0) + direction;
+          const balance = Number(product.stock || 0) + direction;
+          product.stock = isReceipt ? Math.round(balance * 1000) / 1000 : balance;
           tenantState.stockMovements = Array.isArray(tenantState.stockMovements) ? tenantState.stockMovements : [];
           tenantState.stockMovements.push({
             id: Math.max(0, ...tenantState.stockMovements.map((row) => Number(row.id) || 0)) + 1,
             date: today(),
             productId: product.id,
             product: product.description,
-            type: request.payload.type || "Ajuste autorizado",
+            type: isReceipt ? "Entrada" : request.payload.type || "Ajuste autorizado",
+            ...(isReceipt ? { receiptOperationId: request.operationId, approvedBy: access.username } : {}),
             qty: direction,
             balance: product.stock,
-            history: `${request.payload.history || ""} - autorizado pela Central`,
+            history: isReceipt ? "Entrada de mercadoria aprovada pela Central" : `${request.payload.history || ""} - autorizado pela Central`,
             location: request.payload.details?.location || "",
             lot: request.payload.details?.lot || "",
             manualDrop: Boolean(request.payload.details?.manualDrop),
