@@ -3209,13 +3209,21 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
-  if (req.method === "POST" && urlPath === "/api/network/stock-receipts") {
-    const access = providerAccess(req);
-    if (!access) return sendJson(res, 401, { error: "Entre na Central para registrar a entrada." });
-    if (!fullAccess(access)) return sendJson(res, 403, { error: "A entrada rápida exige acesso administrativo completo." });
-
+  const stockReceiptMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/stock-receipts$/);
+  if (req.method === "POST" && (stockReceiptMatch || urlPath === "/api/network/stock-receipts")) {
     const body = await readBody(req);
-    const code = normalizeTenantCode(body.tenantCode);
+    const code = normalizeTenantCode(stockReceiptMatch ? stockReceiptMatch[1] : body.tenantCode);
+    let operator;
+    if (stockReceiptMatch) {
+      const access = sessionAccess(req, readProvider(), code, "stock_adjust");
+      if (access.error) return deny(res, access);
+      operator = access.session.user;
+    } else {
+      const access = providerAccess(req);
+      if (!access) return sendJson(res, 401, { error: "Entre na Central para registrar a entrada." });
+      if (!fullAccess(access)) return sendJson(res, 403, { error: "A entrada rápida exige acesso administrativo completo." });
+      operator = access.username;
+    }
     const tenant = findTenant(readProvider(), code);
     if (!tenant) return sendJson(res, 404, { error: "Unidade não encontrada." });
     const quantity = Number(body.quantity);
@@ -3248,8 +3256,8 @@ async function handleApi(req, res, urlPath) {
         type: "Entrada",
         qty: quantity,
         balance: product.stock,
-        history: "Entrada de mercadoria pela Central Tortela",
-        requestedBy: access.username,
+        history: stockReceiptMatch ? "Entrada de mercadoria pela Retaguarda" : "Entrada de mercadoria pela Central Tortela",
+        requestedBy: operator,
         receiptOperationId: operationId
       });
       writeTenantState(code, state);

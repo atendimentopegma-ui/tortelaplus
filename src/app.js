@@ -2352,6 +2352,15 @@ function renderStock() {
       <div class="actions"><button class="btn" id="plan-production" type="button">Programar ordem</button><button class="btn primary" id="make-production" type="button">Concluir producao</button></div>
     </div>`;
   const movementPanel = `
+    <h3>Histórico de movimentações</h3>
+    <p>Digite a quantidade na coluna <strong>Entrada</strong> e pressione <strong>Enter</strong> para somar ao saldo atual do produto.</p>
+    <p id="quick-stock-status" role="status"></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th><th>Entrada</th></tr></thead>
+        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td><td>${quickStockEntry(row.productId)}</td></tr>`).join("") || `<tr><td colspan="8">Nenhum movimento registrado.</td></tr>`}</tbody>
+      </table>
+    </div>
     <div class="form-card">
       <h3>Registrar entrada ou saída</h3>
       <p class="muted">Para somar mercadoria, escolha Entrada e digite quanto chegou. O saldo muda quando a Central aprovar a solicitação.</p>
@@ -2369,13 +2378,6 @@ function renderStock() {
         <div class="field"><label>Numeros de serie</label><textarea id="stock-serials" placeholder="Um por linha"></textarea></div>
       </div>
       <button class="btn primary" id="save-stock-move" type="button">Enviar para aprovação</button>
-    </div>
-    <h3>Histórico de movimentações</h3>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th></tr></thead>
-        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td></tr>`).join("") || `<tr><td colspan="7">Nenhum movimento registrado.</td></tr>`}</tbody>
-      </table>
     </div>
     `;
   const qrPanel = `
@@ -4102,6 +4104,7 @@ function bindCurrentModule() {
   const planProduction = byId("plan-production");
   if (planProduction) planProduction.addEventListener("click", planProductionRecord);
 
+  bindQuickStockEntries();
   const stockPreview = byId("stock-move-preview");
   if (stockPreview) {
     const updateStockPreview = () => {
@@ -5641,6 +5644,81 @@ function planProductionRecord() {
   audit("Ordem de producao programada", `${product.description} ${plannedQty}`);
   save();
   renderShell();
+}
+
+const quickStockOperations = new Map();
+let quickStockSaving = false;
+
+function quickStockEntry(productId) {
+  const product = state.products.find(item => String(item.id) === String(productId));
+  if (!product || !canAccess("stock_adjust")) return "—";
+  if (product.controlsLot || product.controlsSerial) return "Use o formulário abaixo";
+  const draft = quickStockOperations.get(JSON.stringify([state.settings.tenantCode, product.id]));
+  return `<form data-quick-stock="${escapeAttr(product.id)}">
+    <input type="number" min="0.001" max="1000000" step="0.001" required inputmode="decimal"
+      aria-label="Entrada de ${escapeAttr(product.description)}" placeholder="Qtd."
+      value="${draft?.quantity || ""}" ${draft ? "readonly" : ""}>
+    <small></small>
+  </form>`;
+}
+
+function bindQuickStockEntries() {
+  const status = byId("quick-stock-status");
+  if (!status) return;
+  document.querySelectorAll("[data-quick-stock]").forEach(form => {
+    const input = form.querySelector("input");
+    const product = state.products.find(item => String(item.id) === form.dataset.quickStock);
+    const format = value => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+    const preview = () => {
+      const balance = Number(product.stock || 0);
+      form.querySelector("small").textContent = input.value && input.validity.valid
+        ? `${format(balance)} + ${format(input.value)} = ${format(balance + Number(input.value))} ${product.unit || ""}`
+        : `Atual: ${format(balance)} ${product.unit || ""}`;
+    };
+    input.addEventListener("input", preview);
+    preview();
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      if (quickStockSaving || !form.reportValidity()) return;
+      if (!apiOnline || !sessionId || hasPendingLocalChanges()) {
+        status.textContent = "Conecte-se e aguarde a sincronização antes de registrar a entrada.";
+        return;
+      }
+      const tenantCode = state.settings.tenantCode;
+      const key = JSON.stringify([tenantCode, product.id]);
+      const draft = quickStockOperations.get(key) || { quantity: Number(input.value), operationId: crypto.randomUUID() };
+      quickStockOperations.set(key, draft);
+      quickStockSaving = true;
+      input.readOnly = true;
+      status.textContent = "Registrando entrada…";
+      let message;
+      try {
+        const result = await api(`/api/tenant/${encodeURIComponent(tenantCode)}/stock-receipts`, {
+          method: "POST", body: JSON.stringify({ ...draft, productId: product.id })
+        });
+        quickStockOperations.delete(key);
+        message = `${product.description} · Novo saldo: ${format(result.stock)} ${product.unit || ""}`;
+        try {
+          await loadTenantState(tenantCode);
+          if (currentMode === "backoffice" && currentModule === "stock") renderShell();
+        } catch {
+          message += " · Atualize a página após sincronizar para ver o histórico.";
+        }
+        input.value = "";
+        input.readOnly = false;
+      } catch (error) {
+        if (error.status >= 400 && error.status < 500) {
+          quickStockOperations.delete(key);
+          input.readOnly = false;
+        }
+        message = error.message;
+      } finally {
+        quickStockSaving = false;
+        const currentStatus = byId("quick-stock-status");
+        if (currentStatus) currentStatus.textContent = message;
+      }
+    });
+  });
 }
 
 function saveStockMoveRecord() {
