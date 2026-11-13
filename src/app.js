@@ -2352,20 +2352,15 @@ function renderStock() {
       <div class="actions"><button class="btn" id="plan-production" type="button">Programar ordem</button><button class="btn primary" id="make-production" type="button">Concluir producao</button></div>
     </div>`;
   const movementPanel = `
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th></tr></thead>
-        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td></tr>`).join("") || `<tr><td colspan="7">Nenhum movimento registrado.</td></tr>`}</tbody>
-      </table>
-    </div>
     <div class="form-card">
-      <h3>Ajuste de estoque</h3>
-      <p class="muted">Ajustes manuais exigem autorizacao da Central. Entradas por QR da Central podem ser aplicadas automaticamente.</p>
-      <div class="field"><label>Produto</label><select id="stock-product">${productOptions}</select></div>
+      <h3>Registrar entrada ou saída</h3>
+      <p class="muted">Para somar mercadoria, escolha Entrada e digite quanto chegou. O saldo muda quando a Central aprovar a solicitação.</p>
+      <div class="field"><label for="stock-product">Produto</label><select id="stock-product"><option value="">Selecione um produto</option>${productOptions}</select></div>
       <div class="grid two">
         <div class="field"><label>Tipo</label><select id="stock-type"><option value="Entrada">Entrada</option><option value="Saida">Saida</option><option value="Ajuste">Ajuste</option><option value="Perda">Perda</option></select></div>
-        <div class="field"><label>Quantidade</label><input id="stock-qty" type="number" step="0.001" value="1" /></div>
+        <div class="field"><label for="stock-qty" id="stock-qty-label">Quantidade que chegou</label><input id="stock-qty" type="number" min="0.001" step="0.001" placeholder="Ex. 20" /></div>
       </div>
+      <p id="stock-move-preview" role="status">Selecione um produto para consultar o saldo.</p>
       <div class="field"><label>Historico</label><input id="stock-history" value="Ajuste manual" /></div>
       <div class="grid two">
         <div class="field"><label>Localizacao</label><input id="stock-location" /></div>
@@ -2373,8 +2368,16 @@ function renderStock() {
         <div class="field"><label>Validade</label><input id="stock-expiry" type="date" /></div>
         <div class="field"><label>Numeros de serie</label><textarea id="stock-serials" placeholder="Um por linha"></textarea></div>
       </div>
-      <button class="btn primary" id="save-stock-move" type="button">Gravar movimento</button>
-    </div>`;
+      <button class="btn primary" id="save-stock-move" type="button">Enviar para aprovação</button>
+    </div>
+    <h3>Histórico de movimentações</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Data</th><th>Produto</th><th>Tipo</th><th>Qtd</th><th>Saldo</th><th>Lote/Local</th><th>Historico</th></tr></thead>
+        <tbody>${movements.slice(-30).reverse().map((row) => `<tr><td>${row.date}</td><td>${row.product}</td><td>${row.type}</td><td>${row.qty}</td><td>${row.balance}</td><td>${row.lot || row.location || "-"}</td><td>${row.history}</td></tr>`).join("") || `<tr><td colspan="7">Nenhum movimento registrado.</td></tr>`}</tbody>
+      </table>
+    </div>
+    `;
   const qrPanel = `
     <div class="form-card">
       <h3>Recebimento por QR da Central</h3>
@@ -4099,6 +4102,27 @@ function bindCurrentModule() {
   const planProduction = byId("plan-production");
   if (planProduction) planProduction.addEventListener("click", planProductionRecord);
 
+  const stockPreview = byId("stock-move-preview");
+  if (stockPreview) {
+    const updateStockPreview = () => {
+      const product = state.products.find(item => item.id === Number(byId("stock-product").value));
+      const type = byId("stock-type").value;
+      const qty = Number(byId("stock-qty").value);
+      byId("stock-qty-label").textContent = type === "Entrada" ? "Quantidade que chegou" : "Quantidade";
+      if (!product) {
+        stockPreview.textContent = "Selecione um produto para consultar o saldo.";
+        return;
+      }
+      const current = Number(product.stock || 0);
+      const next = current + (type === "Entrada" || type === "Ajuste" ? qty : -qty);
+      const format = value => value.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+      stockPreview.textContent = `Saldo atual: ${format(current)} ${product.unit || ""}` +
+        (qty > 0 ? ` · Saldo previsto após aprovação: ${format(next)} ${product.unit || ""}` : "");
+    };
+    byId("stock-product").addEventListener("change", updateStockPreview);
+    byId("stock-type").addEventListener("change", updateStockPreview);
+    byId("stock-qty").addEventListener("input", updateStockPreview);
+  }
   const saveStockMove = byId("save-stock-move");
   if (saveStockMove) saveStockMove.addEventListener("click", saveStockMoveRecord);
   const saveInventory = byId("save-inventory");
@@ -5624,7 +5648,10 @@ function saveStockMoveRecord() {
   const product = state.products.find((item) => item.id === Number(byId("stock-product").value));
   const qty = Number(byId("stock-qty").value || 0);
   const type = byId("stock-type").value;
-  if (!product || qty <= 0) return;
+  if (!product || !Number.isFinite(qty) || qty <= 0 || !byId("stock-qty").checkValidity()) {
+    alert("Selecione um produto e informe uma quantidade válida.");
+    return;
+  }
   const details = {
     lot: byId("stock-lot").value.trim(),
     expiry: byId("stock-expiry").value,
