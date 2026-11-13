@@ -438,13 +438,21 @@ function bindNetworkStockFilters() {
 }
 
 function renderOrders() {
-  const pendingApprovals = (summary.approvalRequests || []).filter((row) => row.status === "Pendente" && row.type !== "stock_receipt");
+  const requests = summary.approvalRequests || [];
+  const isStockEntry = row => row.type === "stock_receipt" ||
+    (row.type === "stock_adjustment" && row.payload?.type === "Entrada");
+  const entries = requests.filter(isStockEntry).sort((a, b) =>
+    Number(b.status === "Pendente") - Number(a.status === "Pendente"));
+  const pendingCount = entries.filter(row => row.status === "Pendente").length;
+  const pendingApprovals = requests.filter(row => row.status === "Pendente" && !isStockEntry(row));
   return `<div class="network-module compact">
     ${moduleTitle("Pedidos automaticos", "Solicitacoes enviadas pelas unidades com base no estoque minimo.")}
     <section class="network-card">
       <h2>Entradas informadas pelas lojas</h2>
-      ${table(["Unidade", "Produto e quantidade", "Informado por", "Status", "Ações"], (summary.approvalRequests || []).filter(row => row.type === "stock_receipt").map(row => [
-        escapeHtml(row.unit || row.tenantCode), escapeHtml(row.detail), escapeHtml(row.requestedBy),
+      <p>${pendingCount} aguardando aprovação · ${entries.length} na lista</p>
+      ${table(["Unidade", "Produto e quantidade", "Informado por", "Status", "Ações"], entries.map(row => [
+        escapeHtml(row.unit || row.tenantCode), escapeHtml(row.detail),
+        `${escapeHtml(row.requestedBy || "-")}<br><small>${escapeHtml(String(row.requestedAt || "").slice(0, 16).replace("T", " "))}</small>`,
         row.status === "Pendente" ? "Aguardando aprovação da Central" : escapeHtml(row.status),
         row.status === "Pendente" ? `<button type="button" class="btn primary" data-approve-request="${escapeHtml(row.tenantCode)}:${row.id}">Aprovar entrada</button> <button type="button" class="btn danger" data-reject-request="${escapeHtml(row.tenantCode)}:${row.id}">Negar</button>` : "—"
       ]), "Nenhuma entrada informada.")}
