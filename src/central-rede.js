@@ -320,7 +320,7 @@ function renderProducts() {
   return `<div class="network-module network-products">
     ${moduleTitle("Produtos e estoque", "Consulte o saldo das unidades e veja quais produtos precisam de reposição.")}
     <section class="network-card network-stock-guide">
-      <div><h2>Chegou mercadoria?</h2><p>Na Retaguarda, entre com o código da loja, escolha o produto e informe a quantidade recebida. Para nota fiscal em XML, use Compras.</p></div>
+      <div><h2>Chegou mercadoria?</h2><p>Digite a quantidade que chegou na linha do produto e clique em Somar. Para compras com nota fiscal em XML, use Compras na Retaguarda.</p></div>
       <a class="btn primary" href="https://tortelaplus.com.br/index.html#module=stock&amp;stock=movimento">Registrar entrada de estoque</a>
     </section>
     <section class="network-card">
@@ -330,6 +330,7 @@ function renderProducts() {
         <label>Unidade<select id="network-stock-unit"><option value="">Todas as unidades</option>${units.map(([code, name]) => `<option value="${escapeHtml(code)}">${escapeHtml(name)}</option>`).join("")}</select></label>
       </div>
       <p id="network-stock-count" role="status"></p>
+      <p id="network-stock-feedback" role="status"></p>
       <div id="network-stock-results"></div>
       ${lowStock.length >= 80 ? '<p class="helper">Esta lista exibe até 80 itens sinalizados pela Central. Consulte os saldos completos na Retaguarda da unidade.</p>' : ""}
     </section>
@@ -351,28 +352,86 @@ function bindNetworkStockFilters() {
   const lowStock = [...(summary.lowStockItems || [])].sort((a, b) =>
     Number(a.stock > 0) - Number(b.stock > 0) || Number(b.suggested) - Number(a.suggested)
   );
+  const results = byId("network-stock-results");
+  const feedback = byId("network-stock-feedback");
+  const drafts = new Map();
   function update() {
     const query = normalizeSearch(search.value);
     const rows = lowStock.filter(row =>
       (!unit.value || row.tenantCode === unit.value) && normalizeSearch(row.product || row.description).includes(query)
     );
     byId("network-stock-count").textContent = rows.length === 1 ? "1 item sinalizado" : `${rows.length} itens sinalizados`;
-    byId("network-stock-results").innerHTML = table(
-      ["Produto", "Unidade", "Saldo", "Mínimo", "Reposição sugerida"],
+    results.innerHTML = table(
+      ["Produto", "Unidade", "Saldo", "Mínimo", "Reposição sugerida", "Quantidade que chegou"],
       rows.map(row => {
         const quantity = value => `${amount(value)} ${escapeHtml(row.productUnit || "")}`.trim();
-        const status = Number(row.stock) < 0 ? "Saldo negativo" : Number(row.stock) === 0 ? "Sem estoque" : "Estoque baixo";
+        const status = Number(row.stock) < 0 ? "Saldo negativo" : Number(row.stock) === 0 ? "Sem estoque" : Number(row.stock) > Number(row.minStock) ? "Estoque atualizado" : "Estoque baixo";
+        const index = lowStock.indexOf(row);
+        const draft = drafts.get(index);
         return [
           `<strong>${escapeHtml(row.product || row.description)}</strong>`,
           escapeHtml(row.unit || row.tenantCode),
           `${quantity(row.stock)} <span class="badge ${Number(row.stock) <= 0 ? "danger" : "warn"}">${status}</span>`,
           quantity(row.minStock),
-          `<strong>${quantity(row.suggested)}</strong>`
+          `<strong>${quantity(row.suggested)}</strong>`,
+          row.requiresTraceability ? "Informe lote ou série na Retaguarda." : row.productId == null ? "Disponível na Retaguarda" :
+          `<form class="network-stock-receipt" data-row="${index}">
+            <input type="number" min="0.001" max="1000000" step="0.001" required inputmode="decimal" placeholder="Ex. 20"
+              aria-label="Quantidade recebida de ${escapeHtml(row.product)} em ${escapeHtml(row.unit || row.tenantCode)}" value="${escapeHtml(draft?.value || "")}" ${draft?.locked ? "readonly" : ""}>
+            <button class="btn primary" type="submit" ${draft?.busy ? "disabled" : ""}>Somar</button>
+            <small aria-live="polite"></small>
+          </form>`
         ];
       }),
       lowStock.length ? "Nenhum produto corresponde aos filtros." : "Nenhum item sinalizado para reposição."
     );
   }
+  function preview(form) {
+    const row = lowStock[Number(form.dataset.row)];
+    const quantity = Number(form.querySelector("input").value);
+    form.querySelector("small").textContent = quantity > 0
+      ? `Novo saldo previsto: ${amount(Math.round((Number(row.stock) + quantity) * 1000) / 1000)} ${row.productUnit || ""}`
+      : "";
+  }
+  results.addEventListener("input", event => {
+    const form = event.target.closest("form[data-row]");
+    if (!form) return;
+    drafts.set(Number(form.dataset.row), { value: event.target.value });
+    preview(form);
+  });
+  results.addEventListener("submit", async event => {
+    const form = event.target.closest("form[data-row]");
+    if (!form) return;
+    event.preventDefault();
+    const index = Number(form.dataset.row);
+    const row = lowStock[index];
+    const input = form.querySelector("input");
+    const draft = drafts.get(index) || { value: input.value };
+    if (draft.busy || !form.reportValidity()) return;
+    draft.operationId ||= crypto.randomUUID();
+    draft.busy = draft.locked = true;
+    drafts.set(index, draft);
+    input.readOnly = true;
+    form.querySelector("button").disabled = true;
+    feedback.textContent = "Registrando entrada…";
+    try {
+      const result = await api("/api/network/stock-receipts", { method: "POST",
+        body: JSON.stringify({ tenantCode: row.tenantCode, productId: row.productId, quantity: Number(draft.value), operationId: draft.operationId })
+      });
+      row.stock = result.stock;
+      row.suggested = Math.max(0, Number(row.minStock) - result.stock);
+      drafts.delete(index);
+      feedback.textContent = `${row.product} · ${row.unit || row.tenantCode} · novo saldo: ${amount(result.stock)} ${row.productUnit || ""}`;
+    } catch (error) {
+      draft.busy = false;
+      if (error.status >= 400 && error.status < 500) {
+        draft.locked = false;
+        delete draft.operationId;
+      }
+      feedback.textContent = error.message;
+    }
+    update();
+  });
   search.addEventListener("input", update);
   unit.addEventListener("change", update);
   update();

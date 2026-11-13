@@ -42,3 +42,8 @@
 .network-products .network-table-wrap .badge { margin: 4px; }
 .network-product-ranking summary { cursor: pointer; font-weight: 700; }
 .network-product-ranking[open] summary { margin-bottom: 16px; }
+
+.network-stock-receipt { display: grid; grid-template-columns: minmax(84px, 1fr) auto; gap: 6px; min-width: 165px; align-items: center; }
+.network-stock-receipt input { width: 100%; min-width: 0; }
+.network-stock-receipt small { grid-column: 1 / -1; white-space: normal; }
+#network-stock-feedback:empty { display: none; }

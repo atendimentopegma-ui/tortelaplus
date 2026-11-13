@@ -3026,6 +3026,8 @@ async function handleApi(req, res, urlPath) {
         unit: tenant.tradeName,
         tenantCode: tenant.tenantCode,
         product: product.description,
+        productId: product.id,
+        requiresTraceability: Boolean(product.controlsLot || product.controlsSerial),
         stock: Number(product.stock || 0),
         minStock: Number(product.minStock || 0),
         suggested: Math.max(Number(product.minStock || 0) - Number(product.stock || 0), 1),
@@ -3205,6 +3207,61 @@ async function handleApi(req, res, urlPath) {
     appendProviderAudit("Promocao disparada pela Central Tortela", `${targets.length} unidades`, access.username, requestIp(req));
     sendJson(res, 200, { ok: true, campaignId, appliedUnits: targets.length });
     return;
+  }
+
+  if (req.method === "POST" && urlPath === "/api/network/stock-receipts") {
+    const access = providerAccess(req);
+    if (!access) return sendJson(res, 401, { error: "Entre na Central para registrar a entrada." });
+    if (!fullAccess(access)) return sendJson(res, 403, { error: "A entrada rápida exige acesso administrativo completo." });
+
+    const body = await readBody(req);
+    const code = normalizeTenantCode(body.tenantCode);
+    const tenant = findTenant(readProvider(), code);
+    if (!tenant) return sendJson(res, 404, { error: "Unidade não encontrada." });
+    const quantity = Number(body.quantity);
+    const operationId = String(body.operationId || "");
+    if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1000000 ||
+      Math.abs(quantity * 1000 - Math.round(quantity * 1000)) > 0.000001 ||
+      !/^[a-f0-9-]{36}$/i.test(operationId)) {
+      return sendJson(res, 422, { error: "Informe uma quantidade positiva com até três casas decimais." });
+    }
+
+    const state = readTenantState(code);
+    const product = state.products.find(row => String(row.id) === String(body.productId));
+    if (!product) return sendJson(res, 404, { error: "Produto não encontrado nessa unidade." });
+    const movements = state.stockMovements;
+    const previous = movements.find(row => row.receiptOperationId === operationId);
+    if (previous && (previous.productId !== product.id || previous.qty !== quantity)) {
+      return sendJson(res, 409, { error: "Esta entrada já foi registrada com outros dados." });
+    }
+    if (!previous) {
+      if (product.controlsLot || product.controlsSerial) {
+        return sendJson(res, 422, { error: "Use a Retaguarda para informar o lote ou número de série deste produto." });
+      }
+      product.stock = Math.round((Number(product.stock || 0) + quantity) * 1000) / 1000;
+      movements.push({
+        id: movements.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
+        date: businessDay(),
+        createdAt: new Date().toISOString(),
+        productId: product.id,
+        product: product.description,
+        type: "Entrada",
+        qty: quantity,
+        balance: product.stock,
+        history: "Entrada de mercadoria pela Central Tortela",
+        requestedBy: access.username,
+        receiptOperationId: operationId
+      });
+      writeTenantState(code, state);
+    }
+    const { confirmPersistedTenant } = require("./src/server/sales-preservation");
+    try {
+      const saved = await confirmPersistedTenant(postgresStore, code, readTenantState(code));
+      if (!saved.stockMovements.some(row => row.receiptOperationId === operationId)) throw Error();
+    } catch {
+      return sendJson(res, 503, { error: "Entrada ainda sem confirmação. Clique em Somar novamente para consultar o mesmo lançamento." });
+    }
+    return sendJson(res, 200, { ok: true, stock: product.stock });
   }
 
   if (req.method === "POST" && urlPath === "/api/network/approvals/decide") {
