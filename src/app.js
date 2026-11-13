@@ -2352,8 +2352,14 @@ function renderStock() {
       <div class="actions"><button class="btn" id="plan-production" type="button">Programar ordem</button><button class="btn primary" id="make-production" type="button">Concluir producao</button></div>
     </div>`;
   const movementPanel = `
+    <div class="form-card">
+      <h3>Entradas aguardando aprovação da loja</h3>
+      ${(state.approvalRequests || []).filter(row => row.type === "stock_receipt" && row.status === "Pendente").map(row =>
+        `<p>${escapeHtml(row.detail)} ${canAccess("stock_adjust") ? `<button type="button" class="btn primary" data-approve-stock-receipt="${row.id}">Aprovar entrada</button>` : ""}</p>`
+      ).join("") || "<p>Nenhuma entrada pendente.</p>"}
+    </div>
     <h3>Histórico de movimentações</h3>
-    <p>Digite a quantidade na coluna <strong>Entrada</strong> e clique em <strong>Salvar</strong> para somar ao saldo atual do produto.</p>
+    <p>Digite a quantidade na coluna <strong>Entrada</strong> e clique em <strong>Salvar</strong> para avisar a Central. A loja confirma a soma em <strong>Aprovar entrada</strong>.</p>
     <p id="quick-stock-status" role="status"></p>
     <div class="table-wrap stock-movement-table">
       <table>
@@ -5666,6 +5672,39 @@ function quickStockEntry(productId) {
 function bindQuickStockEntries() {
   const status = byId("quick-stock-status");
   if (!status) return;
+  document.querySelectorAll("[data-approve-stock-receipt]").forEach(button => {
+    button.addEventListener("click", async () => {
+      if (quickStockSaving) return;
+      if (!apiOnline || !sessionId || hasPendingLocalChanges()) {
+        status.textContent = "Conecte-se e aguarde a sincronização antes de aprovar.";
+        return;
+      }
+      const request = state.approvalRequests.find(row => String(row.id) === button.dataset.approveStockReceipt);
+      if (!request) return;
+      const tenantCode = state.settings.tenantCode;
+      quickStockSaving = button.disabled = true;
+      let message;
+      try {
+        const result = await api(`/api/tenant/${encodeURIComponent(tenantCode)}/stock-receipts/${request.id}/approve`, {
+          method: "POST",
+          body: JSON.stringify({ productId: request.payload.productId, quantity: request.payload.qty, operationId: request.operationId })
+        });
+        message = `Entrada aprovada · Novo saldo: ${result.stock.toLocaleString("pt-BR")}`;
+        try {
+          await loadTenantState(tenantCode);
+          if (currentMode === "backoffice" && currentModule === "stock") renderShell();
+        } catch {
+          message += " · Atualize a página após sincronizar.";
+        }
+      } catch (error) {
+        message = error.message;
+      } finally {
+        quickStockSaving = button.disabled = false;
+        const currentStatus = byId("quick-stock-status");
+        if (currentStatus) currentStatus.textContent = message;
+      }
+    });
+  });
   document.querySelectorAll("[data-quick-stock]").forEach(form => {
     const input = form.querySelector("input");
     const button = form.querySelector("button");
@@ -5696,11 +5735,11 @@ function bindQuickStockEntries() {
       status.textContent = "Registrando entrada…";
       let message;
       try {
-        const result = await api(`/api/tenant/${encodeURIComponent(tenantCode)}/stock-receipts`, {
-          method: "POST", body: JSON.stringify({ ...draft, productId: product.id })
+        await api(`/api/tenant/${encodeURIComponent(tenantCode)}/stock-receipts`, {
+          method: "POST", body: JSON.stringify({ ...draft, productId: product.id, requestApproval: true })
         });
         quickStockOperations.delete(key);
-        message = `${product.description} · Novo saldo: ${format(result.stock)} ${product.unit || ""}`;
+        message = "Aviso enviado à Central. Confirme em Aprovar entrada nesta tela.";
         try {
           await loadTenantState(tenantCode);
           if (currentMode === "backoffice" && currentModule === "stock") renderShell();

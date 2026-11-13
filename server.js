@@ -3209,7 +3209,7 @@ async function handleApi(req, res, urlPath) {
     return;
   }
 
-  const stockReceiptMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/stock-receipts$/);
+  const stockReceiptMatch = urlPath.match(/^\/api\/tenant\/([^/]+)\/stock-receipts(?:\/(\d+)\/approve)?$/);
   if (req.method === "POST" && (stockReceiptMatch || urlPath === "/api/network/stock-receipts")) {
     const body = await readBody(req);
     const code = normalizeTenantCode(stockReceiptMatch ? stockReceiptMatch[1] : body.tenantCode);
@@ -3238,6 +3238,39 @@ async function handleApi(req, res, urlPath) {
     const product = state.products.find(row => String(row.id) === String(body.productId));
     if (!product) return sendJson(res, 404, { error: "Produto não encontrado nessa unidade." });
     const movements = state.stockMovements;
+    if (stockReceiptMatch && body.requestApproval === true && !stockReceiptMatch[2]) {
+      const requests = state.approvalRequests ||= [];
+      let request = requests.find(row => row.type === "stock_receipt" && row.operationId === operationId);
+      if (request && (request.payload.productId !== product.id || request.payload.qty !== quantity)) {
+        return sendJson(res, 409, { error: "Esta solicitação já foi enviada com outros dados." });
+      }
+      if (!request) {
+        if (product.controlsLot || product.controlsSerial) return sendJson(res, 422, { error: "Informe o lote ou a série pelo formulário completo." });
+        request = {
+          id: requests.reduce((max, row) => Math.max(max, Number(row.id) || 0), 0) + 1,
+          type: "stock_receipt", operationId, title: "Entrada de mercadoria",
+          detail: `${product.description} · ${quantity} ${product.unit || ""}`,
+          requestedAt: new Date().toISOString(), requestedBy: operator, status: "Pendente",
+          payload: { productId: product.id, qty: quantity }
+        };
+        requests.unshift(request);
+        writeTenantState(code, state);
+      }
+      try {
+        const saved = await require("./src/server/sales-preservation").confirmPersistedTenant(postgresStore, code, readTenantState(code));
+        if (!saved.approvalRequests.some(row => row.operationId === operationId)) throw Error();
+      } catch {
+        return sendJson(res, 503, { error: "Envio ainda sem confirmação. Clique em Salvar novamente." });
+      }
+      return sendJson(res, 200, { ok: true, status: request.status });
+    }
+    const receipt = stockReceiptMatch && state.approvalRequests.find(row =>
+      row.type === "stock_receipt" && row.operationId === operationId &&
+      row.payload.productId === product.id && row.payload.qty === quantity
+    );
+    if (stockReceiptMatch && (!receipt || String(receipt.id) !== stockReceiptMatch[2])) {
+      return sendJson(res, 409, { error: "Atualize a Retaguarda e aprove a entrada na lista de pendências." });
+    }
     const previous = movements.find(row => row.receiptOperationId === operationId);
     if (previous && (previous.productId !== product.id || previous.qty !== quantity)) {
       return sendJson(res, 409, { error: "Esta entrada já foi registrada com outros dados." });
@@ -3260,6 +3293,7 @@ async function handleApi(req, res, urlPath) {
         requestedBy: operator,
         receiptOperationId: operationId
       });
+      if (receipt) Object.assign(receipt, { status: "Aprovado", decidedAt: new Date().toISOString(), decidedBy: operator });
       writeTenantState(code, state);
     }
     const { confirmPersistedTenant } = require("./src/server/sales-preservation");
@@ -3285,6 +3319,7 @@ async function handleApi(req, res, urlPath) {
     const tenantState = readTenantState(tenantCode);
     const request = (tenantState.approvalRequests || []).find((row) => Number(row.id) === requestId);
     if (!request) return sendJson(res, 404, { ok: false, error: "Solicitacao nao encontrada." });
+    if (request.type === "stock_receipt") return sendJson(res, 403, { error: "A loja confirma essa entrada na Retaguarda." });
     if (request.status !== "Pendente") return sendJson(res, 409, { ok: false, error: "Solicitacao ja decidida." });
     request.status = decision;
     request.decidedBy = access.username;
@@ -4015,6 +4050,10 @@ async function handleApi(req, res, urlPath) {
     catch(error){return sendJson(res,423,{ok:false,error:error.message});}
     try { loyaltyService.apply(currentState,incoming,loyaltyStates(),tenantCode,readProvider().loyalty); couponService.applySales(currentState,incoming); }
     catch(error){return sendJson(res,422,{ok:false,code:"COUPON_INVALID",error:error.message,state:publicTenantState(currentState,access.session.terminalId)});}
+    if (Array.isArray(incoming.approvalRequests)) {
+      const receipts = (currentState.approvalRequests || []).filter(row => row.type === "stock_receipt");
+      incoming.approvalRequests = [...receipts, ...incoming.approvalRequests.filter(row => row.type !== "stock_receipt")];
+    }
     delete incoming.cashRegister;
     incoming.users = currentState.users;
     writeTenantState(tenantCode, incoming);

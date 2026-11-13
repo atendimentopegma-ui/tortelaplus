@@ -438,9 +438,16 @@ function bindNetworkStockFilters() {
 }
 
 function renderOrders() {
-  const pendingApprovals = (summary.approvalRequests || []).filter((row) => row.status === "Pendente");
+  const pendingApprovals = (summary.approvalRequests || []).filter((row) => row.status === "Pendente" && row.type !== "stock_receipt");
   return `<div class="network-module compact">
     ${moduleTitle("Pedidos automaticos", "Solicitacoes enviadas pelas unidades com base no estoque minimo.")}
+    <section class="network-card">
+      <h2>Entradas informadas pelas lojas</h2>
+      ${table(["Unidade", "Produto e quantidade", "Informado por", "Status"], (summary.approvalRequests || []).filter(row => row.type === "stock_receipt").map(row => [
+        escapeHtml(row.unit || row.tenantCode), escapeHtml(row.detail), escapeHtml(row.requestedBy),
+        row.status === "Aprovado" ? "Aprovada pela loja" : "Aguardando aprovação da loja"
+      ]), "Nenhuma entrada informada.")}
+    </section>
     <section class="network-card">
       <h2>QR de remessa da Central</h2>
       <form class="network-form" id="shipment-qr-form">
