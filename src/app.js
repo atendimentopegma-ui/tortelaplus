@@ -512,13 +512,23 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)reconnectP
 
 let pendingLocalMemory=false;
 function hasPendingLocalChanges(){return pendingLocalMemory||localStorage.getItem('tortelaplus-pending-sync')==='1';}
+// The full tenant document can exceed localStorage. Keep the existing copy
+// intact and rely on the durable IndexedDB checkpoint for pending writes.
+function cacheTenantState() {
+  try {
+    localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
+  } catch (error) {
+    if (error.name !== "QuotaExceededError" || !window.DurableStore) throw error;
+  }
+}
+
 function save(options={}) {
   const saleChanges = options.saleBase ? structuredClone(state) : null;
   const durableCheckpoint=window.DurableStore?window.DurableStore.checkpoint(state):Promise.resolve(true);
   durableCheckpoint.catch(()=>{});
   pendingLocalMemory=true;
   ensureSyncMonitor()?.pending();
-  try{localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.setItem("tortelaplus-pending-sync","1");}catch(error){if(!window.DurableStore)throw error;}
+  try{cacheTenantState();localStorage.setItem("tortelaplus-pending-sync","1");}catch(error){if(!window.DurableStore)throw error;}
   if (apiOnline) {
     const tenantCode = normalizeTenantCode(state.settings.tenantCode || "cliente-exemplo");
     const permission = currentMode === "pdv" ? "pdv" : currentModule;
@@ -540,7 +550,7 @@ function save(options={}) {
         const {provider:ignoreProvider,users:ignoreUsers,coupons:ignoreCoupons,couponRedemptions:ignoreRedemptions,loyaltyLedger:ignoreLoyalty,_meta:ignoreMeta,...currentContent}=state;
         const {_meta:sentMeta,...sentContent}=tenantState;
         pendingLocalMemory=JSON.stringify(currentContent)!==JSON.stringify(sentContent);
-        try{localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));if(pendingLocalMemory)localStorage.setItem("tortelaplus-pending-sync","1");else localStorage.removeItem("tortelaplus-pending-sync");}catch{}
+        try{cacheTenantState();if(pendingLocalMemory)localStorage.setItem("tortelaplus-pending-sync","1");else localStorage.removeItem("tortelaplus-pending-sync");}catch{}
         try{localStorage.setItem('tortelaplus-last-confirmed-'+tenantCode,new Date().toISOString());}catch{}
         showConnectionStatus();
         return true;
@@ -550,7 +560,7 @@ function save(options={}) {
         }
         if (error.payload?.code === "DATA_RESET") {
           state=withDefaults({...error.payload.state,provider:state.provider});saleItems=[];lastPdvSaleId=0;
-          localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));localStorage.removeItem("tortelaplus-pending-sync");
+          cacheTenantState();localStorage.removeItem("tortelaplus-pending-sync");
           if(!options.silent)alert("Dados de teste foram limpos pela administracao. A tela foi atualizada.");renderShell();return false;
         }
         if (error.status === 409 && error.payload?.state) {
@@ -574,7 +584,7 @@ function save(options={}) {
           if(pendingPdvSale && !collision){preservePendingLocalState("Venda pendente com alteração simultânea em outro terminal");showConnectionStatus();return false;}
           if(collision){preservePendingLocalState('Conflito entre vendas diferentes com o mesmo número');showConnectionStatus();return false;}
           state = withDefaults({ ...mergeConcurrentState(remote, localPending), provider: state.provider });
-          localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
+          cacheTenantState();
           localStorage.setItem("tortelaplus-pending-sync", "1");
           // Aguarde a nova gravacao na mesma fila, sem refazer o formulario em uso.
           if (attempt < 2) continue;
@@ -711,7 +721,7 @@ function renderDurableRecovery(error){
  byId('export-durable-recovery').onclick=async()=>{const protectedData=await window.DurableStore.exportAll(),blob=new Blob([JSON.stringify({state,protectedData},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tortela-recuperacao-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 }
 async function boot() {
-  if(window.DurableStore){try{const restored=await window.DurableStore.restore(state,hadPrimaryLocalState&&!primaryLocalDamaged);if(primaryLocalDamaged&&!restored.recovered)throw Error("A cópia principal está inválida. Preserve os dados para recuperação assistida.");state=withDefaults(restored.state);if(restored.pending){pendingLocalMemory=true;try{localStorage.setItem('tortelaplus-pending-sync','1');}catch{}}localStorage.setItem('tortelaplus-state-v1',JSON.stringify(state));window.DurableStore.requestPersistence();}catch(error){renderDurableRecovery(error);return;}}
+  if(window.DurableStore){try{const restored=await window.DurableStore.restore(state,hadPrimaryLocalState&&!primaryLocalDamaged);if(primaryLocalDamaged&&!restored.recovered)throw Error("A cópia principal está inválida. Preserve os dados para recuperação assistida.");state=withDefaults(restored.state);if(restored.pending){pendingLocalMemory=true;try{localStorage.setItem('tortelaplus-pending-sync','1');}catch{}}cacheTenantState();window.DurableStore.requestPersistence();}catch(error){renderDurableRecovery(error);return;}}
 
   try {
     const health = await api("/api/health",{timeoutMs:45000});
@@ -745,7 +755,7 @@ async function loadTenantState(tenantCode) {
       tenantCode
     }
   });
-      localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
+      cacheTenantState();
 }
 
 function pdvTerminalId() {
@@ -4723,13 +4733,13 @@ async function openCashRegister() {
     if (hasPendingLocalChanges() && await save() === false) return alert("Sincronize as vendas pendentes antes de abrir o caixa.");
     const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/open`,{timeoutMs:45000,method:"POST",body:JSON.stringify({password,initialAmount:num("cash-open-amount")})});
     state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});
-    saleItems=[];localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));renderShell();
+    saleItems=[];cacheTenantState();renderShell();
   }catch(error){
     let checked=false;
     try{await refreshCashRegister();checked=true;}catch{}
     const register=state.cashRegister;
     if(checked && register?.open && register.openedBy===state.settings.user && register.terminalId===currentPdvTerminal().id){
-      localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));
+      cacheTenantState();
       alert("A abertura foi confirmada no servidor. O caixa já está aberto.");
     }else alert(error.message + (checked ? " Confira a situação do caixa antes de tentar novamente." : " Não foi possível confirmar a situação do caixa. Aguarde a conexão voltar antes de tentar novamente."));
     renderShell();
@@ -4769,7 +4779,7 @@ async function closeCashRegister() {
   try{
     const result=await api(`/api/tenant/${state.settings.tenantCode}/cash-register/close`,{timeoutMs:45000,method:"POST",body:JSON.stringify({user,password,countedAmount,responsible,closingNote})});
     state=withDefaults({...result.state,provider:state.provider,settings:{...result.state.settings,user:state.settings.user}});saleItems=[];
-    localStorage.setItem("tortelaplus-state-v1",JSON.stringify(state));printCashClosure(result.closure);pdvCompletionMessage="Caixa fechado. Fechamento enviado para impressão; relatório salvo em Financeiro > Caixa e Central > Vendas.";renderShell();
+    cacheTenantState();printCashClosure(result.closure);pdvCompletionMessage="Caixa fechado. Fechamento enviado para impressão; relatório salvo em Financeiro > Caixa e Central > Vendas.";renderShell();
   }catch(error){alert(error.message);await refreshCashRegister().catch(()=>{});renderShell();}
 }
 
@@ -6981,7 +6991,7 @@ async function saveUserRecord() {
       body: JSON.stringify(payload)
     });
     state.users = [...(state.users || []), result.user];
-    localStorage.setItem("tortelaplus-state-v1", JSON.stringify(state));
+    cacheTenantState();
     renderShell();
   } catch {
     alert("Nao foi possivel cadastrar usuario. Verifique se ele ja existe.");
