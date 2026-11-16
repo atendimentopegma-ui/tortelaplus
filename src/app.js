@@ -8033,6 +8033,39 @@ async function addSaleItem(productId) {
 
 let pdvSaleFinalizing = false;
 let pdvCompletionMessage = "";
+function isPdvWater(description) {
+  const name = String(description || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return /^agua\b/i.test(name) && !/^agua\s+(?:tonica|de coco)\b/i.test(name);
+}
+
+function choosePdvWater() {
+  const water = state.products.filter(product => isPdvWater(product.description));
+  if (saleItems.some(item => isPdvWater(item.description) || water.some(product => String(product.id) === String(item.id)))) return null;
+
+  const options = water.filter(product => product.active !== false && product.allowsSale !== false &&
+    !/\bcombo\b/i.test(product.description) && effectiveProductPrice(product, 1) > 0 &&
+    !stockShortages([{ productId: product.id, qty: 1 }], true).length);
+  if (!options.length) return null;
+
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "pdv-customer-dialog";
+    dialog.setAttribute("aria-labelledby", "pdv-water-title");
+    dialog.innerHTML = `<form method="dialog">
+      <header><h2 id="pdv-water-title">Gostaria de adicionar uma água ao pedido?</h2></header>
+      <div class="pdv-customer-fields">${options.map((product, index) => `<button class="btn primary" value="${index}">Adicionar ${escapeHtml(product.description)} · ${money(effectiveProductPrice(product, 1))}</button>`).join("")}</div>
+      <footer><button class="btn" value="skip" autofocus>Continuar sem água</button></footer>
+    </form>`;
+    dialog.addEventListener("close", () => {
+      const product = options[dialog.returnValue] || null;
+      dialog.remove();
+      resolve(product);
+    }, { once: true });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  });
+}
+
 async function finishSaleRecord() {
   if (pdvSaleFinalizing) return;
   pdvSaleFinalizing = true;
@@ -8070,6 +8103,11 @@ async function finalizePdvSaleRecord() {
   if (shortage.length) {
     alert(`Venda nao finalizada. Estoque insuficiente:\n${shortage.join("\n")}`);
     return;
+  }
+  const water = await choosePdvWater();
+  if (water) {
+    ItemPreparation.attach(saleItems, { id: water.id, description: water.description, qty: 1, unit: water.unit, price: effectiveProductPrice(water, 1) });
+    renderShell();
   }
   const subtotal = saleItems.reduce((sum, item) => sum + item.qty * item.price, 0);
   let discount = Number(byId("pdv-discount")?.value || 0);
