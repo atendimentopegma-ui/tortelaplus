@@ -1,3 +1,4 @@
+const { connectedSessions } = require("./terminal-presence");
 function validTerminalId(value) {
   return /^[a-zA-Z0-9_-]{8,80}$/.test(String(value || ""));
 }
@@ -32,6 +33,6 @@ function updateTerminal(state, id, name, emissionMode) {
   return terminal;
 }
 function listTerminals(state, tenant) {
-  return (state.settings.pdvTerminals || []).map(row => ({ ...row, online: (tenant.activeSessions || []).some(session => session.terminalId === row.id) }));
+  return (state.settings.pdvTerminals || []).map(row => ({ ...row, online: connectedSessions(tenant).some(session => session.terminalId === row.id) }));
 }
 module.exports = { validTerminalId, legacyEmissionMode, registerTerminal, numberCashTerminal, updateTerminal, listTerminals };

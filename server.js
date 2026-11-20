@@ -1,3 +1,4 @@
+const { connectedSessions, countTerminals, canConnectTerminal } = require("./src/server/terminal-presence");
 const storeJourneys=require('./src/server/store-journeys');
 const crmAutomation=require('./src/server/crm-automation');
 const crmCampaigns=require('./src/server/crm-campaigns');
@@ -644,12 +645,12 @@ function withTenantDefaults(client) {
     licensePassword: "PEGMA-2026",
     licenseExpiresAt: today(),
     activeSessions,
-    activeTerminals: activeSessions.length || Number(client.activeTerminals || 0),
+    activeTerminals: countTerminals(client),
     status: "Ativo",
     modules: ["PDV", "NF-e", "NFC-e", "NFS-e", "Estoque", "Financeiro", "Relatorios", "Compras"],
     ...client,
     activeSessions,
-    activeTerminals: activeSessions.length || Number(client.activeTerminals || 0),
+    activeTerminals: countTerminals(client),
     tenantCode: normalizeTenantCode(client.tenantCode || client.tradeName)
   };
 }
@@ -710,7 +711,7 @@ function refreshTerminalCount(tenant) {
     const lastSeen = new Date(session.lastSeenAt || session.startedAt || 0).getTime();
     return Number.isFinite(lastSeen) && now - lastSeen < sessionTtlMs;
   });
-  tenant.activeTerminals = tenant.activeSessions.length;
+  tenant.activeTerminals = countTerminals(tenant);
 }
 
 function normalizeTenantCode(value) {
@@ -1098,7 +1099,7 @@ function publicProvider(provider) {
 
 function publicTenant(tenant) {
   const { licensePassword, activeSessions, ...safe } = tenant;
-  return {...safe, activeSessions:(activeSessions||[]).map(({sessionId,...session})=>session)};
+  return {...safe, activeSessions:connectedSessions(tenant).map(({sessionId,...session})=>session)};
 }
 
 function moneyRound(value) {
@@ -1589,8 +1590,11 @@ function sessionAccess(req, provider, tenantCode, requiredPermission = "") {
   if (requiredPermission && !permissions.includes(requiredPermission)) {
     return { error: { status: 403, message: "Perfil sem permissao para esta operacao" } };
   }
+  if (!canConnectTerminal(tenant, session)) return { error: { status: 403, message: "Limite de terminais conectados atingido. Encerre um acesso na Central para reconectar este terminal." } };
+  const previousContact = Date.parse(session.lastSeenAt || session.startedAt || "");
   session.lastSeenAt = new Date().toISOString();
   refreshTerminalCount(tenant);
+  if (!Number.isFinite(previousContact) || Date.now() - previousContact >= 30000) writeProvider(provider);
   return { tenant, session };
 }
 
@@ -2968,7 +2972,7 @@ async function handleApi(req, res, urlPath) {
         tradeName: tenant.tradeName,
         status: tenant.status,
         maxTerminals: tenant.maxTerminals,
-        activeTerminals: (tenant.activeSessions || []).length,
+        activeTerminals: countTerminals(tenant),
         salesTotal,
         salesCount: sales.length,
         averageTicket,
@@ -3074,8 +3078,8 @@ async function handleApi(req, res, urlPath) {
         modules: tenant.modules || [],
         maxTerminals: tenant.maxTerminals,
         terminalsLimit: tenant.maxTerminals,
-        activeTerminals: (tenant.activeSessions || []).length,
-        activeSessions: (tenant.activeSessions || []).length
+        activeTerminals: countTerminals(tenant),
+        activeSessions: connectedSessions(tenant).length
       });
       products.filter((product) => Array.isArray(product.composition) && product.composition.length).forEach((product) => {
         const components = product.composition.map((component) => {
@@ -3460,7 +3464,7 @@ async function handleApi(req, res, urlPath) {
       return {
         tenantCode: tenant.tenantCode,
         tradeName: tenant.tradeName,
-        sessions: (tenant.activeSessions || []).length,
+        sessions: connectedSessions(tenant).length,
         lastBackup: backups[0] || "",
         pendingFiscal: fiscalRows.filter((row) => row.status !== "Autorizada" && !String(row.status).startsWith("Cancelada")).length,
         fiscalErrors: fiscalRows.filter((row) => row.lastFiscalError || String(row.status).includes("Rejeitada")).length,
@@ -3774,7 +3778,7 @@ async function handleApi(req, res, urlPath) {
       !(body.terminalId ? session.terminalId === body.terminalId : !session.terminalId && session.user === user.username && session.ipAddress === ipAddress)
     );
     refreshTerminalCount(tenant);
-    if (tenant.activeSessions.length >= Number(tenant.maxTerminals || 1)) {
+    if (!canConnectTerminal(tenant, { terminalId: body.terminalId })) {
       sendJson(res, 403, { ok: false, error: "Limite de terminais atingido" });
       return;
     }
@@ -3834,6 +3838,10 @@ async function handleApi(req, res, urlPath) {
     const session = tenant.activeSessions.find((item) => item.sessionId === body.sessionId);
     if (!session) {
       sendJson(res, 401, { ok: false, error: "Sessao expirada" });
+      return;
+    }
+    if (!canConnectTerminal(tenant, session)) {
+      sendJson(res, 403, { ok: false, error: "Limite de terminais conectados atingido. Encerre um acesso na Central para reconectar este terminal." });
       return;
     }
     session.lastSeenAt = new Date().toISOString();
@@ -5245,6 +5253,10 @@ async function handleApi(req, res, urlPath) {
     const session = (tenant.activeSessions || []).find((item) => item.sessionId === body.sessionId || item.sessionId === bearerToken(req));
     if (!session) {
       sendJson(res, 401, { ok: false, error: "Sessao expirada" });
+      return;
+    }
+    if (!canConnectTerminal(tenant, session)) {
+      sendJson(res, 403, { ok: false, error: "Limite de terminais conectados atingido. Encerre um acesso na Central para reconectar este terminal." });
       return;
     }
     session.lastSeenAt = new Date().toISOString();

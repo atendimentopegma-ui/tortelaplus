@@ -2,6 +2,16 @@ const fs = require("fs"), os = require("os"), path = require("path"), net = requ
 const assert = (ok, message) => { if (!ok) throw Error(message); };
 const root = path.resolve(__dirname, "..");
 async function main() {
+  const {countTerminals,canConnectTerminal}=require("../src/server/terminal-presence");
+  const now=Date.now(),seen=new Date(now).toISOString();
+  const duplicates={maxTerminals:1,activeSessions:[
+    {sessionId:"aba-1",terminalId:"mesmo-caixa",lastSeenAt:seen},
+    {sessionId:"aba-2",terminalId:"mesmo-caixa",lastSeenAt:seen}
+  ]};
+  assert(countTerminals(duplicates,now)===1,"Duas abas do mesmo terminal ocuparam duas vagas.");
+  assert(canConnectTerminal(duplicates,{terminalId:"mesmo-caixa"},now),"Mesmo terminal bloqueado ao reconectar.");
+  assert(!canConnectTerminal(duplicates,{terminalId:"outro-caixa"},now),"Caixas diferentes ignoraram o limite.");
+
   const port = await new Promise(resolve => { const s=net.createServer(); s.listen(0,()=>{const p=s.address().port;s.close(()=>resolve(p));}); });
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "tortela-terminal-test-"));
 require("./fixtures/seed-operational-state")(dataDir);
@@ -28,6 +38,7 @@ require("./fixtures/seed-operational-state")(dataDir);
     await start();
     await call(route,{expected:401});
     let a=await login("pdv-caixa-01"), b=await login("pdv-caixa-02");
+    await call("/api/auth/login",{method:"POST",body:{tenantCode:"cliente-exemplo",user:"Operador",password:"123456",terminalId:"pdv-caixa-extra"},expected:403});
     let rows=(await call(route,{session:a.sessionId})).terminals;
     assert(rows.length===2 && rows.every(row=>row.online),"Dois terminais com mesmo usuario/IP nao permaneceram conectados.");
     await call(route,{session:a.sessionId,method:"POST",body:{terminalId:"pdv-caixa-01",name:"Caixa recibo",emissionMode:"receipt"}});
@@ -54,10 +65,29 @@ require("./fixtures/seed-operational-state")(dataDir);
     const cashier=await call("/api/auth/login",{method:"POST",body:{tenantCode:"cliente-exemplo",user:"caixa-terminal",password:"SenhaTeste123"}});
     await call(route+"/register",{session:cashier.sessionId,method:"POST",body:{terminalId:"pdv-caixa-03",name:"Terceiro PDV"}});
     await call(route,{session:cashier.sessionId,method:"POST",body:{terminalId:"pdv-caixa-03",name:"Tentativa",emissionMode:"receipt"},expected:403});
+    // Reproduce abandoned browsers without waiting three real minutes.
+    await stop();
+    const providerFile=path.join(dataDir,"provider-state.json");
+    const provider=JSON.parse(fs.readFileSync(providerFile,"utf8"));
+    const tenant=provider.clients.find(row=>row.tenantCode==="cliente-exemplo");
+    for(const session of tenant.activeSessions)session.lastSeenAt=new Date(Date.now()-4*60000).toISOString();
+    fs.writeFileSync(providerFile,JSON.stringify(provider));
+    await start();
+    let status=await call("/api/provider",{provider:true});
+    assert(status.provider.clients.find(row=>row.tenantCode==="cliente-exemplo").activeTerminals===0,"Navegadores abandonados continuam ocupando vagas.");
+    rows=(await call(route,{provider:true})).terminals;
+    assert(rows.every(row=>!row.online),"Terminal sem contato ainda aparece conectado.");
+    const replacement=await login("pdv-caixa-04");
+    const reconnect=await call("/api/auth/ping",{method:"POST",body:{tenantCode:"cliente-exemplo",sessionId:a.sessionId}});
+    assert(reconnect.activeTerminals===2,"Sessao offline nao reconectou na vaga livre.");
+    await call("/api/auth/ping",{method:"POST",body:{tenantCode:"cliente-exemplo",sessionId:cashier.sessionId},expected:403});
+    await call("/api/tenant/cliente-exemplo/state",{session:cashier.sessionId,expected:403});
+    await call("/api/auth/logout",{method:"POST",body:{tenantCode:"cliente-exemplo",sessionId:replacement.sessionId}});
+    await call("/api/auth/ping",{method:"POST",body:{tenantCode:"cliente-exemplo",sessionId:cashier.sessionId}});
     await stop();await start();
     rows=(await call(route,{provider:true})).terminals;
-    assert(rows.length===3 && rows.find(r=>r.id==="pdv-caixa-02").emissionMode==="receipt","Configuracao nao persistiu apos reiniciar.");
-    console.log("OK - terminais PDV: duas sessoes no mesmo IP, configuracao pela loja/Central, isolamento, persistencia, permissao, protecao contra sobrescrita e bloqueio fiscal de recibos.");
+    assert(rows.length===4 && rows.find(r=>r.id==="pdv-caixa-02").emissionMode==="receipt","Configuracao nao persistiu apos reiniciar.");
+    console.log("OK - terminais PDV: vagas liberadas apos inatividade, reconexao offline, limite simultaneo e duas sessoes no mesmo IP, configuracao pela loja/Central, isolamento, persistencia, permissao, protecao contra sobrescrita e bloqueio fiscal de recibos.");
   } finally { await stop(); }
 }
 main().catch(e=>{console.error(e.message);process.exitCode=1;});
